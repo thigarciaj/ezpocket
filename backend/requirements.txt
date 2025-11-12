@@ -10,3 +10,7 @@ boto3
 awswrangler
 openai
 pandas
+langgraph
+langchain
+langchain-core
+langchain-openai

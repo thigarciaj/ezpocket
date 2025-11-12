@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, make_response
 from flask_cors import CORS
-from ezinho_assistant import EzinhoAssistant
+from ezinho_graph import get_ezinho_graph
 from database import authenticate_user, save_chat_message, get_chat_history, log_user_logout
 from projetos import ProjetosManager
 import uuid
@@ -22,8 +22,8 @@ SERVER_START_TIME = time.time()
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = str(uuid.uuid4()) + '_' + str(datetime.now().timestamp())
 
-# Inicializa o assistente Ezinho
-ezinho_assistant = EzinhoAssistant()
+# Inicializa o grafo LangGraph do Ezinho
+ezinho_graph = get_ezinho_graph()
 
 # Pega o timeout do .env (se não achar deixa 10min)
 SESSION_TIMEOUT = int(os.getenv('SESSION_TIMEOUT_SECONDS', 600))
@@ -274,7 +274,7 @@ def index():
     if request.method == 'POST':
         pergunta = request.form.get('pergunta', '')
         if pergunta:
-            resultado = ezinho_assistant.responder(pergunta)
+            resultado = ezinho_graph.invoke(pergunta)
             resposta = resultado.get('resposta')
             
             # Salva no histórico do usuário
@@ -312,7 +312,7 @@ def ask():
     if not pergunta:
         return jsonify({'resposta': 'Pergunta não pode estar vazia', 'query': None})
     
-    resultado = ezinho_assistant.responder(pergunta)
+    resultado = ezinho_graph.invoke(pergunta)
     resposta = resultado.get('resposta')
     query = resultado.get('query')
     
@@ -421,7 +421,7 @@ def ask_projeto():
     
     # Faz a pergunta com contexto
     pergunta_com_contexto = contexto_adicional + pergunta if contexto_adicional else pergunta
-    resultado = ezinho_assistant.responder(pergunta_com_contexto)
+    resultado = ezinho_graph.invoke(pergunta_com_contexto)
     resposta = resultado.get('resposta')
     query = resultado.get('query')
     
