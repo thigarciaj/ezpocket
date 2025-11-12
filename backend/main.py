@@ -274,7 +274,11 @@ def index():
     if request.method == 'POST':
         pergunta = request.form.get('pergunta', '')
         if pergunta:
-            resultado = ezinho_graph.invoke(pergunta)
+            resultado = ezinho_graph.invoke(
+                pergunta=pergunta,
+                username=session.get('username'),
+                projeto='ezpocket'
+            )
             resposta = resultado.get('resposta')
             
             # Salva no histórico do usuário
@@ -312,7 +316,11 @@ def ask():
     if not pergunta:
         return jsonify({'resposta': 'Pergunta não pode estar vazia', 'query': None})
     
-    resultado = ezinho_graph.invoke(pergunta)
+    resultado = ezinho_graph.invoke(
+        pergunta=pergunta,
+        username=session.get('username'),
+        projeto='ezpocket'
+    )
     resposta = resultado.get('resposta')
     query = resultado.get('query')
     
@@ -421,7 +429,11 @@ def ask_projeto():
     
     # Faz a pergunta com contexto
     pergunta_com_contexto = contexto_adicional + pergunta if contexto_adicional else pergunta
-    resultado = ezinho_graph.invoke(pergunta_com_contexto)
+    resultado = ezinho_graph.invoke(
+        pergunta=pergunta_com_contexto,
+        username=session.get('username'),
+        projeto=projeto.get('nome') if projeto else None
+    )
     resposta = resultado.get('resposta')
     query = resultado.get('query')
     

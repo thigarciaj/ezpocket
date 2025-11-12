@@ -6,6 +6,9 @@
 backend/
 ├── agents/                          # 🎯 Pacote de Agentes LangGraph
 │   ├── __init__.py
+│   ├── intent_validator_agent/     # NÓ 0: Intent Validator Agent
+│   │   ├── __init__.py
+│   │   └── intent_validator.py    # Valida intenção e escopo
 │   ├── router_agent/               # NÓ 1: Router Agent
 │   │   ├── __init__.py
 │   │   └── router.py              # Detecta casos especiais + FAQ matching
@@ -17,7 +20,7 @@ backend/
 │       └── responder.py           # Executa SQL + formata resposta
 │
 ├── ezinho_graph.py                 # 🔀 Orquestrador LangGraph
-├── ezinho_assistant.py             
+├── ezinho_assistant.py
 └── main.py                         # 🌐 Aplicação Flask (usa ezinho_graph)
 ```
 
@@ -28,7 +31,15 @@ backend/
 ```
 Pergunta do usuário
         ↓
-   [NÓ 1: ROUTER]
+[NÓ 0: INTENT VALIDATOR]
+        ↓
+  Valida escopo
+    ↙️     ↘️
+VÁLIDO   INVÁLIDO
+  ↓         ↓
+  │    "Fora do escopo"
+  ↓         
+[NÓ 1: ROUTER]
         ↓
    Caso especial?
    ↙️    ↓    ↘️
@@ -54,6 +65,38 @@ Reset  Ajuda  Despedida → Resposta
 ---
 
 ## 🎯 Descrição dos Nós
+
+### **NÓ 0: Intent Validator Agent** (`agents/intent_validator_agent/intent_validator.py`)
+
+**Responsabilidades:**
+- ✅ Validar se a pergunta está dentro do escopo do sistema
+- ✅ Classificar a categoria da intenção (análise_dados, despedida, ajuda, reset, faq, fora_escopo)
+- ✅ Detectar tentativas de uso fora do domínio (perguntas pessoais, tópicos gerais)
+- ✅ Gerar respostas educadas para perguntas fora do escopo
+- ✅ Usar GPT-4 para validação inteligente de intenção
+
+**Saídas:**
+- `intent_valid`: true/false (se pergunta está no escopo)
+- `intent_category`: "despedida" | "ajuda" | "reset" | "analise_dados" | "faq" | "fora_escopo"
+- `intent_reason`: Explicação da validação
+- `is_special_case`: true se for despedida/ajuda/reset detectado na validação
+
+**Escopo Válido:**
+- Análise de dados financeiros (valores, receitas, inadimplência)
+- Consultas sobre pedidos, transações, clientes
+- Relatórios operacionais e métricas
+- Análises temporais (períodos, datas, meses)
+- Informações sobre recebíveis, antecipações
+- Comandos: despedidas, help, reset
+- Perguntas sobre FAQ conhecidas
+
+**Fora do Escopo:**
+- Perguntas pessoais não relacionadas ao negócio
+- Tópicos gerais sem relação com dados
+- Conversas casuais sem objetivo analítico
+- Outros domínios (receitas, esportes, etc)
+
+---
 
 ### **NÓ 1: Router Agent** (`agents/router_agent/router.py`)
 

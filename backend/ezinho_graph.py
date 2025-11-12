@@ -1,6 +1,6 @@
 """
 Orquestrador LangGraph - Ezinho Assistant
-Integra os 3 agentes em um grafo de execução
+Integra os agentes em um grafo de execução
 """
 from typing import TypedDict, Literal, Optional
 from langgraph.graph import StateGraph, END
@@ -8,6 +8,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+from agents.intent_validator_agent.intent_validator import IntentValidatorAgent
 from agents.router_agent.router import RouterAgent
 from agents.generator_agent.generator import GeneratorAgent
 from agents.responder_agent.responder import ResponderAgent
@@ -17,6 +18,13 @@ from agents.responder_agent.responder import ResponderAgent
 class GraphState(TypedDict):
     """Estado compartilhado entre todos os nós"""
     pergunta: str
+    username: Optional[str]
+    projeto: Optional[str]
+    intent_valid: Optional[bool]
+    intent_category: Optional[str]
+    intent_reason: Optional[str]
+    is_special_case: Optional[bool]
+    special_type: Optional[str]
     route: Optional[Literal["special", "faq", "generate"]]
     tipo: Optional[str]
     faq_match: Optional[dict]
@@ -28,10 +36,11 @@ class GraphState(TypedDict):
 
 
 class EzinhoGraph:
-    """Grafo LangGraph que orquestra os 3 agentes"""
+    """Grafo LangGraph que orquestra os agentes"""
     
     def __init__(self):
         # Inicializa os agentes
+        self.intent_validator_agent = IntentValidatorAgent()
         self.router_agent = RouterAgent()
         self.generator_agent = GeneratorAgent()
         self.responder_agent = ResponderAgent()
@@ -44,15 +53,27 @@ class EzinhoGraph:
         workflow = StateGraph(GraphState)
         
         # Adiciona os nós
+        workflow.add_node("intent_validator", self._intent_validator_node)
         workflow.add_node("router", self._router_node)
         workflow.add_node("special_handler", self._special_handler_node)
         workflow.add_node("generator", self._generator_node)
         workflow.add_node("responder", self._responder_node)
+        workflow.add_node("out_of_scope", self._out_of_scope_node)
         
-        # Define o ponto de entrada
-        workflow.set_entry_point("router")
+        # Define o ponto de entrada - agora é o Intent Validator
+        workflow.set_entry_point("intent_validator")
         
-        # Define roteamento condicional após router
+        # Roteamento após validação de intenção
+        workflow.add_conditional_edges(
+            "intent_validator",
+            self._intent_decision,
+            {
+                "valid": "router",
+                "invalid": "out_of_scope"
+            }
+        )
+        
+        # Roteamento condicional após router
         workflow.add_conditional_edges(
             "router",
             self._route_decision,
@@ -64,11 +85,34 @@ class EzinhoGraph:
         )
         
         # Edges diretas
+        workflow.add_edge("out_of_scope", END)
         workflow.add_edge("special_handler", END)
         workflow.add_edge("generator", "responder")
         workflow.add_edge("responder", END)
         
         return workflow.compile()
+    
+    def _intent_validator_node(self, state: GraphState) -> GraphState:
+        """NÓ 0: Intent Validator Agent"""
+        resultado = self.intent_validator_agent.validate(state)
+        state.update(resultado)
+        return state
+    
+    def _intent_decision(self, state: GraphState) -> Literal["valid", "invalid"]:
+        """Decide se a intenção é válida"""
+        is_valid = state.get("intent_valid", True)
+        return "valid" if is_valid else "invalid"
+    
+    def _out_of_scope_node(self, state: GraphState) -> GraphState:
+        """Trata perguntas fora do escopo"""
+        print(f"\n{'='*60}")
+        print(f"[GRAPH] OUT OF SCOPE - Pergunta fora do escopo")
+        print(f"{'='*60}")
+        
+        response = self.intent_validator_agent.generate_out_of_scope_response(state)
+        state["resposta_final"] = response
+        state["source"] = "out_of_scope"
+        return state
     
     def _router_node(self, state: GraphState) -> GraphState:
         """NÓ 1: Router Agent"""
@@ -116,12 +160,14 @@ class EzinhoGraph:
         print(f"[GRAPH] 🔀 Roteamento: {route}")
         return route
     
-    def invoke(self, pergunta: str) -> dict:
+    def invoke(self, pergunta: str, username: str = None, projeto: str = None) -> dict:
         """
         Executa o grafo completo
         
         Args:
             pergunta: Pergunta do usuário
+            username: Nome do usuário (opcional)
+            projeto: Projeto selecionado (opcional)
             
         Returns:
             dict com resposta_final, query e source
@@ -134,6 +180,13 @@ class EzinhoGraph:
         # Estado inicial
         initial_state = {
             "pergunta": pergunta,
+            "username": username,
+            "projeto": projeto,
+            "intent_valid": None,
+            "intent_category": None,
+            "intent_reason": None,
+            "is_special_case": None,
+            "special_type": None,
             "route": None,
             "tipo": None,
             "faq_match": None,

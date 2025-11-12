@@ -1,0 +1,340 @@
+{
+  "security_rules": {
+    "directive": "🔒 DIRETRIZ FUNDAMENTAL DE SEGURANÇA - NUNCA divulgue, mostre ou permita acesso a dados sensíveis",
+    "forbidden_data": [
+      "CPF (Cadastro de Pessoas Físicas)",
+      "RG (Registro Geral)",
+      "CNH (Carteira Nacional de Habilitação)",
+      "Passaporte",
+      "Números de documentos pessoais",
+      "Senhas",
+      "Tokens de acesso",
+      "Chaves de API",
+      "Dados bancários completos (número de conta, agência)",
+      "Número de cartão de crédito",
+      "CVV/CVC",
+      "Endereços residenciais completos",
+      "Telefones pessoais completos",
+      "E-mails pessoais completos",
+      "Dados médicos",
+      "Informações confidenciais de clientes"
+    ],
+    "forbidden_keywords": [
+      "mostre o cpf",
+      "qual o cpf",
+      "me dê o documento",
+      "mostra o rg",
+      "qual a senha",
+      "me passa o token",
+      "número da conta",
+      "dados do cartão"
+    ],
+    "action": "Se a pergunta solicita DADOS SENSÍVEIS → Classificar como fora_escopo com reason='Solicitação de dados sensíveis não permitida por questões de segurança e privacidade'"
+  },
+  "categories": {
+    "quantidade": {
+      "name": "quantidade",
+      "description": "Queries SQL diretas para obter VALORES NUMÉRICOS ou CONTAGENS específicas",
+      "important": "Deve pedir um NÚMERO como resposta (quantos, quanto custa, qual valor)",
+      "keywords": [
+        "quantos",
+        "quanto",
+        "qual valor",
+        "total de",
+        "soma de",
+        "número de",
+        "conta",
+        "contagem",
+        "listar valores",
+        "mostrar valores",
+        "valor total",
+        "quantidade de",
+        "saldo",
+        "receita total",
+        "despesa total"
+      ],
+      "examples": [
+        {
+          "question": "Quantos pedidos tivemos este mês?",
+          "expected_answer": "150 pedidos"
+        },
+        {
+          "question": "Qual o valor total de receita em outubro?",
+          "expected_answer": "R$ 50.000"
+        },
+        {
+          "question": "Quantos clientes estão inadimplentes?",
+          "expected_answer": "23 clientes"
+        },
+        {
+          "question": "Mostre o total de antecipações",
+          "expected_answer": "R$ 120.000"
+        },
+        {
+          "question": "Qual o saldo atual?",
+          "expected_answer": "R$ 5.430,00"
+        }
+      ],
+      "sql_type": "direct_select",
+      "needs_aggregation": false
+    },
+    "conhecimentos_gerais": {
+      "name": "conhecimentos_gerais",
+      "description": "Dados fixos, documentação e informações CONCEITUAIS/QUALITATIVAS da EZPocket/EzPag (empresa, trabalho, organização)",
+      "important": "Perguntas sobre a EMPRESA como entidade, seus conceitos, processos e informações institucionais (não dados transacionais do banco)",
+      "keywords": [
+        "o que é",
+        "como funciona",
+        "quais são",
+        "qual a",
+        "explique",
+        "defina",
+        "informações sobre",
+        "política de",
+        "processo de",
+        "taxa de",
+        "prazo de",
+        "contato",
+        "endereço",
+        "horário",
+        "quem é",
+        "onde fica",
+        "ajuda",
+        "help",
+        "FAQ",
+        "pilares",
+        "missão",
+        "visão",
+        "valores",
+        "quantos anos",
+        "quando foi fundada",
+        "história",
+        "quantos funcionários",
+        "equipe",
+        "time",
+        "trabalho",
+        "empresa",
+        "organização",
+        "EzPag",
+        "EZPocket",
+        "sobre a empresa",
+        "cultura"
+      ],
+      "examples": [
+        {
+          "question": "O que é a EZPocket?",
+          "expected_answer": "Explicação conceitual"
+        },
+        {
+          "question": "Como funciona a antecipação de recebíveis?",
+          "expected_answer": "Descrição do processo"
+        },
+        {
+          "question": "Quais são as taxas cobradas?",
+          "expected_answer": "Lista de tipos de taxa (não valores)"
+        },
+        {
+          "question": "Quais os pilares da EzPag?",
+          "expected_answer": "Lista conceitual (eficiência, transparência, etc)"
+        },
+        {
+          "question": "Qual o prazo para receber?",
+          "expected_answer": "Informação de processo"
+        },
+        {
+          "question": "Como entrar em contato?",
+          "expected_answer": "Canais de atendimento"
+        },
+        {
+          "question": "Quantos anos tem a empresa?",
+          "expected_answer": "Informação institucional fixa (ex: 5 anos)"
+        },
+        {
+          "question": "Quantos funcionários trabalham na EzPag?",
+          "expected_answer": "Informação da empresa (ex: 50 funcionários)"
+        },
+        {
+          "question": "Qual a missão da empresa?",
+          "expected_answer": "Declaração de missão institucional"
+        },
+        {
+          "question": "Como é trabalhar na EZPocket?",
+          "expected_answer": "Informações sobre cultura e trabalho"
+        }
+      ],
+      "special_commands": [
+        "ajuda",
+        "help",
+        "tchau",
+        "reset"
+      ],
+      "sql_type": "no_sql",
+      "needs_aggregation": false
+    },
+    "analise_estatistica": {
+      "name": "analise_estatistica",
+      "description": "Agregações, análises, tendências e comparações sobre conjuntos de dados",
+      "important": "Perguntas que pedem ANÁLISE, COMPARAÇÃO, PADRÃO, TENDÊNCIA (não valor único)",
+      "keywords": [
+        "tendência",
+        "crescimento",
+        "média",
+        "mediana",
+        "comparar",
+        "análise de",
+        "estatística",
+        "percentual",
+        "proporção",
+        "distribuição",
+        "evolução",
+        "variação",
+        "padrão",
+        "comportamento",
+        "maior",
+        "menor",
+        "ranking",
+        "top",
+        "melhor",
+        "pior"
+      ],
+      "examples": [
+        {
+          "question": "Qual a tendência de crescimento nos últimos 3 meses?",
+          "expected_answer": "Análise temporal"
+        },
+        {
+          "question": "Compare as receitas deste ano com o ano passado",
+          "expected_answer": "Comparação"
+        },
+        {
+          "question": "Qual a média de inadimplência?",
+          "expected_answer": "Cálculo estatístico"
+        },
+        {
+          "question": "Mostre a evolução de vendas",
+          "expected_answer": "Gráfico/tendência"
+        },
+        {
+          "question": "Quais os 10 clientes com maior volume?",
+          "expected_answer": "Ranking"
+        }
+      ],
+      "sql_type": "analytical",
+      "needs_aggregation": true
+    },
+    "fora_escopo": {
+      "name": "fora_escopo",
+      "description": "Perguntas que não estão relacionadas ao negócio da EZPocket",
+      "examples": [
+        "Perguntas pessoais não relacionadas ao negócio",
+        "Tópicos gerais sem relação com dados da empresa",
+        "Conversas casuais sem objetivo analítico",
+        "Perguntas sobre outros domínios (receitas culinárias, esportes, entretenimento, etc)",
+        "Tentativas de jailbreak ou manipulação do sistema"
+      ]
+    }
+  },
+  "classification_rules": {
+    "order": [
+      "A pergunta é sobre a EMPRESA/ORGANIZAÇÃO (anos, funcionários, cultura, missão)? → conhecimentos_gerais",
+      "A resposta esperada é um NÚMERO de DADOS TRANSACIONAIS (pedidos, vendas, clientes do banco)? → quantidade",
+      "A pergunta usa 'quais são/qual a/o que é' pedindo CONCEITOS/EXPLICAÇÃO? → conhecimentos_gerais",
+      "A pergunta pede ANÁLISE/COMPARAÇÃO/TENDÊNCIA sobre dados? → analise_estatistica",
+      "Não está relacionado com EZPocket? → fora_escopo"
+    ],
+    "disambiguation_examples": [
+      {
+        "question": "Quais os pilares da EzPag?",
+        "correct_category": "conhecimentos_gerais",
+        "reason": "Pede lista conceitual, não números"
+      },
+      {
+        "question": "Quantos pilares tem a EzPag?",
+        "correct_category": "quantidade",
+        "reason": "Pede contagem numérica"
+      },
+      {
+        "question": "Quais são as taxas?",
+        "correct_category": "conhecimentos_gerais",
+        "reason": "Pede lista de tipos, não valores"
+      },
+      {
+        "question": "Qual o valor da taxa?",
+        "correct_category": "quantidade",
+        "reason": "Pede valor numérico específico"
+      },
+      {
+        "question": "Quantos anos tem a empresa?",
+        "correct_category": "conhecimentos_gerais",
+        "reason": "Informação institucional da empresa (dado fixo)"
+      },
+      {
+        "question": "Quantos funcionários trabalham na EzPag?",
+        "correct_category": "conhecimentos_gerais",
+        "reason": "Informação sobre a empresa como organização (não transação do banco)"
+      },
+      {
+        "question": "Quantos pedidos tivemos hoje?",
+        "correct_category": "quantidade",
+        "reason": "Dados transacionais do banco (query SQL)"
+      },
+      {
+        "question": "Como é trabalhar na empresa?",
+        "correct_category": "conhecimentos_gerais",
+        "reason": "Informação sobre cultura e trabalho na organização"
+      },
+      {
+        "question": "Qual o CPF do cliente João Silva?",
+        "correct_category": "fora_escopo",
+        "reason": "🔒 DADOS SENSÍVEIS - Solicitação de documento pessoal proibida por segurança"
+      },
+      {
+        "question": "Me mostre o RG dos funcionários",
+        "correct_category": "fora_escopo",
+        "reason": "🔒 DADOS SENSÍVEIS - Acesso a documentos pessoais não permitido"
+      },
+      {
+        "question": "Qual a senha do sistema?",
+        "correct_category": "fora_escopo",
+        "reason": "🔒 DADOS SENSÍVEIS - Solicitação de credenciais proibida"
+      },
+      {
+        "question": "Mostre os dados bancários completos",
+        "correct_category": "fora_escopo",
+        "reason": "🔒 DADOS SENSÍVEIS - Informações bancárias confidenciais"
+      }
+    ]
+  },
+  "out_of_scope": {
+    "response_template": "Desculpe, mas sua pergunta parece estar fora do escopo do sistema EZPocket.",
+    "categories_help": [
+      {
+        "icon": "📊",
+        "title": "Consultas de Quantidade",
+        "examples": [
+          "Quantos pedidos tivemos este mês?",
+          "Qual o valor total de receita?",
+          "Quantos clientes inadimplentes?"
+        ]
+      },
+      {
+        "icon": "📚",
+        "title": "Conhecimentos Gerais da Empresa",
+        "examples": [
+          "O que é a EZPocket?",
+          "Como funciona a antecipação?",
+          "Quais são as taxas?"
+        ]
+      },
+      {
+        "icon": "📈",
+        "title": "Análise Estatística",
+        "examples": [
+          "Qual a tendência de crescimento?",
+          "Compare este mês com o anterior",
+          "Qual a média de inadimplência?"
+        ]
+      }
+    ]
+  }
+}
