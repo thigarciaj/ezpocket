@@ -1,0 +1,12 @@
+
+flask
+flask_cors
+requests
+fastapi
+uvicorn
+pydantic
+python-dotenv
+boto3
+awswrangler
+openai
+pandas

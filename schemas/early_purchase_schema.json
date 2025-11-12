@@ -1,0 +1,30 @@
+{
+  "early_purchase": {
+    "columns": {
+      "id": {
+        "type": "bigint",
+        "description": "Identificador único do registro"
+      },
+      "order code": {
+        "type": "bigint",
+        "description": "Código do pedido relacionado"
+      },
+      "early_purchase value": {
+        "type": "double",
+        "description": "Valor da quitação antecipada"
+      },
+      "early_purchase date": {
+        "type": "string",
+        "description": "Data da quitação antecipada"
+      },
+      "early_purchase_<_13_day": {
+        "type": "int",
+        "description": "Flag: 1 se quitação foi feita em menos de 13 semanas"
+      },
+      "early_purchase_>_13_day": {
+        "type": "int",
+        "description": "Flag: 1 se quitação foi feita em mais de 13 semanas"
+      }
+    }
+  }
+}

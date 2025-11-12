@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>EZPOCKET-AI Chat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background: url('/static/images/Fundo_agora_vai.png') left top / 100vw 100vh no-repeat fixed; 
+            margin: 0; 
+            padding: 0; 
+        }
+        .chat-container {
+            max-width: 480px; margin: 0 auto; background: #fff; min-height: 100vh; display: flex; flex-direction: column; box-shadow: 0 2px 16px #0002;
+        }
+        .chat-header {
+            background: linear-gradient(90deg, #075e54 80%, #25d366 100%); color: #fff; padding: 22px 24px 16px 24px; border-radius: 0 0 18px 18px; box-shadow: 0 2px 8px #0001; display: flex; align-items: center; gap: 16px;
+        }
+        .avatar {
+            width: 48px; height: 48px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px #0002; overflow: hidden;
+        }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+        .header-info { display: flex; flex-direction: column; }
+        .header-title { font-size: 1.2em; font-weight: bold; }
+        .header-status { font-size: 0.95em; color: #e0f2f1; margin-top: 2px; }
+        .chat-messages {
+            flex: 1; overflow-y: auto; padding: 24px 12px 12px 12px; display: flex; flex-direction: column; gap: 16px;
+            background: repeating-linear-gradient(135deg, #ece5dd 0 24px, #e5ddd5 24px 48px);
+        }
+        .msg {
+            max-width: 80%; padding: 12px 18px; border-radius: 16px; font-size: 1.08em; line-height: 1.5; box-shadow: 0 1px 4px #0001; word-break: break-word; animation: fadeIn 0.4s;
+        }
+        .msg.user {
+            align-self: flex-end; background: #dcf8c6; color: #222; border-bottom-right-radius: 4px;
+        }
+        .msg.bot {
+            align-self: flex-start; background: #fff; color: #075e54; border-bottom-left-radius: 4px; border: 1.5px solid #e0e0e0; position: relative;
+        }
+        .msg.bot .avatar-mini {
+            display: none;
+        }
+        .msg .msg-meta { display: block; font-size: 0.8em; color: #888; margin-top: 4px; text-align: right; }
+        .typing {
+            align-self: flex-start; background: #fff; color: #075e54; border-bottom-left-radius: 4px; border: 1.5px solid #e0e0e0; padding: 12px 18px; border-radius: 16px; font-size: 1.08em; display: flex; align-items: center; gap: 8px; min-width: 60px; min-height: 32px; margin-bottom: 2px; }
+        .typing .avatar-mini { overflow: hidden; }
+        .typing .avatar-mini img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+        .typing-dots {
+            display: flex; align-items: center; gap: 2px;
+        }
+        .typing-dots span {
+            display: block; width: 7px; height: 7px; background: #25d366; border-radius: 50%; animation: blink 1.2s infinite both;
+        }
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink {
+            0%, 80%, 100% { opacity: 0.2; }
+            40% { opacity: 1; }
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .chat-input-area {
+            display: flex; gap: 8px; padding: 16px 12px; background: #f7f7fa; border-top: 1.5px solid #e0e0e0; position: sticky; bottom: 0; z-index: 2;
+        }
+        .chat-input-area textarea {
+            flex: 1; font-size: 1.08em; padding: 10px; border-radius: 8px; border: 1.5px solid #bbb; resize: none; min-height: 38px; max-height: 90px; transition: border 0.2s;
+        }
+        .chat-input-area textarea:focus { border: 1.5px solid #075e54; outline: none; }
+        .chat-input-area button {
+            padding: 0 22px; font-size: 1.1em; background: #25d366; color: #fff; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 1px 4px #0001; transition: background 0.2s;
+        }
+        .chat-input-area button:disabled { background: #bdbdbd; cursor: not-allowed; }
+        @media (max-width: 600px) {
+            .chat-container { max-width: 100vw; border-radius: 0; }
+            .chat-header { padding: 16px 8px 10px 8px; }
+            .chat-messages { padding: 12px 2vw 8px 2vw; }
+            .chat-input-area { padding: 10px 2vw; }
+        }
+        .show-query .msg.bot[data-query] { cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="avatar"><img src="/static/images/profile_ezbot.png" alt="EZPocket"></div>
+            <div class="header-info">
+                <span class="header-title">EZPOCKET-AI</span>
+                <span class="header-status" id="header-status">online</span>
+            </div>
+            <div class="user-menu" style="margin-left:auto;display:flex;align-items:center;gap:12px;">
+                <span style="color:#e0f2f1;font-size:0.9em;">Olá, {{ username or 'Usuário' }}</span>
+            </div>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+            <!-- Mensagens aparecem aqui -->
+        </div>
+        <form class="chat-input-area" id="form-pergunta" autocomplete="off">
+            <textarea id="pergunta" name="pergunta" rows="1" required placeholder="Digite sua mensagem..."></textarea>
+            <button type="submit" id="btnPerguntar">Enviar</button>
+        </form>
+        <div id="debug-toggle-container" style="display:flex;justify-content:center;align-items:center;gap:16px;font-size:0.98em;margin:0;position:relative;height:48px;">
+            <div style="display:flex;align-items:center;gap:6px;">
+                <input type="checkbox" id="toggle-query" style="accent-color:#25d366;">
+                <label for="toggle-query">Q-Debug</label>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+                <input type="checkbox" id="toggle-questions" style="accent-color:#25d366;">
+                <label for="toggle-questions">Perguntar o quê?</label>
+            </div>
+        </div>
+    </div>
+    <div id="query-inspector" style="display:none;position:fixed;top:0;right:0;height:100vh;width:340px;max-width:90vw;background:#fff;box-shadow:-2px 0 16px #0002;z-index:100;flex-direction:column;padding:0 0 0 0;">
+        <div style="background:#075e54;color:#fff;padding:18px 20px 14px 20px;font-size:1.15em;font-weight:bold;display:flex;align-items:center;justify-content:center;position:relative;">
+            <span style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:1.25em;">&#128269;</span>
+                <span>Lupa na Query</span>
+            </span>
+            <button id="close-query-inspector" style="position:absolute;right:18px;top:50%;transform:translateY(-50%);background:none;border:none;color:#fff;font-size:1.3em;cursor:pointer;">&times;</button>
+        </div>
+        <pre id="query-content" style="margin:0;padding:18px 20px 0 20px;font-size:0.98em;white-space:pre-wrap;word-break:break-all;color:#222;overflow:auto;max-height:calc(100vh - 60px);"></pre>
+    </div>
+    
+    <div id="questions-panel" style="display:none;position:fixed;top:0;left:0;height:100vh;width:360px;max-width:90vw;background:#fff;box-shadow:2px 0 16px #0002;z-index:9999;flex-direction:column;padding:0;">
+        <div style="background:#075e54;color:#fff;padding:18px 20px 14px 20px;font-size:1.15em;font-weight:bold;display:flex;align-items:center;justify-content:center;position:relative;">
+            <span style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:1.25em;">💬</span>
+                <span>Perguntas Sugeridas</span>
+            </span>
+            <button id="close-questions-panel" style="position:absolute;right:18px;top:50%;transform:translateY(-50%);background:none;border:none;color:#fff;font-size:1.3em;cursor:pointer;">&times;</button>
+        </div>
+        <div id="questions-content" style="margin:0;padding:20px;overflow:auto;max-height:calc(100vh - 60px);"></div>
+    </div>
+    <!-- <img src="/static/images/ezBrain_cafe.jpeg" alt="EzBrain Café" style="position:fixed;right:0;bottom:0;width:auto;height:180px;z-index:101;box-shadow:0 0 16px #0004;border-radius:32px 0 0 0;pointer-events:none;"> -->
+    <script>
+        // Aguarda o DOM estar completamente carregado
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM carregado, inicializando EZPOCKET-AI...');
+            
+            const form = document.getElementById('form-pergunta');
+            const chat = document.getElementById('chat-messages');
+            const btn = document.getElementById('btnPerguntar');
+            const textarea = document.getElementById('pergunta');
+            const headerStatus = document.getElementById('header-status');
+            
+            
+        function addMsg(text, who, query) {
+            const msg = document.createElement('div');
+            msg.className = 'msg ' + who;
+            if (who === 'bot' && query) {
+                msg.setAttribute('data-query', query);
+                msg.addEventListener('click', function(e) {
+                    if (!document.body.classList.contains('show-query')) return;
+                    e.stopPropagation();
+                    showQueryInspector(query);
+                });
+            }
+            // Enriquecimento visual: negrito, cores, símbolos
+            let html = text
+                .replace(/\*\*([^*]+)\*\*/g, '<b style="color:#075e54;">$1</b>') // **texto** em negrito e cor
+                .replace(/\$(\d[\d.,]*)/g, '<span style="color:#388e3c;font-weight:bold;">$$$1</span>') // valores em verde
+                .replace(/(\d{2}\/\d{2}\/\d{4})/g, '<span style="color:#1976d2;font-weight:bold;">DATA $1</span>') // datas
+                .replace(/- /g, '<span style="color:#25d366;font-weight:bold;">•</span> '); // marcadores
+            msg.innerHTML = html;
+            chat.appendChild(msg);
+            chat.scrollTop = chat.scrollHeight;
+        }
+        let typingDiv = null;
+        function showTyping() {
+            if (typingDiv) return;
+            typingDiv = document.createElement('div');
+            typingDiv.className = 'typing';
+            typingDiv.innerHTML = '<span class="typing-dots"><span></span><span></span><span></span></span>';
+            chat.appendChild(typingDiv);
+            chat.scrollTop = chat.scrollHeight;
+        }
+        function hideTyping() {
+            if (typingDiv) {
+                chat.removeChild(typingDiv);
+                typingDiv = null;
+            }
+        }
+        form.onsubmit = async function(e) {
+            e.preventDefault();
+            const pergunta = textarea.value.trim();
+            if (!pergunta) return;
+            addMsg(pergunta, 'user');
+            textarea.value = '';
+            textarea.focus();
+            btn.disabled = true;
+            headerStatus.textContent = 'digitando...';
+            showTyping();
+            try {
+                const resp = await fetch('/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pergunta })
+                });
+                const data = await resp.json();
+                hideTyping();
+                // Suporte para query: se vier no campo 'query', passa para addMsg
+                addMsg(data.resposta || 'Nenhuma resposta recebida.', 'bot', data.query);
+                headerStatus.textContent = 'online';
+            } catch (err) {
+                hideTyping();
+                addMsg('<b>Erro:</b> Não foi possível obter resposta.', 'bot');
+                headerStatus.textContent = 'online';
+            } finally {
+                btn.disabled = false;
+            }
+        };
+        // Query Inspector logic
+        const inspector = document.getElementById('query-inspector');
+        const queryContent = document.getElementById('query-content');
+        const closeInspector = document.getElementById('close-query-inspector');
+        function showQueryInspector(query) {
+            queryContent.textContent = query;
+            inspector.style.display = 'flex';
+        }
+        function hideQueryInspector() {
+            inspector.style.display = 'none';
+            queryContent.textContent = '';
+        }
+        closeInspector.onclick = hideQueryInspector;
+        
+        // Questions Panel logic
+        const questionsPanel = document.getElementById('questions-panel');
+        const questionsContent = document.getElementById('questions-content');
+        const closeQuestionsPanel = document.getElementById('close-questions-panel');
+        
+        // Verificação de elementos
+        console.log('Elementos do painel:', {
+            questionsPanel: questionsPanel,
+            questionsContent: questionsContent,
+            closeQuestionsPanel: closeQuestionsPanel
+        });
+        
+        const suggestedQuestions = [
+            {
+                category: "📊 Vendas e Pedidos",
+                questions: [
+                    "Quantas vendas foram feitas hoje?",
+                    "Quantas vendas ativas foram feitas hoje?",
+                    "Qual o total de pedidos desta semana?",
+                    "Quantos pedidos foram entregues este mês?",
+                    "Qual o total de vendas no ano passado?",
+                    "Quantos pedidos estão em trânsito?",
+                    "Quantas vendas ativas temos?",
+                    "Qual o total de pedidos gerados?",
+                    "Qual o total de pedidos finalizados hoje e no mes atual?"
+                    "Quantas quitações antecipadas hoje e no mes atual?",
+                ]
+            },
+            {
+                category: "💰 Valores e Financeiro",
+                questions: [
+                    "Qual o total recebido até agora?",
+                    "Quanto temos de valor a receber?",
+                    "Quanto foi o valor vendido este mês?",
+                    "Quanto deixamos de arrecadar devido às quitações antecipadas?"
+                ]
+            },
+            {
+                category: "📋 Status de Pedidos",
+                questions: [
+                    "Quantos pedidos estão aguardando assinatura?",
+                    "Quantos pedidos foram cancelados?",
+                    "Quantos pedidos estão finalizados?",
+                    "Quantos pedidos foram negados?",
+                    "Quantos pedidos estão aguardando envio?",
+                    "Quantos pedidos estão aguardando análise?",
+                    "Qual a distribuição de todos os status?"
+                ]
+            },
+            {
+                category: "⚠️ Problemas e Riscos",
+                questions: [
+                    "Quantos casos de fraude temos?",
+                    "Quantos pedidos foram fechados por fraude?",
+                    "Quantos PDDs (documentos pendentes) existem?",
+                    "Qual o valor devido a fraudes e PDDs?",
+                    "Quantos clientes ativos inadimplentes temos?",
+                    "Qual o valor total de fraudes e PDDs?",
+                    "Quantos pedidos PDD foram recuperados?"
+                ]
+            },
+            {
+                category: "👥 Clientes",
+                questions: [
+                    "Quantos clientes únicos temos?",
+                    "Quantos clientes estão regulares?",
+                    "Quantos clientes estão OK?",
+                    "Quantos clientes inadimplentes temos por categoria?",
+                    "Qual o perfil dos nossos clientes?"
+                ]
+            },
+            {
+                category: "📅 Análises Temporais",
+                questions: [
+                    "Compare as vendas desta semana com a semana passada",
+                    "Como foram as vendas do mês anterior?",
+                    "Qual a evolução de vendas por mês?",
+                    "Compare os cancelamentos deste ano com o ano passado",
+                    "Qual a tendência de quitações antecipadas?"
+                ]
+            }
+        ];
+        
+        function showQuestionsPanel() {
+            questionsContent.innerHTML = '';
+            suggestedQuestions.forEach(category => {
+                const categoryDiv = document.createElement('div');
+                categoryDiv.style.marginBottom = '20px';
+                
+                const categoryTitle = document.createElement('h3');
+                categoryTitle.textContent = category.category;
+                categoryTitle.style.cssText = 'margin:0 0 12px 0;font-size:1.1em;color:#075e54;border-bottom:2px solid #e0e0e0;padding-bottom:8px;';
+                categoryDiv.appendChild(categoryTitle);
+                
+                category.questions.forEach(question => {
+                    const questionBtn = document.createElement('button');
+                    questionBtn.textContent = question;
+                    questionBtn.style.cssText = 'display:block;width:100%;text-align:left;background:#f8f9fa;border:1px solid #e0e0e0;border-radius:8px;padding:12px;margin-bottom:8px;cursor:pointer;font-size:0.95em;line-height:1.4;transition:all 0.2s;color:#333;';
+                    
+                    questionBtn.addEventListener('mouseenter', function() {
+                        this.style.background = '#e8f5e8';
+                        this.style.borderColor = '#25d366';
+                        this.style.transform = 'translateX(4px)';
+                    });
+                    
+                    questionBtn.addEventListener('mouseleave', function() {
+                        this.style.background = '#f8f9fa';
+                        this.style.borderColor = '#e0e0e0';
+                        this.style.transform = 'translateX(0)';
+                    });
+                    
+                    questionBtn.addEventListener('click', function() {
+                        textarea.value = question;
+                        textarea.focus();
+                        hideQuestionsPanel();
+                        document.getElementById('toggle-questions').checked = false;
+                    });
+                    
+                    categoryDiv.appendChild(questionBtn);
+                });
+                
+                questionsContent.appendChild(categoryDiv);
+            });
+            
+            questionsPanel.style.display = 'flex';
+        }
+        
+        function hideQuestionsPanel() {
+            questionsPanel.style.display = 'none';
+        }
+        
+        closeQuestionsPanel.onclick = hideQuestionsPanel;
+        // Fecha ao clicar fora do painel
+        document.addEventListener('click', function(e) {
+            if (inspector.style.display === 'flex' && !inspector.contains(e.target)) {
+                hideQueryInspector();
+            }
+            if (questionsPanel.style.display === 'flex' && !questionsPanel.contains(e.target)) {
+                hideQuestionsPanel();
+            }
+        });
+        
+        // Controle dos toggles
+        document.getElementById('toggle-query').addEventListener('change', function(e) {
+            if (!e.target.checked) hideQueryInspector();
+            if (e.target.checked) {
+                document.body.classList.add('show-query');
+            } else {
+                document.body.classList.remove('show-query');
+            }
+        });
+        
+        // Teste direto do checkbox
+        const checkboxTest = document.getElementById('toggle-questions');
+        if (checkboxTest) {
+            checkboxTest.addEventListener('change', function(e) {
+                console.log('Event listener direto funcionou!', e.target.checked);
+                const panel = document.getElementById('questions-panel');
+                if (e.target.checked) {
+                    panel.style.display = 'flex';
+                    console.log('Panel mostrado');
+                } else {
+                    panel.style.display = 'none';
+                    console.log('Panel escondido');
+                }
+            });
+            console.log('Event listener registrado com sucesso');
+        } else {
+            console.error('Checkbox não encontrado!');
+        }
+        
+        document.getElementById('toggle-questions').addEventListener('change', function(e) {
+            if (e.target.checked) {
+                showQuestionsPanel();
+            } else {
+                hideQuestionsPanel();
+            }
+        });
+        
+        // Verificação adicional para debug
+        const toggleElement = document.getElementById('toggle-questions');
+        if (!toggleElement) {
+            console.error('Elemento toggle-questions não encontrado!');
+        } else {
+            console.log('Elemento toggle-questions encontrado:', toggleElement);
+        }
+        
+        // Detecta fechamento da página/aba e encerra sessão
+        window.addEventListener('beforeunload', function(e) {
+            // Usa sendBeacon para garantir que a requisição seja enviada mesmo ao fechar
+            navigator.sendBeacon('/logout', new Blob([''], { type: 'text/plain' }));
+        });
+        
+        // Detecta quando a página perde o foco (aba inativa, minimizada, etc)
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                // Encerra sessão quando a aba fica inativa
+                setTimeout(() => {
+                    if (document.hidden) {
+                        navigator.sendBeacon('/logout', new Blob([''], { type: 'text/plain' }));
+                    }
+                }, 5000); // 5 segundos de inatividade
+            }
+        });
+        
+            // Enviar com Enter, nova linha com Shift+Enter
+            textarea.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    form.dispatchEvent(new Event('submit'));
+                }
+            });
+            
+        }); // Fim do DOMContentLoaded
+    </script>
+</body>
+</html>

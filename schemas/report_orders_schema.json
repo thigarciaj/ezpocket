@@ -1,0 +1,166 @@
+{
+  "report_orders": {
+    "columns": {
+      "order code": {
+        "type": "bigint",
+        "description": "Código identificador único do pedido e também é usado para fins de cálculo de vendas"
+      },
+      "date order created": {
+        "type": "string",
+        "description": "Data de criação do pedido"
+      },
+      "status": {
+        "type": "string",
+        "description": "Status atual do pedido (ex: finalizado, em aberto), varia dinamicamente com o tempo"
+      },
+      "customer name": {
+        "type": "string",
+        "description": "Nome completo do cliente"
+      },
+      "customer email": {
+        "type": "string",
+        "description": "Endereço de e-mail do cliente"
+      },
+      "shipping address": {
+        "type": "string",
+        "description": "Endereço de entrega do pedido"
+      },
+      "zip code": {
+        "type": "string",
+        "description": "CEP do endereço de entrega"
+      },
+      "item_name": {
+        "type": "string",
+        "description": "Nome do item comprado"
+      },
+      "tac expected": {
+        "type": "double",
+        "description": "Valor total esperado do contrato (TAC)"
+      },
+      "tac paid": {
+        "type": "double",
+        "description": "Valor TAC já pago"
+      },
+      "downpayment paid": {
+        "type": "double",
+        "description": "Valor de entrada já pago"
+      },
+      "taxes percent": {
+        "type": "double",
+        "description": "Percentual de impostos aplicados"
+      },
+      "installments value": {
+        "type": "double",
+        "description": "Valor total das parcelas"
+      },
+      "taxes value installments": {
+        "type": "double",
+        "description": "Valor dos impostos embutidos nas parcelas"
+      },
+      "taxes value initial payment": {
+        "type": "double",
+        "description": "Impostos embutidos no pagamento inicial"
+      },
+      "shipment value": {
+        "type": "double",
+        "description": "Valor do frete"
+      },
+      "discount value": {
+        "type": "double",
+        "description": "Valor total dos descontos aplicados"
+      },
+      "total installments": {
+        "type": "double",
+        "description": "Número total de parcelas"
+      },
+      "dealer": {
+        "type": "string",
+        "description": "Revendedor associado ao pedido"
+      },
+      "sellers": {
+        "type": "string",
+        "description": "Nome(s) dos vendedores que realizaram a venda"
+      },
+      "coupons": {
+        "type": "string",
+        "description": "Cupons aplicados no pedido"
+      },
+      "delivery date": {
+        "type": "string",
+        "description": "Data de entrega do produto"
+      },
+      "contract start date": {
+        "type": "string",
+        "description": "Data de início do contrato, usamos também para contabilizar vendas etc"
+      },
+      "status default": {
+        "type": "string",
+        "description": "Status de inadimplência do cliente"
+      },
+      "customer phone number": {
+        "type": "string",
+        "description": "Telefone de contato do cliente"
+      },
+      "serial number": {
+        "type": "string",
+        "description": "Número de série do produto vendido"
+      },
+      "imei 1": {
+        "type": "string",
+        "description": "IMEI primário do dispositivo (caso seja um celular)"
+      },
+      "imei 2": {
+        "type": "string",
+        "description": "IMEI secundário do dispositivo (caso dual-chip)"
+      },
+      "contract total value expected": {
+        "type": "double",
+        "description": "Valor total esperado do contrato"
+      },
+      "installments paid value": {
+        "type": "double",
+        "description": "Valor total já pago em parcelas"
+      },
+      "order total paid": {
+        "type": "double",
+        "description": "Valor total já pago do pedido"
+      },
+      "remaining total": {
+        "type": "double",
+        "description": "Saldo restante a pagar"
+      },
+      "total delay": {
+        "type": "double",
+        "description": "Quantidade total de dias de atraso no pagamento"
+      },
+      "total extra payment value paid": {
+        "type": "double",
+        "description": "Valor extra pago além do esperado"
+      },
+      "total value refunded": {
+        "type": "double",
+        "description": "Valor total reembolsado ao cliente"
+      },
+      "early purchase value": {
+        "type": "double",
+        "description": "Valor pago por antecipação do contrato (quitação antecipada)"
+      },
+      "early purchase date": {
+        "type": "string",
+        "description": "Data em que o cliente realizou a antecipação antecipada do contrato"
+      },
+      "customer_income": {
+        "type": "double",
+        "description": "Renda mensal estimada do cliente"
+      },
+      "cancelled at": {
+        "type": "string",
+        "description": "Data de cancelamento do pedido/venda"
+      },
+      "finished at": {
+        "type": "string",
+        "description": "Data de finalização do pedido/venda"
+      }
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "table": "funcoes_proibidas",
+  "athena_funcoes_proibidas": [
+    {
+      "funcao": "LAST_DAY",
+      "variantes": [
+        "last_day",
+        "LAST_DAY(",
+        "last_day(",
+        "DAY(LAST_DAY",
+        "day(last_day"
+      ],
+      "motivo": "Função não existe no AWS Athena",
+      "alternativa": "date_trunc('month', CAST(current_date AS timestamp) AT TIME ZONE 'America/New_York') + interval '1' month - interval '1' day"
+    }
+  ]
+}

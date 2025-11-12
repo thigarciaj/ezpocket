@@ -1,0 +1,117 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+ezinho_assistente/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment variables
+.env
+config/.env
+*.env.local
+*.env.*.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+backend/database/*.db
+backend/database/projetos/*.db
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# AWS / Athena
+.aws/
+*.csv
+*.parquet
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Distribution / packaging
+*.whl
+
+# Flask
+instance/
+.webassets-cache
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+.cache/
+
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Node (frontend)
+frontend/node_modules/
+frontend/build/
+frontend/dist/
+frontend/.next/
+frontend/out/
+frontend/.nuxt/
+frontend/.cache/
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/package-lock.json
+frontend/yarn.lock
+
+# Static assets (se gerados)
+backend/static/uploads/
+backend/static/temp/
+
+# Secrets
+*.pem
+*.key
+*.crt
+secrets/
+credentials/

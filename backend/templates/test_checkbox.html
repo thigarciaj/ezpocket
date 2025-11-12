@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Teste Checkbox</title>
+</head>
+<body>
+    <h1>Teste do Checkbox</h1>
+    
+    <div>
+        <input type="checkbox" id="toggle-questions">
+        <label for="toggle-questions">Perguntar o quê?</label>
+    </div>
+    
+    <div id="questions-panel" style="display:none; background:red; width:200px; height:200px; position:fixed; top:50px; left:50px; z-index:9999;">
+        <h3>Painel de Perguntas</h3>
+        <div id="questions-content">Conteúdo aqui</div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM carregado');
+            
+            const checkbox = document.getElementById('toggle-questions');
+            const panel = document.getElementById('questions-panel');
+            
+            console.log('Checkbox:', checkbox);
+            console.log('Panel:', panel);
+            
+            checkbox.addEventListener('change', function(e) {
+                console.log('Checkbox mudou:', e.target.checked);
+                if (e.target.checked) {
+                    panel.style.display = 'block';
+                    console.log('Mostrando painel');
+                } else {
+                    panel.style.display = 'none';
+                    console.log('Escondendo painel');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

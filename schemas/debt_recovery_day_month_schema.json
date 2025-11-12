@@ -1,0 +1,40 @@
+{
+  "columns": {
+    "installments_rejected_day": {
+      "type": "double",
+      "description": "Valor de parcelas rejeitadas no dia"
+    },
+    "installments_rejected_day_count": {
+      "type": "int",
+      "description": "Quantidade de parcelas rejeitadas no dia"
+    },
+    "installments_rejected_month": {
+      "type": "double",
+      "description": "Valor de parcelas rejeitadas no mês"
+    },
+    "installments_rejected_month_count": {
+      "type": "int",
+      "description": "Quantidade de parcelas rejeitadas no mês"
+    },
+    "installments_recovered_day": {
+      "type": "double",
+      "description": "Valor de parcelas recuperadas no dia"
+    },
+    "installments_recovered_day_count": {
+      "type": "int",
+      "description": "Quantidade de parcelas recuperadas no dia"
+    },
+    "installments_recovered_month": {
+      "type": "double",
+      "description": "Valor de parcelas recuperadas no mês"
+    },
+    "installments_recovered_month_count": {
+      "type": "int",
+      "description": "Quantidade de parcelas recuperadas no mês"
+    },
+    "source": {
+      "type": "string",
+      "description": "Fonte dos dados (nome da tabela)"
+    }
+  }
+}

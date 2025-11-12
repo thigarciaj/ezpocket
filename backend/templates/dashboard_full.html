@@ -1,0 +1,3042 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EZPocket Dashboard</title>
+    <script src="https://sql.js.org/dist/sql-wasm.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: url('../static/images/fundo_cel_ezpocket.png') no-repeat center center fixed;
+            background-size: cover;
+            color: #ffffff;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* Bloqueia zoom e scroll APENAS em dispositivos móveis */
+        @media (max-width: 768px) {
+            html, body {
+                touch-action: none;
+                overscroll-behavior: none;
+                -webkit-text-size-adjust: none;
+                -webkit-user-select: none;
+                -moz-user-select: none;
+                user-select: none;
+                -webkit-touch-callout: none;
+                -webkit-tap-highlight-color: transparent;
+            }
+            
+            * {
+                touch-action: manipulation;
+                -webkit-user-select: none;
+                -moz-user-select: none;
+                user-select: none;
+            }
+            
+            /* Permite seleção apenas em inputs */
+            input, textarea {
+                -webkit-user-select: text;
+                -moz-user-select: text;
+                user-select: text;
+            }
+        }
+
+        .dashboard-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Menu Hamburguer Lateral Esquerdo */
+        .left-menu {
+            width: 280px;
+            background: transparent;
+            border-right: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+        }
+
+        .left-menu.hidden {
+            width: 0;
+            opacity: 0;
+            overflow: hidden;
+        }
+
+        .menu-header {
+            padding: 20px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            height: 80px;
+            box-sizing: border-box;
+        }
+
+        .logo-container {
+            width: 40px;
+            height: 40px;
+            background: url('../static/images/logo_ezpocket.png') no-repeat center;
+            background-size: contain;
+            filter: drop-shadow(0 0 10px #00ff88);
+        }
+
+        .brand-text {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .brand-text .ez {
+            color: #ffffff;
+        }
+
+        .brand-text .pocket {
+            color: #00ff88;
+        }
+
+        .menu-items {
+            flex: 1;
+            padding: 20px 0;
+        }
+
+        .menu-footer {
+            border-top: 1px solid #333;
+            padding: 10px 0;
+        }
+
+        .logout-item {
+            color: #ff4444 !important;
+        }
+
+        .logout-item:hover {
+            background: rgba(255, 68, 68, 0.1) !important;
+            border-left-color: #ff4444 !important;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .menu-item:hover {
+            background: transparent;
+            border-left-color: #00ff88;
+        }
+
+        .menu-item.active {
+            background: transparent;
+            border-left-color: #00ff88;
+        }
+
+        .menu-item.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .menu-item.disabled:hover {
+            background: rgba(255, 0, 0, 0.1) !important;
+            border-left-color: #ff4444 !important;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .typing-dots {
+            display: inline-flex;
+            gap: 2px;
+            margin-left: 5px;
+        }
+
+        .typing-dots span {
+            width: 10px;
+            height: 10px;
+            background-color: #25d366;
+            border-radius: 50%;
+            display: inline-block;
+            animation: typing-bounce 1.4s infinite;
+        }
+
+        .typing-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing-bounce {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.4;
+            }
+            30% {
+                transform: translateY(-10px);
+                opacity: 1;
+            }
+        }
+
+        .menu-icon {
+            width: 20px;
+            height: 20px;
+            font-size: 16px;
+        }
+
+        .logout-item .menu-icon {
+            color: #25d366 !important;
+            transition: all 0.3s ease;
+        }
+
+        .logout-item .menu-icon svg {
+            color: #25d366;
+            transition: all 0.3s ease;
+        }
+
+        .logout-item:hover .menu-icon {
+            color: #00ff88 !important;
+        }
+
+        .logout-item:hover .menu-icon svg {
+            color: #00ff88;
+        }
+
+        /* Área Central do Chat */
+        .chat-area {
+            flex: 1;
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-area.hidden {
+            display: none;
+        }
+
+        .chat-header-invisible {
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 80px;
+            box-sizing: border-box;
+            background: transparent;
+            border: none;
+        }
+
+        .chat-title {
+            font-size: 18px;
+            background: transparent;
+        }
+
+        .chat-status {
+            color: #25d366;
+            font-size: 14px;
+        }
+
+        .chat-content {
+            flex: 1;
+            padding: 20px;
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        .welcome-message {
+            text-align: center;
+            color: #FFF;
+            margin-bottom: 30px;
+        }
+
+        .chat-input-container {
+            padding: 20px;
+            width: 100%;
+            background: transparent;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+            box-sizing: border-box;
+            height: auto;
+            max-height: 100%;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .chat-input-wrapper {
+            width: 90%;
+            max-width: 600px;
+            display: flex;
+            gap: 10px;
+            padding: 15px;
+            background: transparent;
+            border-radius: 25px;
+            border: 1px solid #555;
+            align-items: center;
+            box-sizing: border-box;
+            height: fit-content;
+            overflow: hidden;
+            position: relative;
+            contain: layout;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-size: 16px;
+            outline: none;
+            padding: 10px 15px;
+            height: auto;
+            min-height: 20px;
+            max-height: 40px;
+            box-sizing: border-box;
+        }
+
+        .chat-input::placeholder {
+            color: #888;
+        }
+
+        .send-button {
+            background: #25d366;
+            border: none;
+            color: #000;
+            flex-shrink: 0;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .send-button:hover {
+            background: #00ff88;
+            transform: scale(1.05);
+        }
+
+        /* Painel Direito - Informações Rápidas */
+        .right-panel {
+            width: 320px;
+            background: transparent;
+            border-left: 1px solid #333;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .right-panel.hidden {
+            width: 0;
+            padding: 0;
+            opacity: 0;
+            overflow: hidden;
+        }
+
+        .right-panel.disabled {
+            opacity: 0.5;
+        }
+
+        .right-panel.disabled .action-button:hover {
+            background: rgba(255, 0, 0, 0.1) !important;
+            color: #ff4444 !important;
+        }
+
+        .panel-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: center;
+            border-bottom: 1px solid #333;
+            padding: 20px 0;
+            height: 80px;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .info-card {
+            background: transparent
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid #444;
+        }
+
+        .info-card.disabled {
+            opacity: 0.3;
+        }
+
+        .card-title {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 8px;
+        }
+
+        .card-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #25d366;
+        }
+
+        .card-subtitle {
+            font-size: 12px;
+            color: #fff;
+            margin-top: 5px;
+        }
+
+        .action-button {
+            width: 100%;
+            padding: 12px;
+            background: #25d366;
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .action-button:hover {
+            background: #00ff88;
+        }
+
+        .action-button.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* Menu toggle buttons */
+        .menu-toggle {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 999;
+            background: transparent;
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: none;
+            transition: all 0.3s ease;
+        }
+
+        .menu-toggle:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+        }
+
+        .menu-toggle.menu-open {
+            left: 300px;
+        }
+
+        .menu-toggle-right {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 999;
+            background: transparent;
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: none;
+            transition: all 0.3s ease;
+        }
+
+        .menu-toggle-right:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+        }
+
+        .menu-toggle-right.menu-open {
+            right: 340px;
+        }
+
+        .chat-title.hidden-mobile {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        /* Modal Personalizado */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        /* Modal de mensagens deve aparecer acima de outros modais */
+        #customModal {
+            z-index: 15000;
+        }
+
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #2a2a2a 0%, #1e1e1e 100%);
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            border: 1px solid #333;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            transform: scale(0.8);
+            transition: transform 0.3s ease;
+        }
+
+        .modal-overlay.show .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 20px auto;
+            display: block;
+            background: url('../static/images/profile_ezbot.png') no-repeat center;
+            background-size: contain;
+            border-radius: 50%;
+            filter: drop-shadow(0 0 10px #00ff88);
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 15px;
+        }
+
+        .modal-message {
+            font-size: 16px;
+            color: #ccc;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .modal-btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 100px;
+        }
+
+        .modal-btn.confirm {
+            background: #25d366;
+            color: #000;
+        }
+
+        .modal-btn.confirm:hover {
+            background: #00ff88;
+            transform: translateY(-2px);
+        }
+
+        .modal-btn.cancel {
+            background: #ff4444;
+            color: #fff;
+        }
+
+        .modal-btn.cancel:hover {
+            background: #ff6666;
+            transform: translateY(-2px);
+        }
+
+        /* Estilos para Modal de Consultas Rápidas */
+        .consulta-btn {
+            width: 100%;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #2a2a2a 0%, #1e1e1e 100%);
+            border: 1px solid #444;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .consulta-btn:hover {
+            background: linear-gradient(135deg, #00ff88 0%, #25d366 100%);
+            color: #000;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 255, 136, 0.3);
+        }
+
+        .consulta-section {
+            margin-bottom: 15px;
+        }
+
+        .consultas-sections::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .consultas-sections::-webkit-scrollbar-track {
+            background: #2a2a2a;
+            border-radius: 3px;
+        }
+
+        .consultas-sections::-webkit-scrollbar-thumb {
+            background: #00ff88;
+            border-radius: 3px;
+        }
+
+        .consultas-sections::-webkit-scrollbar-thumb:hover {
+            background: #25d366;
+        }
+
+        /* Modal de Consultas específico - transparente com blur */
+        #consultasModal .modal-content {
+            background: transparent;
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .projetos-section {
+            margin-bottom: 20px;
+            background: rgba(42, 42, 42, 0.3);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(68, 68, 68, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .projetos-list {
+            max-height: 350px;
+            overflow-y: auto;
+        }
+
+        .projeto-item {
+            background: rgba(42, 42, 42, 0.4) !important;
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(68, 68, 68, 0.4);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            color: #fff !important;
+        }
+
+        .projeto-item:hover {
+            background: rgba(0, 255, 136, 0.4) !important;
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            color: #000;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 255, 136, 0.3);
+        }
+
+        .projeto-item.ativo {
+            background: rgba(0, 255, 136, 0.4) !important;
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            color: #000 !important;
+        }
+
+        .projeto-nome {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .projeto-descricao {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .projeto-delete {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #ff4444;
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            display: none;
+        }
+
+        .projeto-item:hover .projeto-delete {
+            display: block;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            background: #333;
+            border: 1px solid #444;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .modal-input:focus {
+            outline: none;
+            border-color: #00ff88;
+            box-shadow: 0 0 5px rgba(0, 255, 136, 0.3);
+        }
+
+        .modal-textarea {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            background: #333;
+            border: 1px solid #444;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .modal-textarea:focus {
+            outline: none;
+            border-color: #00ff88;
+            box-shadow: 0 0 5px rgba(0, 255, 136, 0.3);
+        }
+
+        /* Responsive */
+        @media (max-width: 1250px) {
+            .menu-toggle, .menu-toggle-right {
+                display: block;
+            }
+
+            .left-menu {
+                position: fixed;
+                z-index: 1000;
+                height: 100vh;
+                left: 0;
+                top: 0;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                background: transparent;
+            }
+            .left-menu.show {
+                transform: translateX(0);
+                backdrop-filter: blur(15px);
+                -webkit-backdrop-filter: blur(15px);
+                border-right: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            .right-panel {
+                position: fixed;
+                z-index: 1000;
+                height: 100vh;
+                right: 0;
+                top: 0;
+                transform: translateX(100%);
+                transition: transform 0.3s ease;
+                background: transparent;
+                border-left: 1px solid #333;
+            }
+
+            .right-panel.show {
+                transform: translateX(0);
+                backdrop-filter: blur(15px);
+                -webkit-backdrop-filter: blur(15px);
+                border-left: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            .chat-area {
+                margin-left: 0;
+                width: 100%;
+                max-height: 85vh;
+            }
+
+            .chat-input-container {
+                min-height: 100px;
+            }
+
+            .chat-header-invisible {
+                padding: 10px 70px 10px 70px;
+                font-size: 14px;
+                margin-left: 0;
+            }
+
+            .chat-title {
+                font-size: 16px;
+            }
+
+            .chat-status {
+                font-size: 12px;
+            }
+
+            .chat-input-container {
+                width: 100%;
+            }
+        }
+
+        /* Mobile - mesmo comportamento da media query acima */
+        @media (max-width: 768px) {
+            .dashboard-container {
+                flex-direction: column;
+            }
+            
+            .chat-area {
+                margin-left: 0;
+                width: 100%;
+                max-height: 85vh;
+                overflow: hidden;
+            }
+            
+            .chat-input-container {
+                min-height: 15vh;
+                max-height: 15vh;
+            }
+                        
+            .menu-toggle, .menu-toggle-right {
+                position: absolute;
+                top: 20px;
+                z-index: 1000;
+                width: 40px;
+                height: 40px;
+                background: transparent;
+                border: none;
+                border-radius: 8px;
+                color: #fff;
+                font-size: 18px;
+            }
+            
+            .menu-toggle {
+                left: 15px;
+            }
+            
+            .menu-toggle-right {
+                right: 15px;
+            }
+            
+            /* Welcome message para mobile */
+            .welcome-message {
+                padding: 20px 10px;
+            }
+            
+            .welcome-message h3 {
+                font-size: 16px;
+                line-height: 1.3;
+                margin-bottom: 0;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            
+            .welcome-message p {
+                display: none; /* Esconde o parágrafo em mobile */
+            }
+        }
+
+        /* Correção específica para telas muito pequenas (< 433px) */
+        @media (max-width: 433px) {
+            .chat-header-invisible {
+                height: 60px;
+                padding: 10px 60px;
+            }
+            
+            .chat-content {
+                padding: 15px 10px;
+            }
+            
+            .chat-input-container {
+                padding: 10px;
+            }
+            
+            .chat-input-wrapper {
+                padding: 10px;
+                gap: 8px;
+            }
+            
+            .chat-input {
+                font-size: 14px;
+                padding: 8px 12px;
+            }
+            
+            .send-button {
+                padding: 8px 16px;
+                font-size: 14px;
+                white-space: nowrap;
+                flex-shrink: 0;
+                min-width: 60px;
+            }
+            
+            .menu-toggle, .menu-toggle-right {
+                width: 35px;
+                height: 35px;
+                font-size: 16px;
+                top: 12px;
+            }
+            
+            .menu-toggle {
+                left: 10px;
+            }
+            
+            .menu-toggle-right {
+                right: 10px;
+            }
+            
+            .welcome-message {
+                padding: 15px 5px;
+            }
+            
+            .welcome-message h3 {
+                font-size: 14px;
+                margin-bottom: 0;
+                line-height: 1.2;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            
+            .welcome-message p {
+                display: none; /* Mantém escondido em telas pequenas */
+            }
+        }
+
+        /* Bloqueio de rotação APENAS para celulares (não tablets ou PC) */
+        @media (max-width: 768px) and (orientation: landscape) {
+            body::before {
+                content: "Por favor, gire seu dispositivo para a posição vertical para usar o dashboard";
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                color: #fff;
+                font-size: 18px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+                z-index: 99999;
+                padding: 20px;
+                box-sizing: border-box;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            }
+            
+            .dashboard-container {
+                display: none !important;
+            }
+            
+            .menu-toggle, .menu-toggle-right {
+                display: none !important;
+            }
+        }
+
+        /* Largura mínima fixa - congela layout abaixo de 350px */
+        @media (max-width: 351px) {
+            body {
+                min-width: 350px;
+                overflow-x: auto;
+            }
+            
+            .dashboard-container {
+                min-width: 350px;
+            }
+            
+            .chat-area {
+                min-width: 350px;
+            }
+            
+            .chat-input-container {
+                min-width: 350px;
+                padding: 8px;
+            }
+            
+            .chat-input-wrapper {
+                min-width: 330px;
+                padding: 6px;
+            }
+            
+            .welcome-message {
+                min-width: 350px;
+                padding: 10px 5px;
+            }
+        }
+
+        /* Modal Criar Projeto - Responsivo */
+        @media (max-width: 768px) {
+            #criarProjetoModal .modal-content {
+                max-width: 90vw !important;
+                max-height: 85vh !important;
+                margin: 10px auto !important;
+                padding: 20px !important;
+                overflow: visible !important;
+            }
+            
+            #criarProjetoModal .modal-input,
+            #criarProjetoModal .modal-textarea {
+                font-size: 16px !important;
+                padding: 12px !important;
+                margin-bottom: 12px !important;
+            }
+            
+            #criarProjetoModal .modal-textarea {
+                min-height: 60px !important;
+                max-height: 80px !important;
+                resize: none !important;
+            }
+            
+            #criarProjetoModal .modal-buttons {
+                display: flex !important;
+                gap: 10px !important;
+                margin-top: 15px !important;
+            }
+            
+            #criarProjetoModal .modal-btn {
+                flex: 1 !important;
+                padding: 14px !important;
+                font-size: 16px !important;
+                min-height: 50px !important;
+            }
+            
+            #criarProjetoModal form {
+                margin-bottom: 15px !important;
+            }
+        }
+
+        /* Ajustes para telas muito pequenas */
+        @media (max-width: 480px) {
+            #criarProjetoModal .modal-content {
+                max-width: 95vw !important;
+                padding: 15px !important;
+            }
+            
+            #criarProjetoModal .modal-input,
+            #criarProjetoModal .modal-textarea {
+                padding: 10px !important;
+            }
+            
+            #criarProjetoModal .modal-btn {
+                font-size: 15px !important;
+                padding: 12px !important;
+            }
+        }
+
+        /* Modal Consultas Rápidas - Responsivo */
+        @media (max-width: 768px) {
+            #consultasModal .modal-content {
+                max-width: 90vw !important;
+                max-height: 85vh !important;
+                margin: 10px auto !important;
+                padding: 20px !important;
+                overflow: hidden !important;
+            }
+            
+            .consultas-sections {
+                max-height: 60vh !important;
+                overflow-y: auto !important;
+                padding-right: 5px !important;
+                margin-bottom: 15px !important;
+            }
+            
+            .consulta-btn {
+                padding: 12px 14px !important;
+                font-size: 15px !important;
+                min-height: 48px !important;
+                margin-bottom: 8px !important;
+                word-wrap: break-word !important;
+            }
+            
+            .consulta-section h4 {
+                font-size: 15px !important;
+                padding: 8px !important;
+                margin-bottom: 8px !important;
+            }
+            
+            #consultasModal .modal-buttons {
+                margin-top: 10px !important;
+                padding: 0 !important;
+            }
+            
+            #consultasModal .modal-btn {
+                width: 100% !important;
+                padding: 14px !important;
+                font-size: 16px !important;
+                min-height: 50px !important;
+            }
+        }
+
+        /* Consultas Rápidas - Telas muito pequenas */
+        @media (max-width: 480px) {
+            #consultasModal .modal-content {
+                max-width: 95vw !important;
+                padding: 15px !important;
+            }
+            
+            .consultas-sections {
+                max-height: 55vh !important;
+            }
+            
+            .consulta-btn {
+                padding: 10px 12px !important;
+                font-size: 14px !important;
+                min-height: 44px !important;
+            }
+            
+            .consulta-section h4 {
+                font-size: 14px !important;
+                padding: 6px !important;
+            }
+            
+            #consultasModal .modal-btn {
+                font-size: 15px !important;
+                padding: 12px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="menu-toggle" onclick="toggleMenu()" data-permission="menu_hamburguer_button">☰</button>
+    <button class="menu-toggle-right right-menu-toggle" onclick="toggleRightPanel()" data-permission="info_button">📊</button>
+
+    <div class="dashboard-container">
+        <!-- Menu Lateral Esquerdo -->
+        <div class="left-menu" id="leftMenu" data-permission="menu_hamburguer">
+            <div class="menu-header">
+                <div class="logo-container"></div>
+                <div class="brand-text">
+                    <span class="ez">EZPocket</span> <span class="pocket">Assistente</span>
+                </div>
+            </div>
+            
+            <div class="menu-items" id="menuItems">
+                <!-- Items serão carregados via JavaScript -->
+            </div>
+            
+            <div class="menu-footer">
+                <div class="menu-item logout-item logout-btn" onclick="logout()" data-permission="menu_logout_button">
+                    <span class="menu-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path fill="currentColor" d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2 2h8v-2H4V5z"/>
+                        </svg>
+                    </span>
+                    <span>Sair</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Área Central do Chat -->
+        <div class="chat-area" id="chatArea" data-permission="chat_view">
+            <div class="chat-header-invisible chat-header" data-permission="chat_header">
+                <div class="chat-title" data-permission="chat_title">EZPocket Assistente</div>
+                <div class="chat-status" data-permission="chat_status">(online)</div>
+            </div>
+            
+            <div class="chat-content">
+                <div class="welcome-message" data-permission="chat_welcome_message">
+                    <h3>Olá! Sou EZPocket. Como posso te ajudar?</h3>
+                    <p>Faça perguntas sobre seu portfólio, desempenho ou análises...</p>
+                </div>
+            </div>
+
+            <div class="chat-input-container input-wrapper" data-permission="chat_input_wrapper">
+                <div class="chat-input-wrapper">
+                    <input type="text" class="chat-input" placeholder="Digite a sua pergunta..." id="chatInput" data-permission="chat_input">
+                    <button class="send-button" onclick="sendMessage()" id="send-button" data-permission="chat_send_button">Enviar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Painel Direito - Informações Rápidas -->
+        <div class="right-panel" id="rightPanel" data-permission="info_rapidas">
+            <div class="panel-title" data-permission="info_title" style="display: none;">Ferramentas do chat</div>
+            
+            <!-- Seção de Projetos (só aparece no chat) -->
+            <div id="projetosSection" data-permission="projetos_section" style="display: none;">
+                <h4 style="margin: 20px 0 10px 0; color: #888;">Meus Projetos</h4>
+                <div class="projetos-section">
+                    <div id="projetosList" class="projetos-list">
+                        <div class="projeto-placeholder" style="color: #666; font-style: italic; padding: 10px; text-align: center;">
+                            Nenhum projeto criado ainda
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="atalhosRapidos" class="quick-actions" data-permission="atalhos_rapidos" style="display: none;">
+                <h4 style="margin: 40px 0 10px 0; color: #888;">Atalhos Rápidos</h4>
+                <button class="action-button action-btn" data-permission="atalhos_dashboard_btn" onclick="showConsultasModal()">Consultas Rápidas</button>
+                <button class="action-button action-btn" data-permission="atalhos_limpar_chat_btn" onclick="showLimparChatModal()" style="margin-top: 8px;">Limpar Chat</button>
+                <button class="action-button action-btn" data-permission="atalhos_criar_projeto_btn" onclick="showCriarProjetoModal()" style="margin-top: 8px;">Criar Projeto</button>
+            </div>
+
+            <div id="atalhosLogicos" class="logic-section" data-permission="atalhos_logicos">
+                <h4 style="margin: 20px 0 10px 0; color: #888;">Atalhos Lógicos</h4>
+                <div class="logic-content" data-permission="atalhos_logicos_content">
+                    <div class="card-subtitle" style="margin-bottom: 5px;">📊 Próxima Tarefa: Revisar Fundo Y em</div>
+                    <div class="card-subtitle">Fundo Y em 2 dias</div>
+                </div>
+            </div>
+
+            <div id="notificacoesRecentes" class="notifications" data-permission="notificacoes">
+                <h4 style="margin: 20px 0 10px 0; color: #888;">Notificações Recentes</h4>
+                <div class="notification-item" data-permission="notificacoes_content">
+                    <div class="card-subtitle">• Carteira a ser preparada de alta expectativa</div>
+                    <div class="card-subtitle">• Fintolk bablle</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Personalizado -->
+    <div class="modal-overlay" id="customModal" data-permission="modal_logout">
+        <div class="modal-content">
+            <div class="modal-icon" id="modalIcon" data-permission="modal_icon"></div>
+            <div class="modal-title" id="modalTitle" data-permission="modal_title">Confirmar Saída</div>
+            <div class="modal-message" id="modalMessage" data-permission="modal_message">Tem certeza que deseja sair do sistema?</div>
+            <div class="modal-buttons">
+                <button class="modal-btn cancel" onclick="hideModal()" data-permission="modal_cancel_button">Cancelar</button>
+                <button class="modal-btn confirm" onclick="confirmLogout()" data-permission="modal_confirm_button">Sim, Sair</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Consultas Rápidas -->
+    <div class="modal-overlay" id="consultasModal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-icon" style="background: url('../static/images/profile_ezbot.png') no-repeat center; background-size: contain;"></div>
+            <div class="modal-title">Consultas Rápidas</div>
+            
+            <div class="consultas-sections" style="max-height: 400px; overflow-y: auto; margin-bottom: 20px;">
+                <!-- Vendas & Pedidos -->
+                <div class="consulta-section">
+                    <h4 style="color: #ccc; margin-bottom: 10px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 5px; text-align: center;">💼 Vendas & Pedidos</h4>
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 15px;">
+                        <button class="consulta-btn" onclick="selecionarConsulta('Quantas vendas hoje?')">Quantas vendas hoje?</button>
+                        <button class="consulta-btn" onclick="selecionarConsulta('Quantas vendas neste mês?')">Quantas vendas neste mês?</button>
+                        <button class="consulta-btn" onclick="selecionarConsulta('Quantas vendas ativas hoje?')">Quantas vendas ativas hoje?</button>
+                        <button class="consulta-btn" onclick="selecionarConsulta('Quantidade de pedidos aguardando assinatura?')">Pedidos aguardando assinatura</button>
+                        <button class="consulta-btn" onclick="selecionarConsulta('Quantidade de vendas PDDs?')">Quantidade de vendas PDDs</button>
+                    </div>
+                </div>
+
+                <!-- Valores & Receita -->
+                <div class="consulta-section">
+                    <h4 style="color: #ccc; margin-bottom: 10px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 5px; text-align: center;">💰 Valores & Receita</h4>
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 15px;">
+                        <button class="consulta-btn" onclick="selecionarConsulta('Valor a receber?')">Valor a receber</button>
+                        <button class="consulta-btn" onclick="selecionarConsulta('Valor recebido?')">Valor recebido</button>
+                        <button class="consulta-btn" onclick="selecionarConsulta('Valor deixado de receber devido a quitações antecipadas?')">Valor perdido por quitação antecipada</button>
+                    </div>
+                </div>
+
+                <!-- Quitações Antecipadas -->
+                <div class="consulta-section">
+                    <h4 style="color: #ccc; margin-bottom: 10px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 5px; text-align: center;">⚡ Quitações Antecipadas</h4>
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 15px;">
+                        <button class="consulta-btn" onclick="selecionarConsulta('Quitações Antecipadas hoje?')">Quitações hoje</button>
+                        <button class="consulta-btn" onclick="selecionarConsulta('Quitações Antecipadas este mês?')">Quitações este mês</button>
+                    </div>
+                </div>
+
+                <!-- Análises & Comparações -->
+                <div class="consulta-section">
+                    <h4 style="color: #ccc; margin-bottom: 10px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 5px; text-align: center;">📊 Análises & Comparações</h4>
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 8px;">
+                        <button class="consulta-btn" onclick="selecionarConsulta('Comparar vendas deste mês com o mês passado')">Comparar vendas: mês atual vs anterior</button>
+                        <button class="consulta-btn" onclick="selecionarConsulta('traga-me a quantidade de vendas nos últimos 3 meses (total e também o total de vendas em cada mês)')">Vendas dos últimos 3 meses</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-buttons">
+                <button class="modal-btn cancel" onclick="hideConsultasModal()">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Criar Projeto -->
+    <div class="modal-overlay" id="criarProjetoModal" data-permission="modal_criar_projeto">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-icon" style="background: url('../static/images/profile_ezbot.png') no-repeat center; background-size: contain;"></div>
+            <div class="modal-title">Criar Novo Projeto</div>
+            
+            <form id="criarProjetoForm" style="text-align: left; margin-bottom: 20px;">
+                <input type="text" id="projetoNome" class="modal-input" placeholder="Nome do Projeto" required maxlength="50">
+                <textarea id="projetoDescricao" class="modal-textarea" placeholder="Descrição do projeto (opcional)" maxlength="200"></textarea>
+            </form>
+            
+            <div class="modal-buttons">
+                <button class="modal-btn cancel" onclick="hideCriarProjetoModal()">Cancelar</button>
+                <button class="modal-btn confirm" onclick="criarProjeto()">Criar Projeto</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Limpar Chat -->
+    <div class="modal-overlay" id="limparChatModal" data-permission="modal_limpar_chat">
+        <div class="modal-content">
+            <div class="modal-icon" id="modalIconLimpar" data-permission="modal_limpar_icon"></div>
+            <div class="modal-title" id="modalTitleLimpar" data-permission="modal_limpar_title">Limpar Conversa</div>
+            <div class="modal-message" id="modalMessageLimpar" data-permission="modal_limpar_message">Tem certeza que deseja limpar toda a conversa do chat?</div>
+            <div class="modal-buttons">
+                <button class="modal-btn cancel" onclick="hideLimparChatModal()" data-permission="modal_limpar_cancel_button">Cancelar</button>
+                <button class="modal-btn confirm" onclick="confirmLimparChat()" data-permission="modal_limpar_confirm_button">Sim, Limpar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variável global para armazenar as permissões carregadas do SQLite
+        let permissions = {};
+
+                // PERMISSÕES DEFINIDAS DIRETAMENTE NO HTML (SEM FETCH)
+        function loadPermissionsFromDB() {
+            console.log('=== CARREGANDO PERMISSÕES DIRETO DO HTML ===');
+
+            // VARIÁVEIS DE AMBIENTE DEFINIDAS AQUI MESMO
+            const envVars = {
+                // ===== MENU HAMBURGUER (LATERAL ESQUERDO) =====
+                'MENU_HAMBURGUER_ENABLED': 'true',
+                'MENU_HAMBURGUER_BUTTON_ENABLED': 'true',
+
+                // Itens do Menu
+                'MENU_CHAT_ENABLED': 'true',
+                'MENU_DASHBOARD_ENABLED': 'false',
+                'MENU_RELATORIOS_ENABLED': 'false',
+
+                // Botão de Logout
+                'MENU_LOGOUT_BUTTON_ENABLED': 'true',
+
+                // ===== ÁREA CENTRAL DO CHAT =====
+                'CHAT_VIEW_ENABLED': 'true',
+                'CHAT_HEADER_ENABLED': 'true',
+                'CHAT_TITLE_ENABLED': 'true',
+                'CHAT_STATUS_ENABLED': 'true',
+                'CHAT_WELCOME_MESSAGE_ENABLED': 'true',
+
+                // Input e Botão de Envio
+                'CHAT_INPUT_ENABLED': 'true',
+                'CHAT_SEND_BUTTON_ENABLED': 'true',
+                'CHAT_INPUT_WRAPPER_ENABLED': 'true',
+
+                // ===== PAINEL DIREITO (INFORMAÇÕES RÁPIDAS) =====
+                'INFO_RAPIDAS_ENABLED': 'true',
+                'INFO_RAPIDAS_BUTTON_ENABLED': 'true',
+                'INFO_RAPIDAS_TITLE_ENABLED': 'true',
+
+
+
+                // Atalhos Rápidos
+                'ATALHOS_RAPIDOS_SECTION_ENABLED': 'true',
+                'ATALHOS_DASHBOARD_BUTTON_ENABLED': 'true',
+                'ATALHOS_LIMPAR_CHAT_BUTTON_ENABLED': 'true',
+                'ATALHOS_CRIAR_PROJETO_BUTTON_ENABLED': 'true',
+                'ATALHOS_ANALISAR_BUTTON_ENABLED': 'false',
+
+                // Seção de Projetos
+                'PROJETOS_SECTION_ENABLED': 'true',
+
+                // Atalhos Lógicos
+                'ATALHOS_LOGICOS_SECTION_ENABLED': 'false',
+                'ATALHOS_LOGICOS_CONTENT_ENABLED': 'false',
+
+                // Notificações Recentes
+                'NOTIFICACOES_SECTION_ENABLED': 'false',
+                'NOTIFICACOES_CONTENT_ENABLED': 'false',
+
+                // ===== MODAL DE LOGOUT =====
+                'MODAL_LOGOUT_ENABLED': 'true',
+                'MODAL_LOGOUT_ICON_ENABLED': 'true',
+                'MODAL_LOGOUT_TITLE_ENABLED': 'true',
+                'MODAL_LOGOUT_MESSAGE_ENABLED': 'true',
+                'MODAL_LOGOUT_CANCEL_BUTTON_ENABLED': 'true',
+                'MODAL_LOGOUT_CONFIRM_BUTTON_ENABLED': 'true',
+
+                // ===== MODAL DE LIMPAR CHAT =====
+                'MODAL_LIMPAR_CHAT_ENABLED': 'true',
+                'MODAL_LIMPAR_ICON_ENABLED': 'true',
+                'MODAL_LIMPAR_TITLE_ENABLED': 'true',
+                'MODAL_LIMPAR_MESSAGE_ENABLED': 'true',
+                'MODAL_LIMPAR_CANCEL_BUTTON_ENABLED': 'true',
+                'MODAL_LIMPAR_CONFIRM_BUTTON_ENABLED': 'true',
+
+                // ===== MODAL DE CRIAR PROJETO =====
+                'MODAL_CRIAR_PROJETO_ENABLED': 'true'
+            };
+
+            // Função para converter string para boolean
+            function toBool(value) {
+                if (typeof value === 'boolean') return value;
+                if (typeof value === 'string') {
+                    const lower = value.toLowerCase().trim();
+                    return lower === 'true' || lower === '1' || lower === 'yes';
+                }
+                return false;
+            }
+
+            console.log('Variáveis hardcoded carregadas:', envVars);
+
+            // Configura permissões detalhadas baseado nas variáveis hardcoded
+            permissions = {
+                // Menu Hamburguer
+                menu_hamburguer: {
+                    enabled: toBool(envVars.MENU_HAMBURGUER_ENABLED),
+                    button_enabled: toBool(envVars.MENU_HAMBURGUER_BUTTON_ENABLED),
+                    display_name: "Menu Hamburguer",
+                    items: [
+                        { 
+                            nome: "chat", 
+                            enabled: toBool(envVars.MENU_CHAT_ENABLED),
+                            display_name: "Chat", 
+                            order: 0 
+                        },
+                        { 
+                            nome: "dashboard", 
+                            enabled: toBool(envVars.MENU_DASHBOARD_ENABLED),
+                            display_name: "Dashboard", 
+                            order: 1 
+                        },
+                        { 
+                            nome: "relatorios", 
+                            enabled: toBool(envVars.MENU_RELATORIOS_ENABLED),
+                            display_name: "Relatórios", 
+                            order: 2 
+                        }
+                    ],
+                    logout_button: toBool(envVars.MENU_LOGOUT_BUTTON_ENABLED)
+                },
+
+                // Chat View
+                chat_view: { 
+                    enabled: toBool(envVars.CHAT_VIEW_ENABLED),
+                    header_enabled: toBool(envVars.CHAT_HEADER_ENABLED),
+                    title_enabled: toBool(envVars.CHAT_TITLE_ENABLED),
+                    status_enabled: toBool(envVars.CHAT_STATUS_ENABLED),
+                    welcome_message_enabled: toBool(envVars.CHAT_WELCOME_MESSAGE_ENABLED),
+                    input_enabled: toBool(envVars.CHAT_INPUT_ENABLED),
+                    send_button_enabled: toBool(envVars.CHAT_SEND_BUTTON_ENABLED),
+                    input_wrapper_enabled: toBool(envVars.CHAT_INPUT_WRAPPER_ENABLED),
+                    display_name: "Chat View" 
+                },
+
+                // Informações Rápidas
+                informacoes_rapidas: { 
+                    enabled: toBool(envVars.INFO_RAPIDAS_ENABLED),
+                    button_enabled: toBool(envVars.INFO_RAPIDAS_BUTTON_ENABLED),
+                    title_enabled: toBool(envVars.INFO_RAPIDAS_TITLE_ENABLED),
+                    atalhos_rapidos: toBool(envVars.ATALHOS_RAPIDOS_SECTION_ENABLED),
+                    atalhos_dashboard_btn: toBool(envVars.ATALHOS_DASHBOARD_BUTTON_ENABLED),
+                    atalhos_limpar_chat_btn: toBool(envVars.ATALHOS_LIMPAR_CHAT_BUTTON_ENABLED),
+                    atalhos_criar_projeto_btn: toBool(envVars.ATALHOS_CRIAR_PROJETO_BUTTON_ENABLED),
+                    atalhos_analisar_btn: toBool(envVars.ATALHOS_ANALISAR_BUTTON_ENABLED),
+                    projetos_section: toBool(envVars.PROJETOS_SECTION_ENABLED),
+                    atalhos_logicos: toBool(envVars.ATALHOS_LOGICOS_SECTION_ENABLED),
+                    atalhos_logicos_content: toBool(envVars.ATALHOS_LOGICOS_CONTENT_ENABLED),
+                    notificacoes: toBool(envVars.NOTIFICACOES_SECTION_ENABLED),
+                    notificacoes_content: toBool(envVars.NOTIFICACOES_CONTENT_ENABLED),
+                    display_name: "Informações Rápidas" 
+                },
+
+                // Modal de Logout
+                modal_logout: {
+                    enabled: toBool(envVars.MODAL_LOGOUT_ENABLED),
+                    icon_enabled: toBool(envVars.MODAL_LOGOUT_ICON_ENABLED),
+                    title_enabled: toBool(envVars.MODAL_LOGOUT_TITLE_ENABLED),
+                    message_enabled: toBool(envVars.MODAL_LOGOUT_MESSAGE_ENABLED),
+                    cancel_button: toBool(envVars.MODAL_LOGOUT_CANCEL_BUTTON_ENABLED),
+                    confirm_button: toBool(envVars.MODAL_LOGOUT_CONFIRM_BUTTON_ENABLED)
+                },
+
+                // Modal de Limpar Chat
+                modal_limpar_chat: {
+                    enabled: toBool(envVars.MODAL_LIMPAR_CHAT_ENABLED),
+                    icon_enabled: toBool(envVars.MODAL_LIMPAR_ICON_ENABLED),
+                    title_enabled: toBool(envVars.MODAL_LIMPAR_TITLE_ENABLED),
+                    message_enabled: toBool(envVars.MODAL_LIMPAR_MESSAGE_ENABLED),
+                    cancel_button: toBool(envVars.MODAL_LIMPAR_CANCEL_BUTTON_ENABLED),
+                    confirm_button: toBool(envVars.MODAL_LIMPAR_CONFIRM_BUTTON_ENABLED)
+                },
+
+                // Modal de Criar Projeto
+                modal_criar_projeto: {
+                    enabled: toBool(envVars.MODAL_CRIAR_PROJETO_ENABLED)
+                }
+            };
+
+            console.log('=== PERMISSÕES CONFIGURADAS ===');
+            console.log(permissions);
+            
+            // Aplica as permissões imediatamente
+            checkViewPermissions();
+        }
+
+        // Ícones para cada item do menu
+        const menuIcons = {
+            chat: "💬",
+            dashboard: "📊",
+            relatorios: "📋"
+        };
+
+        function loadMenuItems() {
+            const menuContainer = document.getElementById('menuItems');
+            
+            if (!permissions.menu_hamburguer.enabled) {
+                expandChatArea();
+                return;
+            }
+
+            // Limpa o container antes de adicionar itens (evita duplicação)
+            menuContainer.innerHTML = '';
+            
+            console.log('Carregando itens do menu:', permissions.menu_hamburguer.items); // Debug
+            
+            permissions.menu_hamburguer.items
+                .sort((a, b) => a.order - b.order)
+                .forEach(item => {
+                    console.log(`Item: ${item.nome}, Enabled: ${item.enabled}, Display: ${item.display_name}`); // Debug
+                    
+                    const menuItem = document.createElement('div');
+                    menuItem.className = `menu-item ${!item.enabled ? 'disabled' : ''}`;
+                    menuItem.innerHTML = `
+                        <span class="menu-icon">${menuIcons[item.nome] || '📎'}</span>
+                        <span>${item.display_name}</span>
+                    `;
+                    
+                    if (item.enabled) {
+                        menuItem.onclick = () => selectMenuItem(item.nome);
+                    }
+                    
+                    menuContainer.appendChild(menuItem);
+                });
+        }
+
+        function selectMenuItem(itemName) {
+            // Encontra o item nas permissões para verificar se está habilitado
+            const menuItem = permissions.menu_hamburguer.items.find(item => item.nome === itemName);
+            
+            if (!menuItem || !menuItem.enabled) {
+                console.log(`Item ${itemName} está desabilitado - clique bloqueado`);
+                // Adiciona efeito visual para mostrar que está bloqueado
+                const clickedElement = event.target.closest('.menu-item');
+                clickedElement.style.animation = 'shake 0.3s ease-in-out';
+                setTimeout(() => {
+                    clickedElement.style.animation = '';
+                }, 300);
+                return; // Bloqueia a execução
+            }
+            
+            // Remove active de todos os items
+            document.querySelectorAll('.menu-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Adiciona active ao item clicado
+            event.target.closest('.menu-item').classList.add('active');
+            
+            console.log(`Item selecionado: ${itemName}`);
+            
+            // Controla visibilidade dos Atalhos Rápidos baseado no item selecionado
+            updateAtalhosRapidosVisibility(itemName);
+            
+            // Aqui você pode adicionar a lógica para navegar para a seção correspondente
+        }
+
+        function updateAtalhosRapidosVisibility(selectedItem) {
+            const atalhosElement = document.querySelector('[data-permission="atalhos_rapidos"]');
+            const projetosElement = document.querySelector('[data-permission="projetos_section"]');
+            const titleElement = document.querySelector('[data-permission="info_title"]');
+            
+            if (selectedItem === 'chat') {
+                // Mostra atalhos, projetos e título apenas quando "chat" estiver selecionado
+                if (atalhosElement) atalhosElement.style.display = 'block';
+                if (projetosElement) projetosElement.style.display = 'block';
+                if (titleElement) titleElement.style.display = 'block';
+            } else {
+                // Esconde atalhos, projetos e título para outros menus
+                if (atalhosElement) atalhosElement.style.display = 'none';
+                if (projetosElement) projetosElement.style.display = 'none';
+                if (titleElement) titleElement.style.display = 'none';
+            }
+        }
+
+        function initializeDefaultMenuItem() {
+            // Encontra o primeiro item habilitado para ser selecionado por padrão
+            const enabledItems = permissions.menu_hamburguer.items.filter(item => item.enabled);
+            
+            if (enabledItems.length > 0) {
+                // Prefere chat, depois dashboard, senão pega o primeiro disponível
+                const defaultItem = enabledItems.find(item => item.nome === 'chat') || 
+                                  enabledItems.find(item => item.nome === 'dashboard') || 
+                                  enabledItems[0];
+                
+                // Simula um clique no item padrão
+                const menuItems = document.querySelectorAll('.menu-item:not(.logout-item)');
+                menuItems.forEach((element, index) => {
+                    if (index < enabledItems.length && enabledItems[index].nome === defaultItem.nome) {
+                        element.classList.add('active');
+                        updateAtalhosRapidosVisibility(defaultItem.nome);
+                    }
+                });
+            }
+        }
+
+        function checkViewPermissions() {
+            console.log('Verificando permissões granulares...');
+            console.log('Permissões carregadas:', permissions);
+            
+            // ========== MENU HAMBURGUER ==========
+            if (!permissions.menu_hamburguer.enabled) {
+                document.getElementById('leftMenu').classList.add('hidden');
+                const menuButton = document.querySelector('.menu-toggle');
+                if (menuButton) menuButton.style.display = 'none';
+            }
+
+            if (!permissions.menu_hamburguer.button_enabled) {
+                const menuButton = document.querySelector('.menu-toggle');
+                if (menuButton) menuButton.style.pointerEvents = 'none';
+            }
+
+            // Controla itens do menu individualmente
+            if (permissions.menu_hamburguer && permissions.menu_hamburguer.items) {
+                permissions.menu_hamburguer.items.forEach(item => {
+                    const menuElement = document.querySelector(`[data-menu-item="${item.nome}"]`);
+                    if (menuElement && !item.enabled) {
+                        console.log(`Item do menu ${item.nome} desabilitado, ocultando...`);
+                        menuElement.style.display = 'none';
+                    }
+                });
+            }
+
+            // Botão de logout no menu
+            if (!permissions.menu_hamburguer.logout_button) {
+                const logoutBtn = document.querySelector('.logout-btn');
+                if (logoutBtn) logoutBtn.style.display = 'none';
+            }
+
+            // ========== CHAT VIEW ==========
+            if (!permissions.chat_view.enabled) {
+                document.getElementById('chatArea').classList.add('hidden');
+            } else {
+                // Controles granulares do chat usando data attributes
+                if (!permissions.chat_view.header_enabled) {
+                    const element = document.querySelector('[data-permission="chat_header"]');
+                    if (element) element.style.display = 'none';
+                }
+
+                if (!permissions.chat_view.title_enabled) {
+                    const element = document.querySelector('[data-permission="chat_title"]');
+                    if (element) element.style.display = 'none';
+                }
+
+                if (!permissions.chat_view.status_enabled) {
+                    const element = document.querySelector('[data-permission="chat_status"]');
+                    if (element) element.style.display = 'none';
+                }
+
+                if (!permissions.chat_view.welcome_message_enabled) {
+                    const element = document.querySelector('[data-permission="chat_welcome_message"]');
+                    if (element) element.style.display = 'none';
+                }
+
+                if (!permissions.chat_view.input_enabled) {
+                    const element = document.querySelector('[data-permission="chat_input"]');
+                    if (element) element.style.display = 'none';
+                }
+
+                if (!permissions.chat_view.send_button_enabled) {
+                    const element = document.querySelector('[data-permission="chat_send_button"]');
+                    if (element) element.style.display = 'none';
+                }
+
+                if (!permissions.chat_view.input_wrapper_enabled) {
+                    const element = document.querySelector('[data-permission="chat_input_wrapper"]');
+                    if (element) element.style.display = 'none';
+                }
+            }
+
+            // ========== INFORMAÇÕES RÁPIDAS ==========
+            if (!permissions.informacoes_rapidas.enabled) {
+                document.getElementById('rightPanel').classList.add('disabled');
+                // Esconder também o botão hambúrguer direito se não tem permissão
+                const menuToggleRight = document.querySelector('.menu-toggle-right, .right-menu-toggle');
+                if (menuToggleRight) {
+                    menuToggleRight.style.display = 'none';
+                }
+                // Adicionar bloqueio aos elementos clicáveis do painel direito
+                addRightPanelBlocking();
+            } else {
+                // Controles granulares do painel direito usando data attributes
+                if (!permissions.informacoes_rapidas.button_enabled) {
+                    const element = document.querySelector('[data-permission="info_button"]');
+                    if (element) element.style.display = 'none';
+                }
+
+                if (!permissions.informacoes_rapidas.title_enabled) {
+                    const element = document.querySelector('[data-permission="info_title"]');
+                    if (element) element.style.display = 'none';
+                }
+
+                if (!permissions.informacoes_rapidas.atalhos_rapidos) {
+                    const element = document.querySelector('[data-permission="atalhos_rapidos"]');
+                    if (element) element.style.display = 'none';
+                } else {
+                    // Inicialmente oculta os atalhos rápidos - só aparecem quando chat for selecionado
+                    const element = document.querySelector('[data-permission="atalhos_rapidos"]');
+                    if (element) element.style.display = 'none';
+                    if (!permissions.informacoes_rapidas.atalhos_dashboard_btn) {
+                        const element = document.querySelector('[data-permission="atalhos_dashboard_btn"]');
+                        if (element) element.style.display = 'none';
+                    }
+
+                    if (!permissions.informacoes_rapidas.atalhos_limpar_chat_btn) {
+                        const element = document.querySelector('[data-permission="atalhos_limpar_chat_btn"]');
+                        if (element) element.style.display = 'none';
+                    }
+
+                    if (!permissions.informacoes_rapidas.atalhos_criar_projeto_btn) {
+                        const element = document.querySelector('[data-permission="atalhos_criar_projeto_btn"]');
+                        if (element) element.style.display = 'none';
+                    }
+
+                    if (!permissions.informacoes_rapidas.atalhos_analisar_btn) {
+                        const element = document.querySelector('[data-permission="atalhos_analisar_btn"]');
+                        if (element) element.style.display = 'none';
+                    }
+                }
+
+                if (!permissions.informacoes_rapidas.projetos_section) {
+                    const element = document.querySelector('[data-permission="projetos_section"]');
+                    if (element) element.style.display = 'none';
+                }
+
+                if (!permissions.informacoes_rapidas.atalhos_logicos) {
+                    const element = document.querySelector('[data-permission="atalhos_logicos"]');
+                    if (element) element.style.display = 'none';
+                }
+
+                if (!permissions.informacoes_rapidas.atalhos_logicos_content) {
+                    const element = document.querySelector('[data-permission="atalhos_logicos_content"]');
+                    if (element) element.style.display = 'none';
+                }
+
+                if (!permissions.informacoes_rapidas.notificacoes) {
+                    const element = document.querySelector('[data-permission="notificacoes"]');
+                    if (element) element.style.display = 'none';
+                }
+
+                if (!permissions.informacoes_rapidas.notificacoes_content) {
+                    const element = document.querySelector('[data-permission="notificacoes_content"]');
+                    if (element) element.style.display = 'none';
+                }
+            }
+
+            // ========== MODAL DE LOGOUT ==========
+            // Controla se o botão de logout pode abrir o modal
+            if (!permissions.modal_logout.enabled) {
+                const logoutBtns = document.querySelectorAll('.logout-btn, [onclick*="logout"]');
+                logoutBtns.forEach(btn => {
+                    btn.style.display = 'none';
+                });
+            }
+
+            // ========== MODAL DE LIMPAR CHAT ==========
+            // Controla se o botão de limpar chat pode abrir o modal
+            if (!permissions.modal_limpar_chat.enabled) {
+                const limparChatBtns = document.querySelectorAll('[onclick*="showLimparChatModal"]');
+                limparChatBtns.forEach(btn => {
+                    btn.style.display = 'none';
+                });
+            }
+
+            // Se alguma área está escondida, ajusta o layout
+            adjustLayout();
+            console.log('Verificação de permissões granulares concluída.');
+        }
+
+        function addRightPanelBlocking() {
+            const rightPanel = document.getElementById('rightPanel');
+            const actionButtons = rightPanel.querySelectorAll('.action-button');
+            
+            // Desabilitar botões de ação
+            actionButtons.forEach(button => {
+                button.classList.add('disabled');
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('Botão desabilitado - clique bloqueado');
+                    // Adiciona efeito visual para mostrar que está bloqueado
+                    button.style.animation = 'shake 0.3s ease-in-out';
+                    setTimeout(() => {
+                        button.style.animation = '';
+                    }, 300);
+                });
+            });
+        }
+
+        function adjustLayout() {
+            const leftMenu = document.getElementById('leftMenu');
+            const chatArea = document.getElementById('chatArea');
+            const rightPanel = document.getElementById('rightPanel');
+
+            if (leftMenu.classList.contains('hidden')) {
+                chatArea.style.marginLeft = '0';
+            }
+
+            if (rightPanel.classList.contains('hidden')) {
+                chatArea.style.marginRight = '0';
+            }
+
+            // Se só o chat está visível, centraliza
+            if (leftMenu.classList.contains('hidden') && rightPanel.classList.contains('hidden')) {
+                chatArea.style.width = '100%';
+            }
+        }
+
+        function expandChatArea() {
+            const chatArea = document.getElementById('chatArea');
+            chatArea.style.width = '100%';
+        }
+
+        function logout() {
+            showModal();
+        }
+
+        function showModal() {
+            // Verifica se o modal está habilitado
+            if (!permissions.modal_logout.enabled) {
+                console.log('Modal de logout desabilitado');
+                return;
+            }
+
+            const modal = document.getElementById('customModal');
+            
+            // Aplica permissões granulares do modal usando data attributes
+            if (!permissions.modal_logout.icon_enabled) {
+                const element = modal.querySelector('[data-permission="modal_icon"]');
+                if (element) element.style.display = 'none';
+            }
+
+            if (!permissions.modal_logout.title_enabled) {
+                const element = modal.querySelector('[data-permission="modal_title"]');
+                if (element) element.style.display = 'none';
+            }
+
+            if (!permissions.modal_logout.message_enabled) {
+                const element = modal.querySelector('[data-permission="modal_message"]');
+                if (element) element.style.display = 'none';
+            }
+
+            if (!permissions.modal_logout.cancel_button) {
+                const element = modal.querySelector('[data-permission="modal_cancel_button"]');
+                if (element) element.style.display = 'none';
+            }
+
+            if (!permissions.modal_logout.confirm_button) {
+                const element = modal.querySelector('[data-permission="modal_confirm_button"]');
+                if (element) element.style.display = 'none';
+            }
+
+            modal.classList.add('show');
+        }
+
+        function hideModal() {
+            const modal = document.getElementById('customModal');
+            modal.classList.remove('show');
+        }
+
+        function confirmLogout() {
+            hideModal();
+            // Redireciona diretamente para a rota de logout que já trata o redirecionamento
+            window.location.href = '/logout';
+        }
+
+        // Funções do Modal de Consultas Rápidas
+        function showConsultasModal() {
+            const modal = document.getElementById('consultasModal');
+            modal.classList.add('show');
+        }
+
+        function hideConsultasModal() {
+            const modal = document.getElementById('consultasModal');
+            modal.classList.remove('show');
+        }
+
+        function selecionarConsulta(pergunta) {
+            // Fecha o modal
+            hideConsultasModal();
+            
+            // Coloca a pergunta no input do chat
+            const chatInput = document.getElementById('chatInput');
+            if (chatInput) {
+                chatInput.value = pergunta;
+                chatInput.focus();
+                
+                // Envia automaticamente a pergunta
+                sendMessage();
+            }
+        }
+
+        // Funções do Modal de Limpar Chat
+        function showLimparChatModal() {
+            // Verifica se o modal está habilitado
+            if (!permissions.modal_limpar_chat.enabled) {
+                console.log('Modal de limpar chat desabilitado');
+                return;
+            }
+
+            const modal = document.getElementById('limparChatModal');
+            
+            // Aplica permissões granulares do modal usando data attributes
+            if (!permissions.modal_limpar_chat.icon_enabled) {
+                const element = modal.querySelector('[data-permission="modal_limpar_icon"]');
+                if (element) element.style.display = 'none';
+            }
+
+            if (!permissions.modal_limpar_chat.title_enabled) {
+                const element = modal.querySelector('[data-permission="modal_limpar_title"]');
+                if (element) element.style.display = 'none';
+            }
+
+            if (!permissions.modal_limpar_chat.message_enabled) {
+                const element = modal.querySelector('[data-permission="modal_limpar_message"]');
+                if (element) element.style.display = 'none';
+            }
+
+            if (!permissions.modal_limpar_chat.cancel_button) {
+                const element = modal.querySelector('[data-permission="modal_limpar_cancel_button"]');
+                if (element) element.style.display = 'none';
+            }
+
+            if (!permissions.modal_limpar_chat.confirm_button) {
+                const element = modal.querySelector('[data-permission="modal_limpar_confirm_button"]');
+                if (element) element.style.display = 'none';
+            }
+
+            modal.classList.add('show');
+        }
+
+        function hideLimparChatModal() {
+            const modal = document.getElementById('limparChatModal');
+            modal.classList.remove('show');
+        }
+
+        function confirmLimparChat() {
+            hideLimparChatModal();
+            
+            // Limpa todas as mensagens do chat
+            const chatContent = document.querySelector('.chat-content');
+            if (chatContent) {
+                // Remove todas as mensagens, mas mantém a mensagem de boas-vindas
+                const messageContainers = chatContent.querySelectorAll('div:not(.welcome-message)');
+                messageContainers.forEach(container => {
+                    if (!container.classList.contains('welcome-message')) {
+                        container.remove();
+                    }
+                });
+                
+                // Mostra novamente a mensagem de boas-vindas
+                const welcomeMsg = chatContent.querySelector('.welcome-message');
+                if (welcomeMsg) {
+                    welcomeMsg.style.display = 'block';
+                }
+            }
+            
+            console.log('Chat limpo com sucesso');
+        }
+
+        // ===== SISTEMA DE PROJETOS =====
+        let projetoAtivo = null;
+
+        function showMensagemModal(titulo, mensagem, tipo = 'info') {
+            // Se for uma mensagem de erro e o modal de criar projeto estiver aberto, fecha ele
+            if (tipo === 'info' && titulo === 'Erro') {
+                const criarProjetoModal = document.getElementById('criarProjetoModal');
+                if (criarProjetoModal && criarProjetoModal.classList.contains('show')) {
+                    criarProjetoModal.classList.remove('show');
+                }
+            }
+            
+            const modal = document.getElementById('customModal');
+            const title = modal.querySelector('[data-permission="modal_title"]');
+            const message = modal.querySelector('[data-permission="modal_message"]');
+            const confirmBtn = modal.querySelector('[data-permission="modal_confirm_button"]');
+            const cancelBtn = modal.querySelector('[data-permission="modal_cancel_button"]');
+            
+            if (title) title.textContent = titulo;
+            if (message) message.textContent = mensagem;
+            
+            // Para mensagens informativas, esconde o botão cancelar e muda o texto do confirmar
+            if (tipo === 'info') {
+                if (cancelBtn) cancelBtn.style.display = 'none';
+                if (confirmBtn) {
+                    confirmBtn.textContent = 'OK';
+                    confirmBtn.onclick = function() {
+                        hideModal();
+                        
+                        // Se foi um erro de criação de projeto, reabre o modal de criação
+                        if (titulo.includes('Erro') || titulo.includes('Campo Obrigatório')) {
+                            setTimeout(() => {
+                                const criarProjetoModal = document.getElementById('criarProjetoModal');
+                                if (criarProjetoModal) {
+                                    criarProjetoModal.classList.add('show');
+                                    // Foca no campo de nome se for erro de campo obrigatório
+                                    if (titulo.includes('Campo Obrigatório')) {
+                                        document.getElementById('projetoNome').focus();
+                                    }
+                                }
+                            }, 100);
+                        }
+                        
+                        // Restaura o modal para logout após fechar
+                        setTimeout(() => {
+                            if (cancelBtn) cancelBtn.style.display = 'inline-block';
+                            if (confirmBtn) {
+                                confirmBtn.textContent = 'Sim, Sair';
+                                confirmBtn.onclick = confirmLogout;
+                            }
+                            if (title) title.textContent = 'Confirmar Saída';
+                            if (message) message.textContent = 'Tem certeza que deseja sair do sistema?';
+                        }, 200);
+                    };
+                }
+            }
+            
+            modal.classList.add('show');
+        }
+
+        function showCriarProjetoModal() {
+            if (!permissions.modal_criar_projeto.enabled) {
+                console.log('Modal de criar projeto desabilitado');
+                return;
+            }
+
+            const modal = document.getElementById('criarProjetoModal');
+            modal.classList.add('show');
+            
+            // Limpa os campos
+            document.getElementById('projetoNome').value = '';
+            document.getElementById('projetoDescricao').value = '';
+            document.getElementById('projetoNome').focus();
+        }
+
+        function hideCriarProjetoModal() {
+            const modal = document.getElementById('criarProjetoModal');
+            modal.classList.remove('show');
+        }
+
+        async function criarProjeto() {
+            const nome = document.getElementById('projetoNome').value.trim();
+            const descricao = document.getElementById('projetoDescricao').value.trim();
+
+            if (!nome) {
+                showMensagemModal('Campo Obrigatório', 'Por favor, insira um nome para o projeto.', 'info');
+                return;
+            }
+
+            try {
+                const response = await fetch('/projetos/criar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nome, descricao })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    hideCriarProjetoModal();
+                    await carregarProjetos();
+                    
+                    // Seleciona automaticamente o projeto recém-criado
+                    if (data.id && data.nome) {
+                        await selecionarProjeto(data.id, data.nome);
+                        console.log(`Projeto "${data.nome}" criado e selecionado automaticamente`);
+                    }
+                    
+                    console.log('Projeto criado e selecionado:', data);
+                } else {
+                    const error = await response.json();
+                    showMensagemModal('Erro', error.message || 'Erro ao criar projeto', 'info');
+                }
+            } catch (error) {
+                console.error('Erro ao criar projeto:', error);
+                showMensagemModal('Erro', 'Erro ao criar projeto', 'info');
+            }
+        }
+
+        async function carregarProjetos() {
+            try {
+                const response = await fetch('/projetos/listar');
+                if (response.ok) {
+                    const projetos = await response.json();
+                    renderizarProjetos(projetos);
+                }
+            } catch (error) {
+                console.error('Erro ao carregar projetos:', error);
+            }
+        }
+
+        function renderizarProjetos(projetos) {
+            const container = document.getElementById('projetosList');
+            
+            if (!projetos || projetos.length === 0) {
+                container.innerHTML = `
+                    <div class="projeto-placeholder" style="color: #666; font-style: italic; padding: 10px; text-align: center;">
+                        Nenhum projeto criado ainda
+                    </div>
+                `;
+                return;
+            }
+
+            // Ordena projetos: selecionado primeiro, depois por data de criação
+            const projetosOrdenados = projetos.sort((a, b) => {
+                if (projetoAtivo?.id === a.id) return -1;
+                if (projetoAtivo?.id === b.id) return 1;
+                return new Date(b.data_criacao) - new Date(a.data_criacao);
+            });
+
+            container.innerHTML = projetosOrdenados.map(projeto => {
+                const dataCriacao = new Date(projeto.data_criacao).toLocaleDateString('pt-BR');
+                return `
+                    <div class="projeto-item ${projetoAtivo?.id === projeto.id ? 'ativo' : ''}" 
+                         onclick="selecionarProjeto(${projeto.id}, '${projeto.nome}')" 
+                         data-projeto-id="${projeto.id}">
+                        <div class="projeto-nome">${projeto.nome}</div>
+                        <div class="projeto-descricao">${projeto.descricao || 'Sem descrição'}</div>
+                        <div class="projeto-data" style="font-size: 10px; color: #999; margin-top: 4px;">Criado em: ${dataCriacao}</div>
+                        <button class="projeto-delete" onclick="event.stopPropagation(); deletarProjeto(${projeto.id}, '${projeto.nome}')" title="Deletar projeto">×</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function selecionarProjeto(projetoId, projetoNome) {
+            const projetoElement = document.querySelector(`[data-projeto-id="${projetoId}"]`);
+            
+            // Se o projeto já está ativo, desseleciona (toggle)
+            if (projetoAtivo && projetoAtivo.id === projetoId) {
+                // Desseleciona o projeto e força remoção da classe
+                if (projetoElement) {
+                    projetoElement.classList.remove('ativo');
+                    // Força o reflow para garantir que a mudança visual aconteça
+                    projetoElement.offsetHeight;
+                }
+                projetoAtivo = null;
+                
+                // Limpa o chat e volta para o chat geral
+                limparChat();
+                console.log('Projeto desselecionado - voltando para chat geral');
+                return;
+            }
+
+            // Remove seleção anterior de outros projetos
+            document.querySelectorAll('.projeto-item').forEach(item => {
+                item.classList.remove('ativo');
+            });
+
+            // Adiciona seleção ao projeto clicado
+            if (projetoElement) {
+                projetoElement.classList.add('ativo');
+            }
+
+            projetoAtivo = { id: projetoId, nome: projetoNome };
+            console.log('Projeto selecionado:', projetoAtivo);
+
+            // Carrega o histórico do projeto
+            await carregarHistoricoProjeto(projetoId);
+        }
+
+        function limparChat() {
+            const chatContent = document.querySelector('.chat-content');
+            if (chatContent) {
+                chatContent.innerHTML = `
+                    <div class="welcome-message">
+                        <h3>Olá! Sou EZPocket. Como posso te ajudar?</h3>
+                        <p>Faça perguntas sobre seu portfólio, desempenho ou análises...</p>
+                    </div>
+                `;
+                console.log('Chat limpo e mensagem de boas-vindas restaurada');
+            }
+        }
+
+        async function carregarHistoricoProjeto(projetoId) {
+            try {
+                // Limpa o chat antes de carregar o histórico do projeto
+                limparChat();
+                
+                const response = await fetch(`/projetos/${projetoId}/historico`);
+                if (response.ok) {
+                    const historico = await response.json();
+                    aplicarHistoricoChat(historico);
+                } else {
+                    console.log('Nenhum histórico encontrado para o projeto');
+                }
+            } catch (error) {
+                console.error('Erro ao carregar histórico:', error);
+            }
+        }
+
+        function aplicarHistoricoChat(historico) {
+            const chatContent = document.querySelector('.chat-content');
+            
+            // Limpa o chat atual
+            chatContent.innerHTML = '';
+
+            if (!historico || historico.length === 0) {
+                // Mostra mensagem de boas-vindas do projeto
+                chatContent.innerHTML = `
+                    <div class="welcome-message">
+                        <h3>Projeto: ${projetoAtivo.nome}</h3>
+                        <p>Histórico limpo. Comece uma nova conversa sobre este projeto...</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Carrega as mensagens do histórico
+            historico.forEach(msg => {
+                addMessageToChat(msg.sender, msg.message, msg.type);
+            });
+
+            // Envia contexto para a IA
+            enviarContextoParaIA(historico);
+        }
+
+        async function enviarContextoParaIA(historico) {
+            if (!historico || historico.length === 0) return;
+
+            try {
+                await fetch('/projetos/contexto', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        projeto_id: projetoAtivo.id,
+                        historico: historico 
+                    })
+                });
+            } catch (error) {
+                console.error('Erro ao enviar contexto:', error);
+            }
+        }
+
+        async function deletarProjeto(projetoId, projetoNome) {
+            // Armazena dados para o modal
+            window.projetoParaDeletar = { id: projetoId, nome: projetoNome };
+            
+            // Atualiza conteúdo do modal de logout para usar como modal de deletar projeto
+            const modal = document.getElementById('customModal');
+            
+            // Garante que o modal está escondido antes de atualizar
+            modal.classList.remove('show');
+            
+            // Aguarda um momento para garantir que as mudanças sejam aplicadas
+            await new Promise(resolve => setTimeout(resolve, 50));
+            
+            const title = modal.querySelector('#modalTitle');
+            const message = modal.querySelector('#modalMessage');
+            const confirmBtn = modal.querySelector('[data-permission="modal_confirm_button"]');
+            
+            // Atualiza o conteúdo forçadamente
+            if (title) {
+                title.textContent = 'Confirmar Exclusão';
+                title.innerHTML = 'Confirmar Exclusão';
+            }
+            if (message) {
+                const msgText = `Tem certeza que deseja excluir o projeto "${projetoNome}"? Esta ação não pode ser desfeita e todo o histórico será perdido permanentemente.`;
+                message.textContent = msgText;
+                message.innerHTML = msgText;
+            }
+            if (confirmBtn) {
+                confirmBtn.textContent = 'Sim, Excluir';
+                confirmBtn.innerHTML = 'Sim, Excluir';
+                confirmBtn.onclick = confirmarDeletarProjeto;
+            }
+            
+            // Mostra o modal após as atualizações
+            modal.classList.add('show');
+        }        async function confirmarDeletarProjeto() {
+            const projeto = window.projetoParaDeletar;
+            if (!projeto) return;
+
+            hideModal();
+
+            try {
+                const response = await fetch(`/projetos/${projeto.id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    await carregarProjetos();
+                    
+                    // Se era o projeto ativo, limpa seleção
+                    if (projetoAtivo?.id === projeto.id) {
+                        projetoAtivo = null;
+                        // Volta para chat normal
+                        const chatContent = document.querySelector('.chat-content');
+                        chatContent.innerHTML = `
+                            <div class="welcome-message">
+                                <h3>Olá! Sou EZPocket. Como posso te ajudar?</h3>
+                                <p>Faça perguntas sobre seu portfólio, desempenho ou análises...</p>
+                            </div>
+                        `;
+                    }
+                } else {
+                    showMensagemModal('Erro', 'Erro ao deletar projeto', 'info');
+                }
+            } catch (error) {
+                console.error('Erro ao deletar projeto:', error);
+                showMensagemModal('Erro', 'Erro ao deletar projeto', 'info');
+            }
+
+            // Restaura modal original
+            setTimeout(() => {
+                const modal = document.getElementById('customModal');
+                const title = modal.querySelector('[data-permission="modal_title"]');
+                const message = modal.querySelector('[data-permission="modal_message"]');
+                const confirmBtn = modal.querySelector('[data-permission="modal_confirm_button"]');
+                
+                if (title) title.textContent = 'Confirmar Saída';
+                if (message) message.textContent = 'Tem certeza que deseja sair do sistema?';
+                if (confirmBtn) {
+                    confirmBtn.textContent = 'Sim, Sair';
+                    confirmBtn.onclick = confirmLogout;
+                }
+            }, 100);
+        }
+
+        // Sobrescreve a função sendMessage para incluir projeto ativo
+        function sendMessage() {
+            console.log('sendMessage chamada');
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            console.log('Mensagem:', message);
+            
+            if (message) {
+                // Adicionar mensagem do usuário na tela
+                addMessageToChat('Você', message, 'user');
+                
+                // Desabilitar input e mostrar que está processando
+                input.disabled = true;
+                addTypingIndicator();
+                
+                // Escolhe a rota baseada se tem projeto ativo
+                const endpoint = projetoAtivo ? '/ask-projeto' : '/ask';
+                const requestBody = projetoAtivo ? 
+                    { pergunta: message, projeto_id: projetoAtivo.id } : 
+                    { pergunta: message };
+                
+                console.log('Enviando requisição para', endpoint);
+                // Fazer requisição real ao backend
+                fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                })
+                .then(response => {
+                    console.log('Resposta recebida:', response.status);
+                    if (response.status === 401) {
+                        window.location.href = '/login';
+                        return;
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Dados recebidos:', data);
+                    removeTypingIndicator();
+                    if (data && data.resposta) {
+                        addMessageToChat('EZPocket', data.resposta, 'bot');
+                        
+                        // Nota: Para projetos, as mensagens já são salvas pela rota /ask-projeto
+                    } else {
+                        addMessageToChat('EZPocket', 'Resposta inválida recebida.', 'bot');
+                    }
+                    input.disabled = false;
+                })
+                .catch(error => {
+                    console.error('Erro na requisição:', error);
+                    removeTypingIndicator();
+                    addMessageToChat('EZPocket', 'Desculpe, ocorreu um erro. Tente novamente.', 'bot');
+                    input.disabled = false;
+                });
+                
+                input.value = '';
+            }
+        }
+
+        async function salvarMensagemProjeto(projetoId, sender, message, type) {
+            try {
+                await fetch(`/projetos/${projetoId}/mensagem`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sender, message, type })
+                });
+            } catch (error) {
+                console.error('Erro ao salvar mensagem:', error);
+            }
+        }
+
+        function sendMessage() {
+            console.log('sendMessage chamada');
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            console.log('Mensagem:', message);
+            
+            if (message) {
+                // Adicionar mensagem do usuário na tela
+                addMessageToChat('Você', message, 'user');
+                
+                // Desabilitar input e mostrar que está processando
+                input.disabled = true;
+                addTypingIndicator();
+                
+                // Escolhe a rota baseada se tem projeto ativo
+                const endpoint = projetoAtivo ? '/ask-projeto' : '/ask';
+                const requestBody = projetoAtivo ? 
+                    { pergunta: message, projeto_id: projetoAtivo.id } : 
+                    { pergunta: message };
+                
+                console.log('Enviando requisição para', endpoint, 'Projeto ativo:', projetoAtivo ? `ID: ${projetoAtivo.id} - ${projetoAtivo.nome}` : 'Nenhum');
+                // Fazer requisição real ao backend
+                fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                })
+                .then(response => {
+                    console.log('Resposta recebida:', response.status);
+                    if (response.status === 401) {
+                        window.location.href = '/login';
+                        return;
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Dados recebidos:', data);
+                    removeTypingIndicator();
+                    if (data && data.resposta) {
+                        addMessageToChat('EZPocket', data.resposta, 'bot');
+                    } else {
+                        addMessageToChat('EZPocket', 'Resposta inválida recebida.', 'bot');
+                    }
+                    input.disabled = false;
+                })
+                .catch(error => {
+                    console.error('Erro na requisição:', error);
+                    removeTypingIndicator();
+                    addMessageToChat('EZPocket', 'Desculpe, ocorreu um erro. Tente novamente.', 'bot');
+                    input.disabled = false;
+                });
+                
+                input.value = '';
+            }
+        }
+
+        function addMessageToChat(sender, message, type) {
+            const chatContent = document.querySelector('.chat-content');
+            
+            // Remover mensagem de boas-vindas se ainda estiver lá
+            const welcomeMsg = chatContent.querySelector('.welcome-message');
+            if (welcomeMsg) {
+                welcomeMsg.style.display = 'none';
+            }
+            
+            // Criar elemento da mensagem
+            const messageDiv = document.createElement('div');
+            messageDiv.style.cssText = `
+                padding: 8px 12px;
+                border-radius: 18px;
+                width: auto;
+                word-wrap: break-word;
+                line-height: 1.4;
+                ${type === 'user' ? 
+                    'background: #25d366 !important; color: #000 !important; max-width: 50% !important;' : 
+                    'background: #333 !important; color: #fff !important; min-width: fit-content; max-width: 95% !important;'
+                }
+            `;
+            
+            // Criar container para a mensagem
+            const messageContainer = document.createElement('div');
+            messageContainer.style.cssText = `
+                display: flex;
+                width: 100%;
+                margin-bottom: 25px;
+                ${type === 'user' ? 'justify-content: flex-end;' : 'justify-content: flex-start;'}
+            `;
+            
+            messageDiv.innerHTML = `${message}`;
+            messageContainer.appendChild(messageDiv);
+            chatContent.appendChild(messageContainer);
+            
+            // Scroll para a última mensagem
+            chatContent.scrollTop = chatContent.scrollHeight;
+        }
+
+        function addTypingIndicator() {
+            const chatContent = document.querySelector('.chat-content');
+            
+            // Criar container para o indicador
+            const typingContainer = document.createElement('div');
+            typingContainer.id = 'typing-indicator-container';
+            typingContainer.style.cssText = `
+                display: flex;
+                width: 100%;
+                margin-bottom: 8px;
+                justify-content: flex-start;
+            `;
+            
+            const typingDiv = document.createElement('div');
+            typingDiv.id = 'typing-indicator';
+            typingDiv.style.cssText = `
+                padding: 8px 12px;
+                border-radius: 18px;
+                max-width: 95%;
+                min-width: fit-content;
+                width: auto;
+                background: #333;
+                color: #fff;
+                word-wrap: break-word;
+                line-height: 1.4;
+            `;
+            typingDiv.innerHTML = '<span class="typing-dots"><span></span><span></span><span></span></span>';
+            
+            typingContainer.appendChild(typingDiv);
+            chatContent.appendChild(typingContainer);
+            chatContent.scrollTop = chatContent.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const typingContainer = document.getElementById('typing-indicator-container');
+            if (typingContainer) {
+                typingContainer.remove();
+            }
+        }
+
+        function toggleMenu() {
+            const leftMenu = document.getElementById('leftMenu');
+            const menuToggle = document.querySelector('.menu-toggle');
+            const chatTitle = document.querySelector('.chat-title');
+            const rightMenuToggle = document.querySelector('.menu-toggle-right');
+            
+            leftMenu.classList.toggle('show');
+            
+            // Verifica se estamos em tela pequena (onde o menu hamburguer é necessário)
+            if (window.innerWidth <= 1250) {
+                // Move o botão toggle quando o menu abre/fecha
+                if (leftMenu.classList.contains('show')) {
+                    menuToggle.classList.add('menu-open');
+                    chatTitle.classList.add('hidden-mobile');
+                    // Esconde o ícone do menu direito quando o menu esquerdo está aberto
+                    if (rightMenuToggle) {
+                        rightMenuToggle.style.display = 'none';
+                    }
+                } else {
+                    menuToggle.classList.remove('menu-open');
+                    chatTitle.classList.remove('hidden-mobile');
+                    // Mostra novamente o ícone do menu direito quando o menu esquerdo fecha
+                    if (rightMenuToggle) {
+                        rightMenuToggle.style.display = 'block';
+                    }
+                }
+            }
+        }
+
+        function toggleRightPanel() {
+            // Verificar se tem permissão para acessar informações rápidas
+            if (!permissions.informacoes_rapidas?.enabled) {
+                console.log('Painel de informações rápidas está desabilitado - acesso negado');
+                return;
+            }
+
+            const rightPanel = document.getElementById('rightPanel');
+            const menuToggleRight = document.querySelector('.menu-toggle-right');
+            const chatTitle = document.querySelector('.chat-title');
+            const leftMenuToggle = document.querySelector('.menu-toggle');
+            
+            rightPanel.classList.toggle('show');
+            
+            // Verifica se estamos em tela pequena (onde o menu hamburguer é necessário)
+            if (window.innerWidth <= 1250) {
+                // Move o botão toggle quando o menu abre/fecha
+                if (rightPanel.classList.contains('show')) {
+                    menuToggleRight.classList.add('menu-open');
+                    chatTitle.classList.add('hidden-mobile');
+                    // Esconde o ícone do menu esquerdo quando o menu direito está aberto
+                    if (leftMenuToggle) {
+                        leftMenuToggle.style.display = 'none';
+                    }
+                } else {
+                    menuToggleRight.classList.remove('menu-open');
+                    chatTitle.classList.remove('hidden-mobile');
+                    // Mostra novamente o ícone do menu esquerdo quando o menu direito fecha
+                    if (leftMenuToggle) {
+                        leftMenuToggle.style.display = 'block';
+                    }
+                }
+            }
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatInput = document.getElementById('chatInput');
+            const sendButton = document.querySelector('.send-button');
+            
+            if (chatInput) {
+                chatInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        sendMessage();
+                    }
+                });
+            }
+            
+            if (sendButton) {
+                sendButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    sendMessage();
+                });
+            }
+        });
+
+        // Fechar menus ao clicar fora deles em mobile
+        document.addEventListener('click', function(e) {
+            const leftMenu = document.getElementById('leftMenu');
+            const menuToggle = document.querySelector('.menu-toggle');
+            const rightPanel = document.getElementById('rightPanel');
+            const menuToggleRight = document.querySelector('.menu-toggle-right');
+            const chatTitle = document.querySelector('.chat-title');
+            
+            if (window.innerWidth <= 1250) {
+                // Fechar menu esquerdo
+                if (!leftMenu.contains(e.target) && 
+                    !menuToggle.contains(e.target) && 
+                    leftMenu.classList.contains('show')) {
+                    leftMenu.classList.remove('show');
+                    menuToggle.classList.remove('menu-open');
+                    chatTitle.classList.remove('hidden-mobile');
+                    
+                    // Mostra novamente o ícone do menu direito quando o menu esquerdo fecha
+                    if (menuToggleRight) {
+                        menuToggleRight.style.display = 'block';
+                    }
+                }
+                
+                // Fechar painel direito
+                if (!rightPanel.contains(e.target) && 
+                    !menuToggleRight.contains(e.target) && 
+                    rightPanel.classList.contains('show')) {
+                    rightPanel.classList.remove('show');
+                    menuToggleRight.classList.remove('menu-open');
+                    chatTitle.classList.remove('hidden-mobile');
+                    
+                    // Mostra novamente o ícone do menu esquerdo quando o menu direito fecha
+                    if (menuToggle) {
+                        menuToggle.style.display = 'block';
+                    }
+                }
+            }
+        });
+
+        // Fechar modal ao clicar fora do conteúdo
+        document.addEventListener('click', function(e) {
+            const modal = document.getElementById('customModal');
+            const modalContent = document.querySelector('.modal-content');
+            
+            if (modal.classList.contains('show') && 
+                !modalContent.contains(e.target) && 
+                e.target === modal) {
+                hideModal();
+            }
+        });
+
+        // Fechar modal com ESC
+        document.addEventListener('keydown', function(e) {
+            const modal = document.getElementById('customModal');
+            if (e.key === 'Escape' && modal.classList.contains('show')) {
+                hideModal();
+            }
+            
+            // Fechar modal de consultas com ESC
+            const consultasModal = document.getElementById('consultasModal');
+            if (e.key === 'Escape' && consultasModal.classList.contains('show')) {
+                hideConsultasModal();
+            }
+
+            // Fechar modal de limpar chat com ESC
+            const limparChatModal = document.getElementById('limparChatModal');
+            if (e.key === 'Escape' && limparChatModal.classList.contains('show')) {
+                hideLimparChatModal();
+            }
+
+            // Fechar modal de criar projeto com ESC
+            const criarProjetoModal = document.getElementById('criarProjetoModal');
+            if (e.key === 'Escape' && criarProjetoModal.classList.contains('show')) {
+                hideCriarProjetoModal();
+            }
+        });
+
+        // Fechar modal de consultas ao clicar fora do conteúdo
+        document.addEventListener('click', function(e) {
+            const consultasModal = document.getElementById('consultasModal');
+            const modalContent = consultasModal.querySelector('.modal-content');
+            
+            if (consultasModal.classList.contains('show') && 
+                !modalContent.contains(e.target) && 
+                e.target === consultasModal) {
+                hideConsultasModal();
+            }
+        });
+
+        // Fechar modal de limpar chat ao clicar fora do conteúdo
+        document.addEventListener('click', function(e) {
+            const limparChatModal = document.getElementById('limparChatModal');
+            const modalContent = limparChatModal.querySelector('.modal-content');
+            
+            if (limparChatModal.classList.contains('show') && 
+                !modalContent.contains(e.target) && 
+                e.target === limparChatModal) {
+                hideLimparChatModal();
+            }
+        });
+
+        // Fechar modal de criar projeto ao clicar fora do conteúdo
+        document.addEventListener('click', function(e) {
+            const criarProjetoModal = document.getElementById('criarProjetoModal');
+            const modalContent = criarProjetoModal.querySelector('.modal-content');
+            
+            if (criarProjetoModal.classList.contains('show') && 
+                !modalContent.contains(e.target) && 
+                e.target === criarProjetoModal) {
+                hideCriarProjetoModal();
+            }
+        });
+
+        // Enter para criar projeto
+        document.addEventListener('DOMContentLoaded', function() {
+            const projetoForm = document.getElementById('criarProjetoForm');
+            if (projetoForm) {
+                projetoForm.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        criarProjeto();
+                    }
+                });
+            }
+        });
+
+        // Listener para mudanças de tamanho da tela
+        window.addEventListener('resize', function() {
+            const leftMenu = document.getElementById('leftMenu');
+            const menuToggle = document.querySelector('.menu-toggle');
+            const rightPanel = document.getElementById('rightPanel');
+            const menuToggleRight = document.querySelector('.menu-toggle-right');
+            const chatTitle = document.querySelector('.chat-title');
+            
+            // Se a tela ficar grande, remove todas as classes mobile
+            if (window.innerWidth > 1250) {
+                menuToggle.classList.remove('menu-open');
+                menuToggleRight.classList.remove('menu-open');
+                chatTitle.classList.remove('hidden-mobile');
+                leftMenu.classList.remove('show');
+                rightPanel.classList.remove('show');
+            }
+        });
+
+        // Inicializar a página
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM carregado - dashboard');
+            
+            // Carregar permissões hardcoded primeiro
+            loadPermissionsFromDB();
+            
+            // Inicializar funcionalidades após carregar permissões
+            loadMenuItems();
+            checkViewPermissions();
+            
+            // Inicializar com chat selecionado (ou primeiro item disponível)
+            setTimeout(() => {
+                initializeDefaultMenuItem();
+                carregarProjetos(); // Carrega projetos do usuário
+            }, 100);
+
+            // Detectar área útil e ajustar CSS dinamicamente
+            adjustMobileViewport();
+        });
+
+        // Função para verificar e bloquear rotação APENAS em celulares
+        function checkOrientation() {
+            // Só aplica o bloqueio em celulares (largura <= 768px)
+            if (window.innerWidth <= 768) {
+                const isLandscape = window.innerWidth > window.innerHeight;
+                const body = document.body;
+
+                if (isLandscape) {
+                    body.classList.add('landscape-blocked');
+                } else {
+                    body.classList.remove('landscape-blocked');
+                }
+            } else {
+                // Remove bloqueio para tablets e PC
+                document.body.classList.remove('landscape-blocked');
+            }
+        }
+
+        // Função para ajustar o viewport mobile dinamicamente
+        function adjustMobileViewport() {
+            if (window.innerWidth <= 768) {
+                // Detecta a altura real disponível (sem barras do navegador)
+                const availableHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+                const availableWidth = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+                
+                // Detecta se o teclado está aberto (altura muito reduzida)
+                const screenHeight = window.screen.height;
+                const isKeyboardOpen = availableHeight < screenHeight * 0.6;
+                
+                // Gerencia visibilidade dos ícones de menu baseado no teclado
+                const leftMenuToggle = document.querySelector('.menu-toggle');
+                const rightMenuToggle = document.querySelector('.menu-toggle-right');
+                
+                if (isKeyboardOpen) {
+                    // Esconde ambos os ícones quando teclado está aberto
+                    if (leftMenuToggle) leftMenuToggle.style.display = 'none';
+                    if (rightMenuToggle) rightMenuToggle.style.display = 'none';
+                } else {
+                    // Mostra os ícones quando teclado está fechado
+                    if (leftMenuToggle) leftMenuToggle.style.display = 'block';
+                    if (rightMenuToggle) rightMenuToggle.style.display = 'block';
+                    
+                    // Verifica se algum menu está aberto para ajustar visibilidade
+                    const leftMenu = document.getElementById('leftMenu');
+                    const rightPanel = document.getElementById('rightPanel');
+                    
+                    if (leftMenu && leftMenu.classList.contains('show')) {
+                        if (rightMenuToggle) rightMenuToggle.style.display = 'none';
+                    }
+                    
+                    if (rightPanel && rightPanel.classList.contains('show')) {
+                        if (leftMenuToggle) leftMenuToggle.style.display = 'none';
+                    }
+                }
+                
+                // Cria ou atualiza o CSS dinâmico
+                let dynamicStyle = document.getElementById('dynamic-mobile-css');
+                if (!dynamicStyle) {
+                    dynamicStyle = document.createElement('style');
+                    dynamicStyle.id = 'dynamic-mobile-css';
+                    document.head.appendChild(dynamicStyle);
+                }
+                
+                // CSS adaptado para a área útil real
+                dynamicStyle.innerHTML = `
+                    @media (max-width: 768px) {
+                        body {
+                            height: ${availableHeight}px !important;
+                            overflow: hidden !important;
+                        }
+                        
+                        .dashboard-container {
+                            height: ${availableHeight}px !important;
+                        }
+                        
+                        .chat-area {
+                            height: ${availableHeight}px !important;
+                        }
+                        
+                        .chat-header-invisible {
+                            height: ${Math.min(60, availableHeight * 0.08)}px !important;
+                            padding: 8px 70px !important;
+                        }
+                        
+                        .chat-content {
+                            flex: 1 !important;
+                            min-height: 0 !important;
+                            max-height: ${availableHeight - 120}px !important;
+                            padding: 10px 15px !important;
+                        }
+                        
+                        .chat-input-container {
+                            height: ${Math.min(60, availableHeight * 0.08)}px !important;
+                            padding: 8px !important;
+                        }
+                        
+                        .welcome-message {
+                            padding: 10px 5px !important;
+                            margin: 0 !important;
+                        }
+                        
+                        /* Menus hambúrguer adaptados ao viewport */
+                        .left-menu.show, .right-panel.show {
+                            height: ${availableHeight}px !important;
+                        }
+                        
+                        .menu-toggle, .menu-toggle-right {
+                            top: ${Math.min(20, availableHeight * 0.02)}px !important;
+                            width: ${Math.min(40, availableWidth * 0.08)}px !important;
+                            height: ${Math.min(40, availableWidth * 0.08)}px !important;
+                            font-size: ${Math.min(18, availableWidth * 0.035)}px !important;
+                        }
+                        
+                        /* Esconder menu direito quando o esquerdo estiver aberto */
+                        .left-menu.show ~ .menu-toggle-right {
+                            display: none !important;
+                        }
+                        
+                        /* Esconder menu esquerdo quando o direito estiver aberto */
+                        .right-panel.show ~ .menu-toggle {
+                            display: none !important;
+                        }
+                        
+                        /* Modal adaptado */
+                        .modal-overlay {
+                            height: ${availableHeight}px !important;
+                        }
+                        
+                        .modal-content {
+                            max-height: ${availableHeight * 0.9}px !important;
+                            overflow-y: auto !important;
+                        }
+                        
+                        /* Input wrapper responsivo */
+                        .chat-input-wrapper {
+                            width: ${Math.min(90, (availableWidth - 40) / availableWidth * 100)}% !important;
+                            padding: ${Math.min(15, availableWidth * 0.03)}px !important;
+                        }
+                        
+                        .chat-input {
+                            font-size: ${Math.min(16, availableWidth * 0.04)}px !important;
+                            padding: ${Math.min(10, availableWidth * 0.025)}px !important;
+                        }
+                        
+                        .send-button {
+                            padding: ${Math.min(10, availableWidth * 0.025)}px ${Math.min(20, availableWidth * 0.05)}px !important;
+                            font-size: ${Math.min(14, availableWidth * 0.035)}px !important;
+                        }
+                    }
+                `;
+                
+                console.log('Viewport ajustado:', {
+                    altura: availableHeight,
+                    largura: availableWidth,
+                    headerHeight: Math.min(60, availableHeight * 0.08),
+                    inputHeight: Math.min(60, availableHeight * 0.08),
+                    contentMaxHeight: availableHeight - 120
+                });
+            }
+        }
+
+        // Inicializar verificação de orientação
+        document.addEventListener('DOMContentLoaded', function() {
+            checkOrientation();
+        });
+
+        // Reajustar quando o viewport mudar (rotação, teclado virtual, etc)
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', function() {
+                adjustMobileViewport();
+                checkOrientation();
+            });
+        }
+        
+        window.addEventListener('resize', function() {
+            adjustMobileViewport();
+            checkOrientation();
+        });
+        
+        window.addEventListener('orientationchange', function() {
+            setTimeout(function() {
+                adjustMobileViewport();
+                checkOrientation();
+            }, 100);
+        });
+
+        // Bloqueia zoom e scroll APENAS em dispositivos móveis
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                   window.innerWidth <= 768;
+        }
+
+        if (isMobileDevice()) {
+            console.log('Dispositivo móvel detectado - Bloqueando zoom e scroll');
+            
+            // Previne zoom por duplo toque
+            let lastTouchEnd = 0;
+            document.addEventListener('touchend', function (event) {
+                const now = (new Date()).getTime();
+                if (now - lastTouchEnd <= 300) {
+                    event.preventDefault();
+                }
+                lastTouchEnd = now;
+            }, false);
+
+            // Previne zoom por pinch
+            document.addEventListener('touchmove', function (event) {
+                if (event.scale !== 1) { 
+                    event.preventDefault(); 
+                }
+            }, { passive: false });
+
+            // Previne scroll do body
+            document.addEventListener('scroll', function() {
+                window.scrollTo(0, 0);
+            }, { passive: false });
+
+        } else {
+            console.log('PC detectado - Zoom e scroll normais');
+        }
+
+
+    </script>
+</body>
+</html>
