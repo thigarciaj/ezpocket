@@ -113,8 +113,27 @@ def test_orchestrator():
             initial_data={"pergunta": pergunta}
         )
         
-        # Determina fluxo esperado
-        flow = " -> ".join([module] + orchestrator.connections.get(module, []))
+        # Determina fluxo esperado mostrando branches paralelas
+        next_modules = orchestrator.connections.get(module, [])
+        
+        if len(next_modules) == 0:
+            flow = module
+        elif len(next_modules) == 1:
+            # Fluxo linear
+            flow = f"{module} -> {next_modules[0]}"
+            # Adicionar próximos níveis
+            next_next = orchestrator.connections.get(next_modules[0], [])
+            if next_next:
+                flow += f" -> {', '.join(next_next)}"
+        else:
+            # Fluxo paralelo - mostrar branches
+            flow = f"{module} -> [{', '.join(next_modules)}]"
+            # Verificar se as branches convergem
+            all_next = set()
+            for nm in next_modules:
+                all_next.update(orchestrator.connections.get(nm, []))
+            if all_next:
+                flow += f" -> {', '.join(all_next)}"
         
         return jsonify({
             "success": True,
