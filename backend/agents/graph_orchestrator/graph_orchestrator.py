@@ -40,11 +40,11 @@ REDIS_CONFIG = {
 # Módulo → [Módulos que receberão o output]
 
 GRAPH_CONNECTIONS = {
-    'intent_validator': ['history_preferences'],
+    'intent_validator': ['plan_builder', 'history_preferences'],  # Intent vai para plan_builder E history
+    'plan_builder': ['history_preferences'],  # Plan builder também vai para history
     'history_preferences': [],  # Nó final (por enquanto)
     
     # Adicione mais conexões conforme necessário:
-    # 'history_preferences': ['router'],
     # 'router': ['generator'],
     # 'generator': ['responder'],
     # 'responder': []

@@ -107,6 +107,50 @@ CREATE INDEX idx_intent_validator_category ON intent_validator_logs(intent_categ
 CREATE INDEX idx_intent_validator_valid ON intent_validator_logs(intent_valid);
 
 -- =====================================================
+-- MÓDULO 1.5: PLAN BUILDER AGENT (NÓ DE PLANEJAMENTO)
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS plan_builder_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    
+    -- Identificação (sempre presente)
+    username VARCHAR(100) NOT NULL,
+    projeto VARCHAR(100) NOT NULL,
+    horario TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    
+    -- Input
+    pergunta TEXT NOT NULL,
+    intent_category VARCHAR(100),
+    
+    -- Plano gerado
+    plan TEXT,
+    plan_steps TEXT[],
+    estimated_complexity VARCHAR(20),
+    
+    -- Análise
+    data_sources TEXT[],
+    output_format VARCHAR(50),
+    
+    -- Performance
+    execution_time REAL,
+    model_used VARCHAR(50),
+    tokens_used INTEGER,
+    
+    -- Status
+    success BOOLEAN DEFAULT TRUE,
+    error_message TEXT,
+    
+    -- Metadata adicional
+    metadata JSONB
+);
+
+CREATE INDEX idx_plan_builder_username ON plan_builder_logs(username);
+CREATE INDEX idx_plan_builder_projeto ON plan_builder_logs(projeto);
+CREATE INDEX idx_plan_builder_horario ON plan_builder_logs(horario DESC);
+CREATE INDEX idx_plan_builder_username_projeto ON plan_builder_logs(username, projeto);
+CREATE INDEX idx_plan_builder_complexity ON plan_builder_logs(estimated_complexity);
+
+-- =====================================================
 -- MÓDULO 2: HISTORY PREFERENCES AGENT (NÓ 1)
 -- =====================================================
 

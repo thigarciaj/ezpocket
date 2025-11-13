@@ -257,6 +257,33 @@ class HistoryPreferencesAgent:
                     json.dumps(metadata, ensure_ascii=False) if metadata else None
                 ))
             
+            elif previous_module == "plan_builder":
+                print(f"  ✓ Salvando em plan_builder_logs")
+                
+                cursor.execute("""
+                    INSERT INTO plan_builder_logs (
+                        username, projeto, pergunta, intent_category,
+                        plan, plan_steps, estimated_complexity,
+                        data_sources, output_format,
+                        execution_time, model_used, tokens_used,
+                        success, error_message
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (
+                    username, projeto, pergunta,
+                    state.get('intent_category', 'unknown'),
+                    state.get('plan', ''),
+                    state.get('plan_steps', []),
+                    state.get('estimated_complexity', 'média'),
+                    state.get('data_sources', []),
+                    state.get('output_format', 'texto'),
+                    state.get('execution_time', 0.0),
+                    state.get('model_used', 'gpt-4o'),
+                    state.get('tokens_used'),
+                    not bool(state.get('error_message')),
+                    state.get('error_message')
+                ))
+            
             elif previous_module == "router":
                 print(f"  ✓ Salvando em router_logs")
                 
