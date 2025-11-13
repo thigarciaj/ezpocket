@@ -38,9 +38,9 @@ class HistoryPreferencesAgent:
             'password': os.getenv('POSTGRES_PASSWORD', 'ezpocket_pass_2025')
         }
         
-        # Carrega roles.json
+        # Carrega config.json
         self.config = self._load_config()
-        print("✅ Configurações carregadas de roles.json")
+        print("✅ Configurações carregadas de config.json")
         
         # Inicializa tabelas
         self._init_database()
@@ -48,8 +48,8 @@ class HistoryPreferencesAgent:
         print("="*80 + "\n")
     
     def _load_config(self) -> Dict:
-        """Carrega configurações do roles.json"""
-        config_path = Path(__file__).parent / "roles.json"
+        """Carrega configurações do config.json"""
+        config_path = Path(__file__).parent / "config.json"
         with open(config_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     
