@@ -266,8 +266,8 @@ class HistoryPreferencesAgent:
                         plan, plan_steps, estimated_complexity,
                         data_sources, output_format,
                         execution_time, model_used, tokens_used,
-                        success, error_message
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        success, error_message, metadata
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
                 """, (
                     username, projeto, pergunta,
@@ -281,7 +281,8 @@ class HistoryPreferencesAgent:
                     state.get('model_used', 'gpt-4o'),
                     state.get('tokens_used'),
                     not bool(state.get('error_message')),
-                    state.get('error_message')
+                    state.get('error_message'),
+                    json.dumps(state.get('metadata', {}))
                 ))
             
             elif previous_module == "router":

@@ -5,11 +5,15 @@ Worker que processa jobs da fila plan_builder
 
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from pathlib import Path
 
+# Adicionar paths
+backend_path = str(Path(__file__).parent.parent.parent)
+sys.path.insert(0, backend_path)
+
+from agents.graph_orchestrator.graph_orchestrator import ModuleWorker
+from agents.plan_builder_agent.plan_builder import PlanBuilderAgent
 from typing import Dict, Any
-from graph_orchestrator.graph_orchestrator import ModuleWorker
-from agents.plan_builder_agent import PlanBuilderAgent
 
 class PlanBuilderWorker(ModuleWorker):
     """Worker para o módulo plan_builder"""
@@ -39,11 +43,11 @@ class PlanBuilderWorker(ModuleWorker):
             - output_format: str
         """
         
-        print(f"   🔍 Debug - Data recebido no worker:")
-        print(f"      pergunta: {data.get('pergunta')}")
-        print(f"      intent_category: {data.get('intent_category')}")
-        print(f"      username: {data.get('username')}")
-        print(f"      projeto: {data.get('projeto')}")
+        print(f"[PLAN_BUILDER]    🔍 Debug - Data recebido no worker:")
+        print(f"[PLAN_BUILDER]       pergunta: {data.get('pergunta')}")
+        print(f"[PLAN_BUILDER]       intent_category: {data.get('intent_category')}")
+        print(f"[PLAN_BUILDER]       username: {data.get('username')}")
+        print(f"[PLAN_BUILDER]       projeto: {data.get('projeto')}")
         
         # IMPORTANTE: Usar TODO o data como state
         state = dict(data)
@@ -53,7 +57,10 @@ class PlanBuilderWorker(ModuleWorker):
         
         # Verificar se houve erro
         if result.get('error_message'):
-            print(f"   ⚠️  Plano gerado com erro: {result.get('error_message')}")
+            print(f"[PLAN_BUILDER]    ⚠️  Plano gerado com erro: {result.get('error_message')}")
+        else:
+            print(f"[PLAN_BUILDER]    ✅ Plano gerado com sucesso")
+            print(f"[PLAN_BUILDER]    📋 Plano: {result.get('plan', '')[:100]}...")
         
         # Retornar resultado mantendo campos importantes
         return {

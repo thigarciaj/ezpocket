@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 import redis
 from redis import Redis
 import uuid
+from copy import deepcopy
 
 load_dotenv()
 
@@ -122,6 +123,68 @@ class GraphOrchestrator:
         if job_json:
             return json.loads(job_json)
         return None
+    
+    def get_job_with_branches(self, job_id: str) -> Optional[Dict]:
+        """
+        Consulta job principal e todas as branches paralelas
+        Consolida execution_chain de todas as branches
+        """
+        main_job = self.get_job_status(job_id)
+        if not main_job:
+            return None
+        
+        # Buscar todas as chaves que começam com "job:"
+        all_jobs = [main_job]
+        branch_jobs = []
+        
+        for key in self.redis_client.scan_iter(match="job:*"):
+            job_data_json = self.redis_client.get(key)
+            if job_data_json:
+                job_data = json.loads(job_data_json)
+                
+                # Adicionar apenas jobs filhos (branches)
+                if job_data.get('parent_job_id') == job_id:
+                    branch_jobs.append(job_data)
+        
+        # Consolidar execution_chain de todos os jobs
+        consolidated_chain = []
+        for job in all_jobs + branch_jobs:
+            consolidated_chain.extend(job.get('execution_chain', []))
+        
+        # Ordenar por timestamp
+        consolidated_chain.sort(key=lambda x: x.get('timestamp', ''))
+        
+        # Verificar status de todas as branches
+        all_completed = all(job.get('status') == 'completed' for job in branch_jobs)
+        any_failed = any(job.get('status') == 'failed' for job in branch_jobs)
+        
+        # Determinar status consolidado
+        if branch_jobs:
+            if any_failed:
+                consolidated_status = 'partial_failure'
+            elif all_completed:
+                consolidated_status = 'completed'
+            else:
+                consolidated_status = 'processing_branches'
+        else:
+            consolidated_status = main_job.get('status', 'unknown')
+        
+        # Criar job consolidado
+        result = main_job.copy()
+        result['execution_chain'] = consolidated_chain
+        result['branches_count'] = len(branch_jobs)
+        result['consolidated_status'] = consolidated_status
+        result['branch_details'] = [
+            {
+                'job_id': b.get('job_id'),
+                'module': b.get('current_module'),
+                'status': b.get('status'),
+                'completed_at': b.get('completed_at')
+            }
+            for b in branch_jobs
+        ]
+        
+        return result
     
     def list_queues(self) -> Dict[str, int]:
         """Lista tamanho de todas as filas"""
@@ -291,7 +354,49 @@ class ModuleWorker:
             if next_modules:
                 print(f"   ⬇️  Depositando em: {', '.join(next_modules)}")
                 
-                for next_module in next_modules:
+                # Se múltiplos destinos (paralelo), criar job_id único para cada branch
+                if len(next_modules) > 1:
+                    for next_module in next_modules:
+                        # Criar novo job_id para esta branch
+                        branch_job_id = str(uuid.uuid4())
+                        
+                        # Deep copy do job_data para evitar compartilhamento
+                        branch_job_data = deepcopy(job_data)
+                        branch_job_data['job_id'] = branch_job_id
+                        branch_job_data['parent_job_id'] = job_id
+                        branch_job_data['current_module'] = next_module
+                        
+                        # IMPORTANTE: Limpar execution_chain da branch para evitar duplicação
+                        # Cada branch terá seu próprio execution_chain independente
+                        branch_job_data['execution_chain'] = []
+                        
+                        # Salvar job da branch
+                        self.redis_client.setex(
+                            f"job:{branch_job_id}",
+                            3600,
+                            json.dumps(branch_job_data)
+                        )
+                        
+                        # Adicionar à fila do próximo módulo
+                        next_queue = f"queue:{next_module}"
+                        self.redis_client.rpush(next_queue, branch_job_id)
+                        print(f"   ✓ Branch {branch_job_id[:8]} → {next_queue}")
+                    
+                    # Marcar job principal como completed (branches criadas com sucesso)
+                    job_data['status'] = 'completed'
+                    job_data['completed_at'] = datetime.now().isoformat()
+                    job_data['note'] = f'Job split into {len(next_modules)} parallel branches'
+                    
+                    self.redis_client.setex(
+                        f"job:{job_id}",
+                        3600,
+                        json.dumps(job_data)
+                    )
+                    
+                    print(f"   🔀 Job principal marcado como completed ({len(next_modules)} branches criadas)")
+                else:
+                    # Um único destino - usar mesmo job_id
+                    next_module = next_modules[0]
                     job_data['current_module'] = next_module
                     
                     # Salvar job atualizado

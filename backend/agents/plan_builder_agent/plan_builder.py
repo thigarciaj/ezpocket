@@ -43,17 +43,17 @@ class PlanBuilderAgent:
         
         # Header
         print(f"\n{'='*80}")
-        print(f"📋 PLAN BUILDER AGENT - NÓ DE PLANEJAMENTO")
+        print(f"[PLAN_BUILDER] 📋 PLAN BUILDER AGENT - NÓ DE PLANEJAMENTO")
         print(f"{'='*80}")
         
         # Inputs
-        print(f"📥 INPUTS:")
-        print(f"   📝 Pergunta: {pergunta}")
-        print(f"   📂 Categoria: {intent_category}")
-        print(f"   👤 Username: {username}")
-        print(f"   📁 Projeto: {projeto}")
+        print(f"[PLAN_BUILDER] 📥 INPUTS:")
+        print(f"[PLAN_BUILDER]    📝 Pergunta: {pergunta}")
+        print(f"[PLAN_BUILDER]    📂 Categoria: {intent_category}")
+        print(f"[PLAN_BUILDER]    👤 Username: {username}")
+        print(f"[PLAN_BUILDER]    📁 Projeto: {projeto}")
         
-        print(f"\n⚙️  PROCESSAMENTO:")
+        print(f"\n[PLAN_BUILDER] ⚙️  PROCESSAMENTO:")
         
         start_time = time.time()
         
@@ -213,7 +213,7 @@ Projeto: {projeto}
 
 Crie um plano de execução para responder esta pergunta."""
 
-            print(f"   🤖 Chamando GPT-4o para gerar plano...")
+            print(f"[PLAN_BUILDER]    🤖 Chamando GPT-4o para gerar plano...")
             
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -226,7 +226,7 @@ Crie um plano de execução para responder esta pergunta."""
                 response_format={"type": "json_object"}
             )
             
-            print(f"   ✅ Resposta recebida do GPT-4o")
+            print(f"[PLAN_BUILDER]    ✅ Resposta recebida do GPT-4o")
             
             result_text = response.choices[0].message.content.strip()
             
@@ -234,9 +234,9 @@ Crie um plano de execução para responder esta pergunta."""
             import json
             try:
                 result = json.loads(result_text)
-                print(f"   ✅ JSON parseado com sucesso")
+                print(f"[PLAN_BUILDER]    ✅ JSON parseado com sucesso")
             except json.JSONDecodeError as je:
-                print(f"   ❌ Erro ao fazer parse do JSON: {je}")
+                print(f"[PLAN_BUILDER]    ❌ Erro ao fazer parse do JSON: {je}")
                 raise je
             
             plan = result.get("plan", "")
@@ -252,15 +252,26 @@ Crie um plano de execução para responder esta pergunta."""
             execution_time = time.time() - start_time
             
             # Output
-            print(f"{'='*80}")
-            print(f"📤 OUTPUT:")
-            print(f"   📋 Plano: {plan}")
-            print(f"   📊 Passos: {len(steps)}")
-            print(f"   ⚡ Complexidade: {complexity}")
-            print(f"   💾 Fontes de dados: {', '.join(data_sources)}")
-            print(f"   📈 Formato de saída: {output_format}")
-            print(f"   ⏱️  Tempo de execução: {execution_time:.3f}s")
+            print(f"\n{'='*80}")
+            print(f"[PLAN_BUILDER] 📤 OUTPUT:")
+            print(f"[PLAN_BUILDER]    📋 Plano: {plan}")
+            print(f"[PLAN_BUILDER]    📊 Passos ({len(steps)}):")
+            for i, step in enumerate(steps, 1):
+                print(f"[PLAN_BUILDER]       {i}. {step}")
+            print(f"[PLAN_BUILDER]    ⚡ Complexidade: {complexity}")
+            print(f"[PLAN_BUILDER]    💾 Fontes de dados: {', '.join(data_sources)}")
+            print(f"[PLAN_BUILDER]    📈 Formato de saída: {output_format}")
+            print(f"[PLAN_BUILDER]    ⏱️  Tempo de execução: {execution_time:.3f}s")
             print(f"{'='*80}\n")
+            
+            # Metadata adicional
+            metadata = {
+                "gpt_model": self.model,
+                "prompt_length": len(system_prompt) + len(user_prompt),
+                "response_length": len(json.dumps(result)),
+                "steps_count": len(steps),
+                "data_sources_count": len(data_sources)
+            }
             
             # Retornar apenas campos processados
             return {
@@ -271,16 +282,22 @@ Crie um plano de execução para responder esta pergunta."""
                 "output_format": output_format,
                 "execution_time": execution_time,
                 "tokens_used": tokens_used,
-                "model_used": self.model
+                "model_used": self.model,
+                "metadata": metadata
             }
             
         except Exception as e:
             execution_time = time.time() - start_time
             
-            print(f"{'='*80}")
-            print(f"❌ ERRO NO PROCESSAMENTO:")
-            print(f"   💥 {str(e)}")
+            print(f"\n{'='*80}")
+            print(f"[PLAN_BUILDER] ❌ ERRO NO PROCESSAMENTO:")
+            print(f"[PLAN_BUILDER]    💥 {str(e)}")
             print(f"{'='*80}\n")
+            
+            metadata = {
+                "error_type": type(e).__name__,
+                "gpt_model": self.model
+            }
             
             return {
                 "plan": f"Erro ao gerar plano: {str(e)}",
@@ -291,5 +308,6 @@ Crie um plano de execução para responder esta pergunta."""
                 "error_message": str(e),
                 "execution_time": execution_time,
                 "tokens_used": None,
-                "model_used": self.model
+                "model_used": self.model,
+                "metadata": metadata
             }

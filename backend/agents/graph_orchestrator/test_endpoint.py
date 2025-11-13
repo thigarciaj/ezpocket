@@ -139,12 +139,13 @@ def test_orchestrator():
 @app.route('/test-orchestrator/status/<job_id>', methods=['GET'])
 def job_status(job_id):
     """
-    Consulta o status de um job
+    Consulta o status de um job (inclui branches paralelas)
     
-    Retorna informações sobre o status atual do job
+    Retorna informações sobre o status atual do job e todas as branches
     """
     try:
-        status = orchestrator.get_job_status(job_id)
+        # Buscar job com todas as branches
+        status = orchestrator.get_job_with_branches(job_id)
         
         if status is None:
             return jsonify({

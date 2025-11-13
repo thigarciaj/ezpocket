@@ -13,6 +13,119 @@ from typing import Dict, Any
 
 BASE_URL = "http://localhost:5008"
 
+# Emojis e títulos para cada módulo
+MODULE_DISPLAY = {
+    'intent_validator': {
+        'emoji': '🛡️',
+        'title': 'INTENT VALIDATOR',
+        'color': '\033[94m'  # Azul
+    },
+    'plan_builder': {
+        'emoji': '📋',
+        'title': 'PLAN BUILDER',
+        'color': '\033[92m'  # Verde
+    },
+    'history_preferences': {
+        'emoji': '🧠',
+        'title': 'HISTORY & PREFERENCES',
+        'color': '\033[95m'  # Magenta
+    },
+    'router': {
+        'emoji': '🔀',
+        'title': 'ROUTER',
+        'color': '\033[93m'  # Amarelo
+    },
+    'generator': {
+        'emoji': '⚙️',
+        'title': 'QUERY GENERATOR',
+        'color': '\033[96m'  # Ciano
+    }
+}
+
+RESET_COLOR = '\033[0m'
+
+
+def print_formatted_result(status_info: Dict[str, Any]) -> None:
+    """Formata e imprime o resultado com títulos bonitos para cada módulo"""
+    
+    execution_chain = status_info.get('execution_chain', [])
+    branch_details = status_info.get('branch_details', [])
+    
+    print(f"\n📊 RESUMO DA EXECUÇÃO:")
+    print(f"   Job ID: {status_info.get('job_id')}")
+    print(f"   Pergunta: {status_info.get('data', {}).get('pergunta', 'N/A')}")
+    print(f"   Username: {status_info.get('username')}")
+    print(f"   Projeto: {status_info.get('projeto')}")
+    
+    if branch_details:
+        print(f"\n🔀 BRANCHES PARALELAS: {len(branch_details)}")
+        for branch in branch_details:
+            status_emoji = '✅' if branch['status'] == 'completed' else '⏳'
+            print(f"   {status_emoji} {branch['module']} (Job ID: {branch['job_id'][:8]}...)")
+    
+    print(f"\n{'='*80}")
+    print(f"📜 EXECUTION CHAIN ({len(execution_chain)} etapas)")
+    print(f"{'='*80}\n")
+    
+    for i, step in enumerate(execution_chain, 1):
+        module = step.get('module', 'unknown')
+        module_info = MODULE_DISPLAY.get(module, {
+            'emoji': '❓',
+            'title': module.upper(),
+            'color': '\033[97m'
+        })
+        
+        print(f"\n{'─'*80}")
+        print(f"{module_info['emoji']}  ETAPA {i}: {module_info['title']}")
+        print(f"{'─'*80}")
+        
+        # Tempo de execução
+        exec_time = step.get('execution_time', 0)
+        print(f"⏱️  Tempo: {exec_time:.3f}s")
+        print(f"✓ Sucesso: {step.get('success', False)}")
+        print(f"🕐 Timestamp: {step.get('timestamp', 'N/A')}")
+        
+        # Output principal
+        output = step.get('output', {})
+        
+        if module == 'intent_validator':
+            print(f"\n📤 OUTPUT:")
+            print(f"   ✓ Intent Válida: {output.get('intent_valid', False)}")
+            print(f"   📂 Categoria: {output.get('intent_category', 'N/A')}")
+            print(f"   💬 Razão: {output.get('intent_reason', 'N/A')}")
+            print(f"   🔒 Violação de Segurança: {output.get('security_violation', False)}")
+            print(f"   🪙 Tokens: {output.get('tokens_used', 0)}")
+            
+        elif module == 'plan_builder':
+            print(f"\n📤 OUTPUT:")
+            print(f"   📋 Plano: {output.get('plan', 'N/A')}")
+            steps = output.get('plan_steps', [])
+            if steps:
+                print(f"   📊 Passos ({len(steps)}):")
+                for j, step_text in enumerate(steps, 1):
+                    print(f"      {j}. {step_text}")
+            print(f"   ⚡ Complexidade: {output.get('estimated_complexity', 'N/A')}")
+            print(f"   💾 Fontes: {', '.join(output.get('data_sources', []))}")
+            print(f"   📈 Formato: {output.get('output_format', 'N/A')}")
+            print(f"   🪙 Tokens: {output.get('tokens_used', 0)}")
+            
+        elif module == 'history_preferences':
+            print(f"\n📤 OUTPUT:")
+            print(f"   💾 Context Loaded: {output.get('context_loaded', False)}")
+            print(f"   ✅ Interaction Saved: {output.get('interaction_saved', False)}")
+            if output.get('interaction_id'):
+                print(f"   🆔 Interaction ID: {output.get('interaction_id')}")
+            print(f"   ⏱️  Execution Time: {output.get('execution_time', 0)}s")
+        
+        else:
+            # Módulo desconhecido - mostrar output genérico
+            print(f"\n📤 OUTPUT:")
+            for key, value in output.items():
+                if key not in ['username', 'projeto', 'pergunta', 'previous_module']:
+                    print(f"   • {key}: {value}")
+    
+    print(f"\n{'='*80}")
+
 
 def test_orchestrator(pergunta: str, username: str = "test_user", projeto: str = "test_project", module: str = "intent_validator") -> Dict[str, Any]:
     """
@@ -71,18 +184,32 @@ def test_orchestrator(pergunta: str, username: str = "test_user", projeto: str =
                 if status_result:
                     status_info = status_result.get('status', {})
                     current_status = status_info.get('status', 'unknown')
+                    consolidated_status = status_info.get('consolidated_status', current_status)
                     
-                    print(f"[{i+1}s] Status: {current_status}")
+                    # Mostrar status consolidado se houver branches
+                    if 'branches_count' in status_info and status_info['branches_count'] > 0:
+                        print(f"[{i+1}s] Status: {consolidated_status} ({status_info['branches_count']} branches)")
+                    else:
+                        print(f"[{i+1}s] Status: {current_status}")
                     
-                    if current_status == 'completed':
+                    # Considerar completo quando todas as branches terminarem
+                    if consolidated_status == 'completed':
                         print(f"\n{'='*80}")
                         print(f"✅ JOB COMPLETADO COM SUCESSO")
                         print(f"{'='*80}")
-                        print(json.dumps(status_info, indent=2, ensure_ascii=False))
+                        
+                        # Formatar saída com títulos bonitos para cada módulo
+                        try:
+                            print_formatted_result(status_info)
+                        except Exception as e:
+                            print(f"\n⚠️  Erro ao formatar resultado: {e}")
+                            print(f"Mostrando JSON bruto:\n")
+                            print(json.dumps(status_info, indent=2, ensure_ascii=False))
+                        
                         print(f"{'='*80}\n")
                         return result
                     
-                    if current_status == 'error':
+                    if consolidated_status in ['error', 'failed', 'partial_failure']:
                         print(f"\n{'='*80}")
                         print(f"❌ JOB FALHOU")
                         print(f"{'='*80}")
