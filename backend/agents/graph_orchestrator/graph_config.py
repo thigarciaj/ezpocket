@@ -10,16 +10,22 @@ O output de um módulo vira input do próximo.
 # =====================================================
 
 GRAPH_CONNECTIONS = {
-    # Intent Validator → History Preferences
+    # Intent Validator → [Plan Builder, History Preferences] (paralelo)
     "intent_validator": {
-        "connected_to": ["history_preferences"],
-        "description": "Intent Validator deposita dados no History Preferences"
+        "connected_to": ["plan_builder", "history_preferences"],
+        "description": "Intent Validator deposita em paralelo para Plan Builder e History"
     },
     
-    # History Preferences → (adicione conexões futuras aqui)
+    # Plan Builder → History Preferences (salva com FK)
+    "plan_builder": {
+        "connected_to": ["history_preferences"],
+        "description": "Plan Builder gera plano e deposita no History para salvar"
+    },
+    
+    # History Preferences → (fim)
     "history_preferences": {
-        "connected_to": [],  # Por enquanto não conecta com ninguém
-        "description": "History Preferences armazena contexto"
+        "connected_to": [],
+        "description": "History Preferences salva contexto e encerra"
     },
     
     # Router → (quando implementar)

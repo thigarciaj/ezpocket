@@ -8,57 +8,14 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
 -- =====================================================
--- TABELA CENTRAL: ROTINA DO USUÁRIO
--- Esta é a tabela mestre que permite navegar por tudo
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS rotina_usuario (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    
-    -- Identificação (sempre presente)
-    username VARCHAR(100) NOT NULL,
-    projeto VARCHAR(100) NOT NULL,
-    
-    -- Timestamp (sempre presente)
-    horario TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    
-    -- Módulo acionado
-    modulo VARCHAR(50) NOT NULL, -- intent_validator, history_preferences, router, generator, responder
-    
-    -- Chaves para navegação (FK para tabelas específicas)
-    intent_validator_id UUID,
-    history_preferences_id UUID,
-    router_id UUID,
-    generator_id UUID,
-    responder_id UUID,
-    
-    -- Informações gerais
-    pergunta TEXT,
-    resposta_resumo TEXT,
-    execution_time REAL,
-    success BOOLEAN DEFAULT TRUE,
-    
-    -- Índices para consulta rápida
-    CONSTRAINT idx_rotina_username_projeto_horario UNIQUE (username, projeto, horario, modulo)
-);
-
--- =====================================================
--- ÍNDICES DA TABELA CENTRAL
--- =====================================================
-
-CREATE INDEX idx_rotina_username ON rotina_usuario(username);
-CREATE INDEX idx_rotina_projeto ON rotina_usuario(projeto);
-CREATE INDEX idx_rotina_horario ON rotina_usuario(horario DESC);
-CREATE INDEX idx_rotina_modulo ON rotina_usuario(modulo);
-CREATE INDEX idx_rotina_username_projeto ON rotina_usuario(username, projeto);
-CREATE INDEX idx_rotina_username_projeto_horario ON rotina_usuario(username, projeto, horario DESC);
-
--- =====================================================
 -- MÓDULO 1: INTENT VALIDATOR AGENT (NÓ 0)
 -- =====================================================
 
 CREATE TABLE IF NOT EXISTS intent_validator_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    
+    -- Rastreio de execução
+    execution_sequence INTEGER,  -- Ordem de execução no fluxo
     
     -- Identificação (sempre presente)
     username VARCHAR(100) NOT NULL,
@@ -105,6 +62,7 @@ CREATE INDEX idx_intent_validator_horario ON intent_validator_logs(horario DESC)
 CREATE INDEX idx_intent_validator_username_projeto ON intent_validator_logs(username, projeto);
 CREATE INDEX idx_intent_validator_category ON intent_validator_logs(intent_category);
 CREATE INDEX idx_intent_validator_valid ON intent_validator_logs(intent_valid);
+CREATE INDEX idx_intent_validator_execution_sequence ON intent_validator_logs(execution_sequence);
 
 -- =====================================================
 -- MÓDULO 1.5: PLAN BUILDER AGENT (NÓ DE PLANEJAMENTO)
@@ -112,6 +70,10 @@ CREATE INDEX idx_intent_validator_valid ON intent_validator_logs(intent_valid);
 
 CREATE TABLE IF NOT EXISTS plan_builder_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    
+    -- Rastreio de execução
+    execution_sequence INTEGER,  -- Ordem de execução no fluxo
+    parent_intent_validator_id UUID REFERENCES intent_validator_logs(id),  -- FK para intent_validator
     
     -- Identificação (sempre presente)
     username VARCHAR(100) NOT NULL,
@@ -149,11 +111,14 @@ CREATE INDEX idx_plan_builder_projeto ON plan_builder_logs(projeto);
 CREATE INDEX idx_plan_builder_horario ON plan_builder_logs(horario DESC);
 CREATE INDEX idx_plan_builder_username_projeto ON plan_builder_logs(username, projeto);
 CREATE INDEX idx_plan_builder_complexity ON plan_builder_logs(estimated_complexity);
+CREATE INDEX idx_plan_builder_parent_intent ON plan_builder_logs(parent_intent_validator_id);
+CREATE INDEX idx_plan_builder_execution_sequence ON plan_builder_logs(execution_sequence);
 
 -- =====================================================
 -- MÓDULO 2: HISTORY PREFERENCES AGENT (NÓ 1)
 -- =====================================================
-
+-- COMENTADO: Tabela não utilizada no momento
+/*
 CREATE TABLE IF NOT EXISTS history_preferences_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     
@@ -188,11 +153,13 @@ CREATE INDEX idx_history_preferences_username ON history_preferences_logs(userna
 CREATE INDEX idx_history_preferences_projeto ON history_preferences_logs(projeto);
 CREATE INDEX idx_history_preferences_horario ON history_preferences_logs(horario DESC);
 CREATE INDEX idx_history_preferences_username_projeto ON history_preferences_logs(username, projeto);
+*/
 
 -- =====================================================
 -- MÓDULO 3: ROUTER AGENT (NÓ 2)
 -- =====================================================
-
+-- COMENTADO: Tabela não utilizada no momento
+/*
 CREATE TABLE IF NOT EXISTS router_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     
@@ -229,11 +196,13 @@ CREATE INDEX idx_router_projeto ON router_logs(projeto);
 CREATE INDEX idx_router_horario ON router_logs(horario DESC);
 CREATE INDEX idx_router_username_projeto ON router_logs(username, projeto);
 CREATE INDEX idx_router_route ON router_logs(route);
+*/
 
 -- =====================================================
 -- MÓDULO 4: GENERATOR AGENT (NÓ 3)
 -- =====================================================
-
+-- COMENTADO: Tabela não utilizada no momento
+/*
 CREATE TABLE IF NOT EXISTS generator_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     
@@ -275,11 +244,13 @@ CREATE INDEX idx_generator_projeto ON generator_logs(projeto);
 CREATE INDEX idx_generator_horario ON generator_logs(horario DESC);
 CREATE INDEX idx_generator_username_projeto ON generator_logs(username, projeto);
 CREATE INDEX idx_generator_query_type ON generator_logs(query_type);
+*/
 
 -- =====================================================
 -- MÓDULO 5: RESPONDER AGENT (NÓ 4)
 -- =====================================================
-
+-- COMENTADO: Tabela não utilizada no momento
+/*
 CREATE TABLE IF NOT EXISTS responder_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     
@@ -318,7 +289,7 @@ CREATE INDEX idx_responder_projeto ON responder_logs(projeto);
 CREATE INDEX idx_responder_horario ON responder_logs(horario DESC);
 CREATE INDEX idx_responder_username_projeto ON responder_logs(username, projeto);
 CREATE INDEX idx_responder_format ON responder_logs(resposta_format);
-
+*/
 
 -- =====================================================
 -- FOREIGN KEYS: Conectando rotina_usuario com módulos

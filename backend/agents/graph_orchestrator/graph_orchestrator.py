@@ -294,6 +294,9 @@ class ModuleWorker:
             if 'projeto' not in data_input:
                 data_input['projeto'] = job_data.get('projeto', 'default')
             
+            # RASTREIO: Adicionar job_id ao data_input para salvar no banco
+            data_input['job_id'] = job_id
+            
             # DEBUG: Mostrar o que chegou
             print(f"   🔍 DEBUG: type(data_input) = {type(data_input)}")
             print(f"   🔍 DEBUG: data_input = {data_input}")
@@ -342,6 +345,8 @@ class ModuleWorker:
             job_data['data'] = {
                 'username': job_data['username'],
                 'projeto': job_data['projeto'],
+                'job_id': job_id,  # PRESERVAR job_id para rastreio
+                'parent_job_id': job_data.get('parent_job_id'),  # PRESERVAR parent_job_id para FK
                 **output  # Output deste módulo
             }
             
@@ -365,6 +370,9 @@ class ModuleWorker:
                         branch_job_data['job_id'] = branch_job_id
                         branch_job_data['parent_job_id'] = job_id
                         branch_job_data['current_module'] = next_module
+                        
+                        # IMPORTANTE: Adicionar parent_job_id ao data para os workers
+                        branch_job_data['data']['parent_job_id'] = job_id
                         
                         # IMPORTANTE: Limpar execution_chain da branch para evitar duplicação
                         # Cada branch terá seu próprio execution_chain independente

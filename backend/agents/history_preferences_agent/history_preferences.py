@@ -57,6 +57,33 @@ class HistoryPreferencesAgent:
         """Cria conexão com PostgreSQL"""
         return psycopg2.connect(**self.db_config)
     
+    def _get_intent_validator_id_by_context(self, username, projeto, pergunta):
+        """Busca o intent_validator_log_id mais recente para o mesmo contexto"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        print(f"  🔍 Buscando intent_validator_logs recente: user={username}, projeto={projeto}")
+        
+        cursor.execute("""
+            SELECT id FROM intent_validator_logs 
+            WHERE username = %s 
+              AND projeto = %s 
+              AND pergunta = %s
+            ORDER BY horario DESC 
+            LIMIT 1
+        """, (username, projeto, pergunta))
+        
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if result:
+            print(f"  ✅ Encontrado intent_validator_id: {result[0]}")
+        else:
+            print(f"  ❌ Nenhum intent_validator_logs encontrado")
+        
+        return result[0] if result else None
+    
     def _init_database(self):
         """Inicializa tabelas do banco de dados PostgreSQL"""
         conn = self._get_connection()
@@ -226,6 +253,7 @@ class HistoryPreferencesAgent:
                 
                 cursor.execute("""
                     INSERT INTO intent_validator_logs (
+                        execution_sequence,
                         username, projeto, pergunta,
                         intent_valid, intent_category, intent_reason,
                         is_special_case, special_type,
@@ -233,9 +261,10 @@ class HistoryPreferencesAgent:
                         input_length, language_detected,
                         execution_time, model_used, tokens_used,
                         success, error_message, metadata
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
                 """, (
+                    1,  # Intent validator é sempre o primeiro (sequence 1)
                     username, 
                     projeto, 
                     pergunta,
@@ -256,9 +285,16 @@ class HistoryPreferencesAgent:
                     state.get('error_message'),
                     json.dumps(metadata, ensure_ascii=False) if metadata else None
                 ))
+                log_id = cursor.fetchone()[0]
             
             elif previous_module == "plan_builder":
                 print(f"  ✓ Salvando em plan_builder_logs")
+                
+                # Buscar parent_intent_validator_id do banco usando username + projeto + pergunta
+                parent_intent_validator_id = self._get_intent_validator_id_by_context(
+                    username, projeto, pergunta
+                )
+                print(f"  🔍 DEBUG - intent_validator_id encontrado: {parent_intent_validator_id}")
                 
                 # Preparar metadata com dados reais do processamento
                 metadata = {
@@ -277,14 +313,17 @@ class HistoryPreferencesAgent:
                 
                 cursor.execute("""
                     INSERT INTO plan_builder_logs (
+                        execution_sequence, parent_intent_validator_id,
                         username, projeto, pergunta, intent_category,
                         plan, plan_steps, estimated_complexity,
                         data_sources, output_format,
                         execution_time, model_used, tokens_used,
                         success, error_message, metadata
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
                 """, (
+                    2,  # Plan builder é sequence 2 (depois do intent)
+                    parent_intent_validator_id,  # FK buscado do banco pelo parent_job_id
                     username, projeto, pergunta,
                     state.get('intent_category', 'unknown'),
                     state.get('plan', ''),
@@ -299,6 +338,7 @@ class HistoryPreferencesAgent:
                     state.get('error_message'),
                     json.dumps(metadata, ensure_ascii=False) if metadata else None
                 ))
+                log_id = cursor.fetchone()[0]
             
             elif previous_module == "router":
                 print(f"  ✓ Salvando em router_logs")
@@ -320,6 +360,7 @@ class HistoryPreferencesAgent:
                     state.get('complexity_level', 'medium'),
                     True
                 ))
+                log_id = cursor.fetchone()[0]
             
             elif previous_module == "generator":
                 print(f"  ✓ Salvando em generator_logs")
@@ -337,6 +378,7 @@ class HistoryPreferencesAgent:
                     state.get('tables_used', []),
                     True
                 ))
+                log_id = cursor.fetchone()[0]
             
             elif previous_module == "responder":
                 print(f"  ✓ Salvando em responder_logs")
@@ -353,8 +395,7 @@ class HistoryPreferencesAgent:
                     state.get('response_type', 'text'),
                     True
                 ))
-            
-            log_id = cursor.fetchone()[0]
+                log_id = cursor.fetchone()[0]
             conn.commit()
             cursor.close()
             conn.close()
