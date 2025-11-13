@@ -260,6 +260,21 @@ class HistoryPreferencesAgent:
             elif previous_module == "plan_builder":
                 print(f"  ✓ Salvando em plan_builder_logs")
                 
+                # Preparar metadata com dados reais do processamento
+                metadata = {
+                    'gpt_model': state.get('model_used'),
+                    'prompt_length': state.get('prompt_length'),
+                    'response_length': state.get('response_length'),
+                    'steps_count': len(state.get('plan_steps', [])),
+                    'data_sources_count': len(state.get('data_sources', [])),
+                    'complexity_level': state.get('estimated_complexity'),
+                    'output_format': state.get('output_format'),
+                    'all_state_keys': list(state.keys())  # Debug - igual ao intent_validator
+                }
+                
+                # Remover campos None do metadata
+                metadata = {k: v for k, v in metadata.items() if v is not None}
+                
                 cursor.execute("""
                     INSERT INTO plan_builder_logs (
                         username, projeto, pergunta, intent_category,
@@ -282,7 +297,7 @@ class HistoryPreferencesAgent:
                     state.get('tokens_used'),
                     not bool(state.get('error_message')),
                     state.get('error_message'),
-                    json.dumps(state.get('metadata', {}))
+                    json.dumps(metadata, ensure_ascii=False) if metadata else None
                 ))
             
             elif previous_module == "router":

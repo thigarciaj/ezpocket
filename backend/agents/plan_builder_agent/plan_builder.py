@@ -264,16 +264,7 @@ Crie um plano de execução para responder esta pergunta."""
             print(f"[PLAN_BUILDER]    ⏱️  Tempo de execução: {execution_time:.3f}s")
             print(f"{'='*80}\n")
             
-            # Metadata adicional
-            metadata = {
-                "gpt_model": self.model,
-                "prompt_length": len(system_prompt) + len(user_prompt),
-                "response_length": len(json.dumps(result)),
-                "steps_count": len(steps),
-                "data_sources_count": len(data_sources)
-            }
-            
-            # Retornar apenas campos processados
+            # Retornar campos processados (metadata será criado pelo history_preferences)
             return {
                 "plan": plan,
                 "plan_steps": steps,
@@ -283,7 +274,9 @@ Crie um plano de execução para responder esta pergunta."""
                 "execution_time": execution_time,
                 "tokens_used": tokens_used,
                 "model_used": self.model,
-                "metadata": metadata
+                # Campos extras para metadata (serão usados pelo history_preferences)
+                "prompt_length": len(system_prompt) + len(user_prompt),
+                "response_length": len(json.dumps(result))
             }
             
         except Exception as e:
@@ -294,11 +287,6 @@ Crie um plano de execução para responder esta pergunta."""
             print(f"[PLAN_BUILDER]    💥 {str(e)}")
             print(f"{'='*80}\n")
             
-            metadata = {
-                "error_type": type(e).__name__,
-                "gpt_model": self.model
-            }
-            
             return {
                 "plan": f"Erro ao gerar plano: {str(e)}",
                 "plan_steps": [],
@@ -308,6 +296,5 @@ Crie um plano de execução para responder esta pergunta."""
                 "error_message": str(e),
                 "execution_time": execution_time,
                 "tokens_used": None,
-                "model_used": self.model,
-                "metadata": metadata
+                "model_used": self.model
             }
