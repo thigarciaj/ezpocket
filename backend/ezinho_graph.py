@@ -9,6 +9,7 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from agents.intent_validator_agent.intent_validator import IntentValidatorAgent
+from agents.history_preferences_agent.history_preferences import HistoryPreferencesAgent
 from agents.router_agent.router import RouterAgent
 from agents.generator_agent.generator import GeneratorAgent
 from agents.responder_agent.responder import ResponderAgent
@@ -23,6 +24,11 @@ class GraphState(TypedDict):
     intent_valid: Optional[bool]
     intent_category: Optional[str]
     intent_reason: Optional[str]
+    # Campos do History/Preferences Agent
+    user_context: Optional[dict]
+    has_user_context: Optional[bool]
+    interaction_saved: Optional[bool]
+    # Campos do Router Agent
     is_special_case: Optional[bool]
     special_type: Optional[str]
     route: Optional[Literal["special", "faq", "generate"]]
@@ -41,6 +47,7 @@ class EzinhoGraph:
     def __init__(self):
         # Inicializa os agentes
         self.intent_validator_agent = IntentValidatorAgent()
+        self.history_preferences_agent = HistoryPreferencesAgent()
         self.router_agent = RouterAgent()
         self.generator_agent = GeneratorAgent()
         self.responder_agent = ResponderAgent()
@@ -54,11 +61,13 @@ class EzinhoGraph:
         
         # Adiciona os nós
         workflow.add_node("intent_validator", self._intent_validator_node)
+        workflow.add_node("history_preferences", self._history_preferences_node)
         workflow.add_node("router", self._router_node)
         workflow.add_node("special_handler", self._special_handler_node)
         workflow.add_node("generator", self._generator_node)
         workflow.add_node("responder", self._responder_node)
         workflow.add_node("out_of_scope", self._out_of_scope_node)
+        workflow.add_node("save_interaction", self._save_interaction_node)
         
         # Define o ponto de entrada - agora é o Intent Validator
         workflow.set_entry_point("intent_validator")
@@ -68,10 +77,13 @@ class EzinhoGraph:
             "intent_validator",
             self._intent_decision,
             {
-                "valid": "router",
+                "valid": "history_preferences",  # Carrega contexto antes de rotear
                 "invalid": "out_of_scope"
             }
         )
+        
+        # Após carregar contexto, vai para router
+        workflow.add_edge("history_preferences", "router")
         
         # Roteamento condicional após router
         workflow.add_conditional_edges(
@@ -85,16 +97,29 @@ class EzinhoGraph:
         )
         
         # Edges diretas
-        workflow.add_edge("out_of_scope", END)
-        workflow.add_edge("special_handler", END)
+        workflow.add_edge("out_of_scope", "save_interaction")
+        workflow.add_edge("special_handler", "save_interaction")
         workflow.add_edge("generator", "responder")
-        workflow.add_edge("responder", END)
+        workflow.add_edge("responder", "save_interaction")
+        workflow.add_edge("save_interaction", END)
         
         return workflow.compile()
     
     def _intent_validator_node(self, state: GraphState) -> GraphState:
         """NÓ 0: Intent Validator Agent"""
         resultado = self.intent_validator_agent.validate(state)
+        state.update(resultado)
+        return state
+    
+    def _history_preferences_node(self, state: GraphState) -> GraphState:
+        """NÓ 1: History and Preferences Agent - Context Manager"""
+        resultado = self.history_preferences_agent.load_context(state)
+        state.update(resultado)
+        return state
+    
+    def _save_interaction_node(self, state: GraphState) -> GraphState:
+        """Salva interação ao final do fluxo"""
+        resultado = self.history_preferences_agent.save_interaction(state)
         state.update(resultado)
         return state
     

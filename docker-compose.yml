@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ezpocket_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ezpocket_logs
+      POSTGRES_USER: ezpocket_user
+      POSTGRES_PASSWORD: ezpocket_pass_2025
+      POSTGRES_HOST_AUTH_METHOD: md5
+    ports:
+      - "5546:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - ezpocket_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ezpocket_user -d ezpocket_logs"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  adminer:
+    image: adminer:latest
+    container_name: ezpocket_adminer
+    restart: always
+    ports:
+      - "8075:8080"
+    networks:
+      - ezpocket_network
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      - postgres
+
+  redis:
+    image: redis:alpine
+    container_name: ezpocket_redis
+    restart: always
+    ports:
+      - "6493:6379"
+    networks:
+      - ezpocket_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+
+networks:
+  ezpocket_network:
+    driver: bridge

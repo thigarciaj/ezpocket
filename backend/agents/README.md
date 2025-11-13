@@ -8,14 +8,29 @@ backend/
 │   ├── __init__.py
 │   ├── intent_validator_agent/     # NÓ 0: Intent Validator Agent
 │   │   ├── __init__.py
-│   │   └── intent_validator.py    # Valida intenção e escopo
-│   ├── router_agent/               # NÓ 1: Router Agent
+│   │   ├── intent_validator.py    # Valida intenção e escopo
+│   │   ├── roles.json             # Configurações de categorias
+│   │   ├── test_endpoint.py       # Endpoint de teste (porta 5001)
+│   │   ├── test_client.py         # Cliente CLI
+│   │   ├── run_test.sh            # Script de automação
+│   │   ├── test_intent_validator.py  # Testes unitários
+│   │   └── README.md              # Documentação completa
+│   ├── history_preferences_agent/  # NÓ 1: History & Preferences Agent
+│   │   ├── __init__.py
+│   │   ├── history_preferences.py # Context Manager / Memory
+│   │   ├── roles.json             # Configurações de memória
+│   │   ├── test_endpoint.py       # Endpoint de teste (porta 5002)
+│   │   ├── test_client.py         # Cliente CLI
+│   │   ├── run_test.sh            # Script de automação
+│   │   ├── test_history_preferences.py  # Testes unitários
+│   │   └── README.md              # Documentação completa
+│   ├── router_agent/               # NÓ 2: Router Agent
 │   │   ├── __init__.py
 │   │   └── router.py              # Detecta casos especiais + FAQ matching
-│   ├── generator_agent/            # NÓ 2: Generator Agent
+│   ├── generator_agent/            # NÓ 3: Generator Agent
 │   │   ├── __init__.py
 │   │   └── generator.py           # Gera SQL com IA
-│   └── responder_agent/            # NÓ 3: Responder Agent
+│   └── responder_agent/            # NÓ 4: Responder Agent
 │       ├── __init__.py
 │       └── responder.py           # Executa SQL + formata resposta
 │
@@ -38,28 +53,39 @@ Pergunta do usuário
 VÁLIDO   INVÁLIDO
   ↓         ↓
   │    "Fora do escopo"
-  ↓         
-[NÓ 1: ROUTER]
+  ↓         ↓
+[NÓ 1: HISTORY/PREFERENCES]  [SAVE & END]
+        ↓
+ Carrega contexto
+    (histórico + preferências)
+        ↓
+[NÓ 2: ROUTER]
         ↓
    Caso especial?
    ↙️    ↓    ↘️
-Reset  Ajuda  Despedida → Resposta
+Reset  Ajuda  Despedida → Resposta → [SAVE & END]
         ↓
    FAQ match?
    ↙️         ↘️
  SIM         NÃO
   ↓           ↓
-  │    [NÓ 2: GENERATOR]
+  │    [NÓ 3: GENERATOR]
   │           ↓
   │      Gera SQL
+  │      (usa contexto)
   │           ↓
-  └─────→ [NÓ 3: RESPONDER]
+  └─────→ [NÓ 4: RESPONDER]
               ↓
          Executa SQL
               ↓
-         Formata resposta
+    Formata resposta
+    (aplica preferências)
               ↓
-          Resposta final
+         Resposta final
+              ↓
+      [SAVE INTERACTION]
+              ↓
+             END
 ```
 
 ---
@@ -70,35 +96,54 @@ Reset  Ajuda  Despedida → Resposta
 
 **Responsabilidades:**
 - ✅ Validar se a pergunta está dentro do escopo do sistema
-- ✅ Classificar a categoria da intenção (análise_dados, despedida, ajuda, reset, faq, fora_escopo)
-- ✅ Detectar tentativas de uso fora do domínio (perguntas pessoais, tópicos gerais)
+- ✅ Classificar em 3 categorias: quantidade, conhecimentos_gerais, analise_estatistica
+- ✅ Detectar tentativas de uso fora do domínio
+- ✅ Proteger dados sensíveis (CPF, RG, senhas, etc)
 - ✅ Gerar respostas educadas para perguntas fora do escopo
-- ✅ Usar GPT-4 para validação inteligente de intenção
+- ✅ Usar GPT-4o para validação inteligente
 
 **Saídas:**
 - `intent_valid`: true/false (se pergunta está no escopo)
-- `intent_category`: "despedida" | "ajuda" | "reset" | "analise_dados" | "faq" | "fora_escopo"
+- `intent_category`: "quantidade" | "conhecimentos_gerais" | "analise_estatistica" | "fora_escopo"
 - `intent_reason`: Explicação da validação
-- `is_special_case`: true se for despedida/ajuda/reset detectado na validação
 
-**Escopo Válido:**
-- Análise de dados financeiros (valores, receitas, inadimplência)
-- Consultas sobre pedidos, transações, clientes
-- Relatórios operacionais e métricas
-- Análises temporais (períodos, datas, meses)
-- Informações sobre recebíveis, antecipações
-- Comandos: despedidas, help, reset
-- Perguntas sobre FAQ conhecidas
-
-**Fora do Escopo:**
-- Perguntas pessoais não relacionadas ao negócio
-- Tópicos gerais sem relação com dados
-- Conversas casuais sem objetivo analítico
-- Outros domínios (receitas, esportes, etc)
+**Porta de Teste:** 5001  
+**Documentação:** `intent_validator_agent/README.md`
 
 ---
 
-### **NÓ 1: Router Agent** (`agents/router_agent/router.py`)
+### **NÓ 1: History & Preferences Agent** (`agents/history_preferences_agent/history_preferences.py`)
+
+**Responsabilidades:**
+- 📜 Gerenciar histórico de interações do usuário
+- ⚙️ Armazenar e recuperar preferências personalizadas
+- 🔍 Identificar padrões de uso
+- 🧠 Fornecer contexto para outros nós do grafo
+- 📊 Aprender automaticamente com base no comportamento
+- 💾 Persistir dados em SQLite (user_context.db)
+
+**Saídas:**
+- `user_context`: Dict com histórico, preferências e padrões
+- `has_user_context`: true/false
+- `interaction_saved`: true/false (ao final)
+
+**Banco de Dados:**
+- `interaction_history`: Histórico de perguntas e respostas
+- `user_preferences`: Preferências de visualização, análise, reporting
+- `user_patterns`: Padrões identificados automaticamente
+
+**Preferências Suportadas:**
+- 📊 **visualization**: tipo de gráfico, esquema de cores, nível de detalhe
+- 📈 **analysis**: período temporal, comparações, métricas prioritárias
+- 📄 **reporting**: formato, recomendações, verbosidade
+- 💬 **communication**: tom, estilo de linguagem, uso de emojis
+
+**Porta de Teste:** 5002  
+**Documentação:** `history_preferences_agent/README.md`
+
+---
+
+### **NÓ 2: Router Agent** (`agents/router_agent/router.py`)
 
 **Responsabilidades:**
 - ✅ Detectar comandos especiais (`#resetar`)
@@ -107,6 +152,7 @@ Reset  Ajuda  Despedida → Resposta
 - ✅ Buscar match com FAQ (usando embeddings)
 - ✅ Validar similaridade + intenção
 - ✅ Decidir: usar FAQ ou gerar nova query
+- ✅ Usar contexto do usuário para melhor roteamento
 
 **Saídas:**
 - `route`: "special" | "faq" | "generate"
@@ -115,7 +161,7 @@ Reset  Ajuda  Despedida → Resposta
 
 ---
 
-### **NÓ 2: Generator Agent** (`agents/generator_agent/generator.py`)
+### **NÓ 3: Generator Agent** (`agents/generator_agent/generator.py`)
 
 **Responsabilidades:**
 - ✅ Carregar schema das tabelas
@@ -123,6 +169,7 @@ Reset  Ajuda  Despedida → Resposta
 - ✅ Usar OpenAI GPT-4 para gerar SQL
 - ✅ Validar sintaxe básica
 - ✅ Manter histórico de conversação
+- ✅ Adaptar SQL baseado nas preferências do usuário (via contexto)
 
 **Saídas:**
 - `sql_query`: Query SQL gerada dinamicamente
@@ -130,7 +177,7 @@ Reset  Ajuda  Despedida → Resposta
 
 ---
 
-### **NÓ 3: Responder Agent** (`agents/responder_agent/responder.py`)
+### **NÓ 4: Responder Agent** (`agents/responder_agent/responder.py`)
 
 **Responsabilidades:**
 - ✅ Executar SQL no Amazon Athena

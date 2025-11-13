@@ -393,85 +393,19 @@ class HistoryPreferencesAgent:
     
     def _get_recent_history(self, username: str, projeto: str, 
                            limit: Optional[int] = None) -> List[Dict]:
-        """Obtém histórico recente do usuário"""
-        if limit is None:
-            limit = self.config["context_fields"]["recent_queries"]["max_items"]
-        
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT pergunta, intent_category, interaction_type, metadata, timestamp
-            FROM interaction_history
-            WHERE username = ? AND projeto = ?
-            ORDER BY timestamp DESC
-            LIMIT ?
-        ''', (username, projeto, limit))
-        
-        rows = cursor.fetchall()
-        conn.close()
-        
-        history = []
-        for row in rows:
-            history.append({
-                "pergunta": row[0],
-                "intent_category": row[1],
-                "interaction_type": row[2],
-                "metadata": json.loads(row[3]) if row[3] else {},
-                "timestamp": row[4]
-            })
-        
-        return history
+        """Obtém histórico recente do usuário - TODO: Implementar query PostgreSQL"""
+        # Por enquanto retorna vazio - histórico será construído ao longo do tempo
+        return []
     
     def _get_user_preferences(self, username: str, projeto: str) -> Dict:
-        """Obtém preferências do usuário"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT preference_category, preference_key, preference_value, confidence
-            FROM user_preferences
-            WHERE username = ? AND projeto = ?
-        ''', (username, projeto))
-        
-        rows = cursor.fetchall()
-        conn.close()
-        
-        preferences = {}
-        for row in rows:
-            category = row[0]
-            if category not in preferences:
-                preferences[category] = {}
-            
-            preferences[category][row[1]] = {
-                "value": json.loads(row[2]),
-                "confidence": row[3]
-            }
-        
-        return preferences
+        """Obtém preferências do usuário - TODO: Implementar query PostgreSQL"""
+        # Por enquanto retorna vazio - preferências serão aprendidas ao longo do tempo
+        return {}
     
     def _get_user_patterns(self, username: str, projeto: str) -> Dict:
-        """Obtém padrões identificados do usuário"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT pattern_type, pattern_data, occurrence_count
-            FROM user_patterns
-            WHERE username = ? AND projeto = ?
-        ''', (username, projeto))
-        
-        rows = cursor.fetchall()
-        conn.close()
-        
-        patterns = {}
-        for row in rows:
-            patterns[row[0]] = {
-                "data": json.loads(row[1]),
-                "count": row[2]
-            }
-        
-        return patterns
+        """Obtém padrões identificados do usuário - TODO: Implementar query PostgreSQL"""
+        # Por enquanto retorna vazio - padrões serão identificados ao longo do tempo
+        return {}
     
     def _map_category_to_interaction(self, category: str) -> str:
         """Mapeia categoria de intent para tipo de interação"""
