@@ -31,31 +31,36 @@ class HistoryPreferencesWorker(ModuleWorker):
             - username: str
             - projeto: str
             - pergunta: str
-            - intent_category: str (opcional)
-            - intent_valid: bool (opcional)
+            - intent_category: str
+            - intent_valid: bool
+            - intent_reason: str
+            - is_special_case: bool
+            - security_violation: bool
+            - tokens_used: int
+            - ... (todos os campos do módulo anterior)
             
         Output:
             - context: Dict com histórico e preferências
             - execution_time: float
         """
         
-        username = data.get('username', 'unknown')
-        projeto = data.get('projeto', 'default')
-        pergunta = data.get('pergunta', '')
-        intent_category = data.get('intent_category', 'unknown')
+        print(f"   🔍 Debug - Data recebido no worker:")
+        print(f"      username: {data.get('username')}")
+        print(f"      projeto: {data.get('projeto')}")
+        print(f"      intent_valid: {data.get('intent_valid')}")
+        print(f"      intent_reason: {data.get('intent_reason')}")
+        print(f"      is_special_case: {data.get('is_special_case')}")
+        print(f"      security_violation: {data.get('security_violation')}")
+        print(f"      tokens_used: {data.get('tokens_used')}")
         
-        # Criar state para o agente
-        state = {
-            'username': username,
-            'projeto': projeto,
-            'pergunta': pergunta,
-            'intent_category': intent_category
-        }
+        # IMPORTANTE: Usar TODO o data como state, não criar um novo!
+        # Isso mantém TODOS os campos do módulo anterior
+        state = dict(data)  # Copia tudo
         
         # Carregar contexto
         result_state = self.agent.load_context(state)
         
-        # Salvar interação no PostgreSQL
+        # Salvar interação no PostgreSQL (passa o state completo)
         save_state = self.agent.save_interaction(result_state)
         
         return {
@@ -64,8 +69,8 @@ class HistoryPreferencesWorker(ModuleWorker):
             'interaction_id': save_state.get('interaction_id'),
             'execution_time': 0.1,  # TODO: medir tempo real
             # Manter dados para próximo módulo
-            'pergunta': pergunta,
-            'intent_category': intent_category
+            'pergunta': data.get('pergunta'),
+            'intent_category': data.get('intent_category')
         }
 
 if __name__ == '__main__':

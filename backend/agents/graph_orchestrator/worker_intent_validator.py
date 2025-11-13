@@ -58,22 +58,32 @@ class IntentValidatorWorker(ModuleWorker):
         # Processar com o agente
         result = self.agent.validate(state)
         
+        # Debug: ver o que o agente retornou
+        print(f"   🔍 Debug - Result do agente:")
+        print(f"      intent_valid: {result.get('intent_valid')}")
+        print(f"      intent_category: {result.get('intent_category')}")
+        print(f"      intent_reason: {result.get('intent_reason')}")
+        print(f"      is_special_case: {result.get('is_special_case')}")
+        print(f"      security_violation: {result.get('security_violation')}")
+        print(f"      tokens_used: {result.get('tokens_used')}")
+        
         # Verificar se houve erro
         if not result.get('intent_valid') and 'error' in result:
             raise Exception(f"Intent Validator falhou: {result.get('error')}")
         
-        return {
-            'intent_valid': result.get('intent_valid', False),
-            'intent_category': result.get('intent_category', 'unknown'),
-            'reason': result.get('reason', result.get('intent_reason', 'Sem razão fornecida')),
-            'is_special_case': result.get('is_special_case', False),
-            'security_violation': result.get('security_violation', False),
-            'execution_time': result.get('execution_time', 0),
-            'model_used': result.get('model_used', 'gpt-4o'),
-            'tokens_used': result.get('tokens_used'),
-            # Manter pergunta para próximo módulo
-            'pergunta': pergunta
+        # Retornar TODOS os campos do result, mas PRESERVAR username/projeto originais
+        output = {
+            'pergunta': pergunta,
+            'username': username,  # MANTER ORIGINAL
+            'projeto': projeto,    # MANTER ORIGINAL
+            'previous_module': 'intent_validator',
         }
+        # Adicionar campos do result (exceto username/projeto para não sobrescrever)
+        for key, value in result.items():
+            if key not in ['username', 'projeto', 'pergunta']:
+                output[key] = value
+        
+        return output
 
 if __name__ == '__main__':
     worker = IntentValidatorWorker()

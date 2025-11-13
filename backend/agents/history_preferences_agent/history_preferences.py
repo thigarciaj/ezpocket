@@ -163,57 +163,168 @@ class HistoryPreferencesAgent:
         username = state.get("username", "unknown")
         projeto = state.get("projeto", "default")
         pergunta = state.get("pergunta", "")
-        intent_category = state.get("intent_category", "unknown")
+        
+        # Identifica qual nó anterior executou
+        previous_module = state.get("previous_module", "intent_validator")
         
         print("\n📥 INPUTS:")
         print(f"  • Username: {username}")
         print(f"  • Projeto: {projeto}")
         print(f"  • Pergunta: {pergunta}")
-        print(f"  • Categoria: {intent_category}")
+        print(f"  • Módulo anterior: {previous_module}")
+        
+        print("\n🔍 DEBUG - Dados do state:")
+        print(f"  • intent_valid: {state.get('intent_valid')}")
+        print(f"  • intent_category: {state.get('intent_category')}")
+        print(f"  • intent_reason: {state.get('intent_reason')}")
+        print(f"  • is_special_case: {state.get('is_special_case')}")
+        print(f"  • security_violation: {state.get('security_violation')}")
+        print(f"  • tokens_used: {state.get('tokens_used')}")
         
         print("\n⚙️  PROCESSAMENTO:")
         
         try:
-            # Determina tipo de interação baseado na categoria
-            interaction_type = self._map_category_to_interaction(intent_category)
-            print(f"  ✓ Tipo de interação: {interaction_type}")
-            
-            # Extrai metadata relevante
-            metadata = self._extract_metadata(state)
-            print(f"  ✓ Metadata extraída: {len(metadata)} campos")
-            
-            # Salva no PostgreSQL
             conn = self._get_connection()
             cursor = conn.cursor()
             
-            # Adiciona pergunta no metadata
-            metadata['pergunta'] = pergunta
-            metadata['intent_category'] = intent_category
-            metadata['interaction_type'] = interaction_type
+            # Salva na tabela correspondente ao módulo
+            if previous_module == "intent_validator":
+                print(f"  ✓ Salvando em intent_validator_logs")
+                
+                # Preparar dados completos com valores não-null
+                is_special = state.get('is_special_case')
+                security_viol = state.get('security_violation')
+                
+                # Garantir que booleanos nunca sejam None
+                is_special_case = is_special if is_special is not None else False
+                security_violation = security_viol if security_viol is not None else False
+                
+                # Preparar metadata com dados reais do processamento
+                metadata = {
+                    'raw_response': state.get('raw_response'),
+                    'confidence': state.get('confidence'),
+                    'processing_steps': state.get('processing_steps'),
+                    'gpt_full_response': state.get('gpt_full_response'),
+                    'validation_timestamp': state.get('validation_timestamp'),
+                    'all_state_keys': list(state.keys())  # Debug
+                }
+                
+                # Remover campos None do metadata
+                metadata = {k: v for k, v in metadata.items() if v is not None}
+                
+                # DEBUG: Mostrar EXATAMENTE o que vai ser inserido
+                print(f"\n  🔍 DEBUG - Valores que serão inseridos:")
+                print(f"     username: '{username}'")
+                print(f"     projeto: '{projeto}'")
+                print(f"     intent_valid: {state.get('intent_valid', False)}")
+                print(f"     intent_reason: '{state.get('intent_reason', '')}'")
+                print(f"     is_special_case: {is_special_case}")
+                print(f"     security_violation: {security_violation}")
+                print(f"     security_reason: {state.get('security_reason')}")
+                print(f"     tokens_used: {state.get('tokens_used')}")
+                print(f"     metadata keys: {list(metadata.keys())}\n")
+                
+                cursor.execute("""
+                    INSERT INTO intent_validator_logs (
+                        username, projeto, pergunta,
+                        intent_valid, intent_category, intent_reason,
+                        is_special_case, special_type,
+                        security_violation, security_reason, forbidden_keywords,
+                        input_length, language_detected,
+                        execution_time, model_used, tokens_used,
+                        success, error_message, metadata
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (
+                    username, 
+                    projeto, 
+                    pergunta,
+                    state.get('intent_valid', False),
+                    state.get('intent_category', 'unknown'),
+                    state.get('intent_reason', ''),
+                    is_special_case,  # Garantido não-None
+                    state.get('special_type'),
+                    security_violation,  # Garantido não-None
+                    state.get('security_reason'),
+                    state.get('forbidden_keywords', []),
+                    len(pergunta),
+                    state.get('language_detected', 'pt'),
+                    state.get('execution_time', 0.0),
+                    state.get('model_used', 'gpt-4o'),
+                    state.get('tokens_used'),
+                    not bool(state.get('error_message')),
+                    state.get('error_message'),
+                    json.dumps(metadata, ensure_ascii=False) if metadata else None
+                ))
             
-            cursor.execute('''
-                INSERT INTO history_preferences_logs 
-                (username, projeto, contexto_carregado, num_interacoes_recentes, 
-                 num_preferencias, num_padroes, metadata)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                RETURNING id
-            ''', (username, projeto, True, 1, 0, 0, 
-                  json.dumps(metadata, ensure_ascii=False)))
+            elif previous_module == "router":
+                print(f"  ✓ Salvando em router_logs")
+                
+                cursor.execute("""
+                    INSERT INTO router_logs (
+                        username, projeto, route, route_reason,
+                        query_type, requires_aggregation, requires_join,
+                        complexity_level, success
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (
+                    username, projeto,
+                    state.get('route', 'unknown'),
+                    state.get('route_reason', ''),
+                    state.get('query_type', ''),
+                    state.get('requires_aggregation', False),
+                    state.get('requires_join', False),
+                    state.get('complexity_level', 'medium'),
+                    True
+                ))
             
-            # Pega ID da interação recém-criada
-            interaction_id = cursor.fetchone()[0]
+            elif previous_module == "generator":
+                print(f"  ✓ Salvando em generator_logs")
+                
+                cursor.execute("""
+                    INSERT INTO generator_logs (
+                        username, projeto, pergunta, sql_query,
+                        query_type, tables_used, success
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (
+                    username, projeto, pergunta,
+                    state.get('sql_query', ''),
+                    state.get('query_type', ''),
+                    state.get('tables_used', []),
+                    True
+                ))
             
+            elif previous_module == "responder":
+                print(f"  ✓ Salvando em responder_logs")
+                
+                cursor.execute("""
+                    INSERT INTO responder_logs (
+                        username, projeto, pergunta, resposta,
+                        response_type, success
+                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (
+                    username, projeto, pergunta,
+                    state.get('resposta', ''),
+                    state.get('response_type', 'text'),
+                    True
+                ))
+            
+            log_id = cursor.fetchone()[0]
             conn.commit()
             cursor.close()
             conn.close()
             
-            print("  ✓ Interação salva com sucesso no PostgreSQL!")
+            print(f"  ✓ Dados salvos com sucesso! (ID: {log_id})")
             
             print("\n📤 OUTPUT:")
-            print("  • Status: Interação registrada")
+            print(f"  • Tabela: {previous_module}_logs")
+            print(f"  • ID: {log_id}")
             print("="*80 + "\n")
             
             state["interaction_saved"] = True
+            state["log_id"] = str(log_id)
             
         except Exception as e:
             print(f"\n❌ ERRO ao salvar interação:")

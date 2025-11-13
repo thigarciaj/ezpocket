@@ -94,7 +94,12 @@ Retorne APENAS um JSON válido no formato:
 {
     "valid": true/false,
     "category": "quantidade|conhecimentos_gerais|analise_estatistica|fora_escopo",
-    "reason": "breve explicação da validação"
+    "reason": "breve explicação da validação",
+    "security_violation": true/false (se pergunta solicita dados sensíveis),
+    "security_reason": "qual dado sensível foi solicitado" (se security_violation=true),
+    "forbidden_keywords": ["lista", "de", "palavras"] (palavras sensíveis detectadas),
+    "is_special_case": true/false (se é caso especial ou ambíguo),
+    "special_type": "tipo do caso especial" (se is_special_case=true)
 }"""
         
         return prompt
@@ -192,20 +197,62 @@ Valide a intenção e escopo."""
             category = result.get("category", "fora_escopo")
             reason = result.get("reason", "Validação não especificada")
             
+            # Detectar casos especiais e violações de segurança
+            is_special_case = result.get("is_special_case", False)
+            special_type = result.get("special_type", None)
+            security_violation = result.get("security_violation", False)
+            security_reason = result.get("security_reason", None)
+            forbidden_keywords = result.get("forbidden_keywords", [])
+            
+            # Se não veio forbidden_keywords mas tem security_violation, extrair do reason
+            if security_violation and not forbidden_keywords and security_reason:
+                # Tentar extrair palavras sensíveis do reason
+                import re
+                words = re.findall(r'\b(?:cpf|rg|senha|documento|cnpj|cartão|conta|banco)\b', 
+                                 security_reason.lower())
+                if words:
+                    forbidden_keywords = list(set(words))
+            
+            # Tokens usados
+            tokens_used = response.usage.total_tokens if hasattr(response, 'usage') else None
+            
             # Output
             print(f"{'='*80}")
             print(f"📤 OUTPUT:")
             print(f"   {'✅' if is_valid else '❌'} Intent Válida: {is_valid}")
             print(f"   📂 Categoria: {category}")
             print(f"   💬 Razão: {reason}")
+            if is_special_case:
+                print(f"   ⚠️  Caso especial: {special_type}")
+            if security_violation:
+                print(f"   🔒 Violação de segurança: {security_reason}")
             print(f"{'='*80}\n")
             
-            # Atualiza o estado
+            # Atualiza o estado com todos os campos
             state["intent_valid"] = is_valid
             state["intent_category"] = category
             state["intent_reason"] = reason
+            state["is_special_case"] = is_special_case
+            state["special_type"] = special_type
+            state["security_violation"] = security_violation
+            state["security_reason"] = security_reason
+            state["forbidden_keywords"] = forbidden_keywords
+            state["tokens_used"] = tokens_used
+            state["model_used"] = self.model
             
-            return state
+            # Retornar apenas campos relevantes (não username/projeto/pergunta)
+            return {
+                "intent_valid": state["intent_valid"],
+                "intent_category": state["intent_category"],
+                "intent_reason": state["intent_reason"],
+                "is_special_case": state["is_special_case"],
+                "special_type": state["special_type"],
+                "security_violation": state["security_violation"],
+                "security_reason": state["security_reason"],
+                "forbidden_keywords": state["forbidden_keywords"],
+                "tokens_used": state["tokens_used"],
+                "model_used": state["model_used"]
+            }
             
         except Exception as e:
             print(f"{'='*80}")
@@ -213,10 +260,19 @@ Valide a intenção e escopo."""
             print(f"   💥 {str(e)}")
             print(f"{'='*80}\n")
             # Em caso de erro, assume válido para não bloquear o sistema
-            state["intent_valid"] = True
-            state["intent_category"] = "quantidade"
-            state["intent_reason"] = f"Erro na validação: {str(e)}"
-            return state
+            return {
+                "intent_valid": True,
+                "intent_category": "quantidade",
+                "intent_reason": f"Erro na validação: {str(e)}",
+                "is_special_case": False,
+                "security_violation": False,
+                "forbidden_keywords": [],
+                "error_message": str(e),
+                "special_type": None,
+                "security_reason": None,
+                "tokens_used": None,
+                "model_used": self.model
+            }
     
     def generate_out_of_scope_response(self, state: Dict[str, Any]) -> str:
         """
@@ -246,3 +302,4 @@ Valide a intenção e escopo."""
         response += "Por favor, faça uma pergunta relacionada a uma dessas categorias. Se precisar de ajuda, digite \"help\"."
 
         return response
+

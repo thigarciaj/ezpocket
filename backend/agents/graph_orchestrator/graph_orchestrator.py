@@ -224,6 +224,13 @@ class ModuleWorker:
             # Garantir que data é um dict
             data_input = job_data.get('data', {})
             
+            # IMPORTANTE: Adicionar username e projeto ao data_input
+            # (necessário para o primeiro módulo que recebe apenas initial_data)
+            if 'username' not in data_input:
+                data_input['username'] = job_data.get('username', 'unknown')
+            if 'projeto' not in data_input:
+                data_input['projeto'] = job_data.get('projeto', 'default')
+            
             # DEBUG: Mostrar o que chegou
             print(f"   🔍 DEBUG: type(data_input) = {type(data_input)}")
             print(f"   🔍 DEBUG: data_input = {data_input}")
