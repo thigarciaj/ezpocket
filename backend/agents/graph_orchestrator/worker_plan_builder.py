@@ -49,7 +49,6 @@ class PlanBuilderWorker(ModuleWorker):
         print(f"[PLAN_BUILDER]       username: {data.get('username')}")
         print(f"[PLAN_BUILDER]       projeto: {data.get('projeto')}")
         
-        # IMPORTANTE: Usar TODO o data como state
         state = dict(data)
         
         # Gerar plano
