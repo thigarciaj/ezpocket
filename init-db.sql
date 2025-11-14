@@ -222,6 +222,75 @@ CREATE INDEX idx_user_proposed_plan_execution_sequence ON user_proposed_plan_log
 CREATE INDEX idx_user_proposed_plan_iteration ON user_proposed_plan_logs(iteration_count);
 
 -- =====================================================
+-- MÓDULO 1.8: ANALYSIS ORCHESTRATOR AGENT (MOTOR DE GERAÇÃO DE QUERIES)
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS analysis_orchestrator_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    
+    -- Rastreio de execução
+    execution_sequence INTEGER,  -- Ordem de execução no fluxo
+    parent_plan_confirm_id UUID REFERENCES plan_confirm_logs(id),  -- FK para plan_confirm
+    parent_plan_builder_id UUID REFERENCES plan_builder_logs(id),  -- FK para plan_builder
+    parent_intent_validator_id UUID REFERENCES intent_validator_logs(id),  -- FK para intent_validator
+    parent_user_proposed_plan_id UUID REFERENCES user_proposed_plan_logs(id),  -- FK para user_proposed_plan (se houver)
+    
+    -- Identificação (sempre presente)
+    username VARCHAR(100) NOT NULL,
+    projeto VARCHAR(100) NOT NULL,
+    horario TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    
+    -- Input
+    pergunta TEXT NOT NULL,
+    plan TEXT,  -- Plano recebido do PlanBuilder
+    intent_category VARCHAR(100),
+    plan_confirmed BOOLEAN,  -- Se o plano foi confirmado pelo usuário
+    
+    -- Query SQL Gerada
+    query_sql TEXT,
+    query_explanation TEXT,
+    columns_used TEXT[],  -- Colunas utilizadas na query
+    filters_applied TEXT[],  -- Filtros aplicados
+    
+    -- Validação de Segurança
+    security_validated BOOLEAN DEFAULT FALSE,
+    security_violations TEXT[],  -- Violações de segurança detectadas
+    forbidden_columns_detected TEXT[],  -- Colunas sensíveis detectadas
+    forbidden_operations_detected TEXT[],  -- Operações proibidas detectadas
+    
+    -- Otimização
+    optimization_notes TEXT,
+    query_complexity VARCHAR(20),  -- 'baixa', 'média', 'alta'
+    has_aggregation BOOLEAN DEFAULT FALSE,
+    
+    -- Performance
+    execution_time REAL,
+    model_used VARCHAR(50),
+    
+    -- Status
+    success BOOLEAN DEFAULT TRUE,
+    error_message TEXT,
+    error_type VARCHAR(50),  -- 'security', 'syntax', 'semantic', 'timeout', 'api_error'
+    
+    -- Metadata adicional
+    metadata JSONB
+);
+
+CREATE INDEX idx_analysis_orchestrator_username ON analysis_orchestrator_logs(username);
+CREATE INDEX idx_analysis_orchestrator_projeto ON analysis_orchestrator_logs(projeto);
+CREATE INDEX idx_analysis_orchestrator_horario ON analysis_orchestrator_logs(horario DESC);
+CREATE INDEX idx_analysis_orchestrator_username_projeto ON analysis_orchestrator_logs(username, projeto);
+CREATE INDEX idx_analysis_orchestrator_security ON analysis_orchestrator_logs(security_validated);
+CREATE INDEX idx_analysis_orchestrator_success ON analysis_orchestrator_logs(success);
+CREATE INDEX idx_analysis_orchestrator_complexity ON analysis_orchestrator_logs(query_complexity);
+CREATE INDEX idx_analysis_orchestrator_parent_confirm ON analysis_orchestrator_logs(parent_plan_confirm_id);
+CREATE INDEX idx_analysis_orchestrator_parent_plan ON analysis_orchestrator_logs(parent_plan_builder_id);
+CREATE INDEX idx_analysis_orchestrator_parent_intent ON analysis_orchestrator_logs(parent_intent_validator_id);
+CREATE INDEX idx_analysis_orchestrator_parent_user_proposed ON analysis_orchestrator_logs(parent_user_proposed_plan_id);
+CREATE INDEX idx_analysis_orchestrator_execution_sequence ON analysis_orchestrator_logs(execution_sequence);
+CREATE INDEX idx_analysis_orchestrator_category ON analysis_orchestrator_logs(intent_category);
+
+-- =====================================================
 -- MÓDULO 2: HISTORY PREFERENCES AGENT (NÓ 1)
 -- =====================================================
 -- COMENTADO: Tabela não utilizada no momento

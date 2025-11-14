@@ -27,6 +27,9 @@ GRAPH_CONNECTIONS = {
     # User Proposed Plan → History Preferences (apenas registra e encerra)
     "user_proposed_plan": ["history_preferences"],
     
+    # Analysis Orchestrator → History Preferences (gera query e registra)
+    "analysis_orchestrator": ["history_preferences"],
+    
     # History Preferences → (fim)
     "history_preferences": [],
 }
@@ -50,17 +53,24 @@ GRAPH_CONNECTIONS_DETAILED = {
     
     # Plan Confirm → History Preferences (se aceito) OU [User Proposed Plan, History] (se rejeitado)
     "plan_confirm": {
-        "connected_to": ["history_preferences"],  # Default se aceito
+        "connected_to": ["history_preferences"],  # Removido, usar apenas conditional_routes
         "conditional_routes": {
+            "accepted": ["analysis_orchestrator", "history_preferences"],  # Se aceito: 2 paralelos
             "rejected": ["user_proposed_plan", "history_preferences"]  # Se rejeitado: 2 paralelos
         },
-        "description": "Plan Confirm solicita confirmação. Se rejeitado, vai para User Proposed Plan e History em paralelo"
+        "description": "Plan Confirm solicita confirmação. Se aceito, vai para Analysis Orchestrator e History. Se rejeitado, vai para User Proposed Plan e History"
     },
     
     # User Proposed Plan → History Preferences (recebe sugestão e apenas registra)
     "user_proposed_plan": {
         "connected_to": ["history_preferences"],
         "description": "User Proposed Plan recebe sugestão do usuário, registra no histórico e encerra"
+    },
+    
+    # Analysis Orchestrator → History Preferences (gera query SQL e registra)
+    "analysis_orchestrator": {
+        "connected_to": ["history_preferences"],
+        "description": "Analysis Orchestrator transforma plano em query SQL otimizada, valida segurança e registra no histórico"
     },
     
     # History Preferences → (fim)
@@ -93,10 +103,11 @@ GRAPH_CONNECTIONS_DETAILED = {
 # =====================================================
 
 EXPECTED_FLOW = {
-    "intent_validator": "intent_validator -> [plan_builder, history] -> [plan_confirm, history] -> history (aceito) OU [user_proposed, history] (rejeitado)",
-    "plan_builder": "plan_builder -> [plan_confirm, history] -> history",
-    "plan_confirm": "plan_confirm -> history (aceito) OU [user_proposed, history] (rejeitado - 2 paralelos)",
-    "user_proposed_plan": "user_proposed_plan -> history -> FIM (apenas registra sugestão)",
+    "intent_validator": "intent_validator -> [plan_builder, history] -> [plan_confirm, history] -> [analysis_orchestrator, history] (aceito) OU [user_proposed, history] (rejeitado)",
+    "plan_builder": "plan_builder -> [plan_confirm, history] -> conditional",
+    "plan_confirm": "plan_confirm -> [analysis_orchestrator, history] (aceito - 2 paralelos) OU [user_proposed, history] (rejeitado - 2 paralelos)",
+    "analysis_orchestrator": "analysis_orchestrator -> history -> FIM (gera query SQL)",
+    "user_proposed_plan": "user_proposed_plan -> history -> FIM (registra sugestão)",
     "history_preferences": "history_preferences (final)",
 }
 
@@ -133,6 +144,25 @@ MODULE_PROCESSORS = {
             "interaction_count",
             "context_summary",
             "relevant_history_found",
+            "execution_time"
+        ]
+    },
+    
+    "analysis_orchestrator": {
+        "function": "generate_query",
+        "input_fields": [
+            "username",
+            "projeto",
+            "pergunta",
+            "plan",
+            "plan_steps"
+        ],
+        "output_fields": [
+            "query_sql",
+            "query_explanation",
+            "columns_used",
+            "filters_applied",
+            "security_validated",
             "execution_time"
         ]
     },

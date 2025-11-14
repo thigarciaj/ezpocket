@@ -1,0 +1,46 @@
+graph TD
+    Start([Usuário faz pergunta]) --> IntentValidator[Intent Validator]
+    
+    IntentValidator -->|Paralelo| PlanBuilder[Plan Builder]
+    IntentValidator -->|Paralelo| H1[History Preferences]
+    
+    PlanBuilder -->|Paralelo| PlanConfirm[Plan Confirm]
+    PlanBuilder -->|Paralelo| H2[History Preferences]
+    
+    PlanConfirm -->|Aguarda resposta usuário| Decision{Usuário<br/>confirma?}
+    
+    %% Ramo SIM (apenas uma seta)
+    Decision -->|SIM| Yes[  ]
+    Yes --> AnalysisOrchestrator[Analysis Orchestrator<br/>Gera Query SQL]
+    Yes --> H3[History Preferences<br/>Salva Plan Confirm]
+
+    %% Ramo NÃO (apenas uma seta)
+    Decision -->|NÃO| No[  ]
+    No --> UserProposed[User Proposed Plan<br/>Aguarda sugestão]
+    No --> H4[History Preferences<br/>Salva Plan Confirm]
+    
+    AnalysisOrchestrator -->|Query gerada| H5[History Preferences<br/>Salva Analysis Orchestrator]
+    
+    UserProposed -->|Sugestão recebida| H6[History Preferences<br/>Salva User Proposed]
+    
+    H1 --> End1([Fim])
+    H2 --> End2([Fim])
+    H3 --> End3([Fim])
+    H4 --> End4([Fim])
+    H5 --> End5([Fim])
+    H6 --> End6([Fim])
+
+    style IntentValidator fill:#e1f5ff
+    style PlanBuilder fill:#e1f5ff
+    style PlanConfirm fill:#fff4e1
+    style AnalysisOrchestrator fill:#e1ffe1
+    style UserProposed fill:#ffe1e1
+    style Decision fill:#f0e1ff
+    style Yes fill:#ffffff,stroke:#ffffff
+    style No fill:#ffffff,stroke:#ffffff
+    style H1 fill:#f5f5f5
+    style H2 fill:#f5f5f5
+    style H3 fill:#f5f5f5
+    style H4 fill:#f5f5f5
+    style H5 fill:#f5f5f5
+    style H6 fill:#f5f5f5

@@ -110,13 +110,14 @@ class PlanConfirmWorker(ModuleWorker):
                     parent_intent_validator_id=data.get('intent_validator_id')
                 )
                 
-                # LÓGICA CONDICIONAL: Se rejeitado, vai para user_proposed_plan e history (2 paralelos)
-                # O plan_builder será chamado DEPOIS do user_proposed_plan receber a sugestão
-                next_modules = ['user_proposed_plan', 'history_preferences'] if not confirmed else ['history_preferences']
+                # LÓGICA CONDICIONAL:
+                # Se ACEITO (SIM) → [analysis_orchestrator, history_preferences] (2 paralelos)
+                # Se REJEITADO (NÃO) → [user_proposed_plan, history_preferences] (2 paralelos)
+                next_modules = ['analysis_orchestrator', 'history_preferences'] if confirmed else ['user_proposed_plan', 'history_preferences']
                 
                 print(f"[PLAN_CONFIRM]    ❗ DEBUG:")
                 print(f"[PLAN_CONFIRM]       confirmed = {confirmed}")
-                print(f"[PLAN_CONFIRM]       not confirmed = {not confirmed}")
+                print(f"[PLAN_CONFIRM]       Ramo escolhido: {'ACEITO (analysis_orchestrator)' if confirmed else 'REJEITADO (user_proposed_plan)'}")
                 print(f"[PLAN_CONFIRM]    🔀 Próximos módulos definidos: {next_modules}")
                 
                 output = {

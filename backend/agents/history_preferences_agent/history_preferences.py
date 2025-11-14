@@ -138,6 +138,33 @@ class HistoryPreferencesAgent:
         
         return result[0] if result else None
     
+    def _get_user_proposed_plan_id_by_context(self, username, projeto, pergunta):
+        """Busca o user_proposed_plan_log_id mais recente para o mesmo contexto"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        print(f"  🔍 Buscando user_proposed_plan_logs recente: user={username}, projeto={projeto}")
+        
+        cursor.execute("""
+            SELECT id FROM user_proposed_plan_logs 
+            WHERE username = %s 
+              AND projeto = %s 
+              AND pergunta = %s
+            ORDER BY horario DESC 
+            LIMIT 1
+        """, (username, projeto, pergunta))
+        
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if result:
+            print(f"  ✅ Encontrado user_proposed_plan_id: {result[0]}")
+        else:
+            print(f"  ⚠️  Nenhum user_proposed_plan_logs encontrado (pode não ter havido rejeição)")
+        
+        return result[0] if result else None
+    
     def _init_database(self):
         """Inicializa tabelas do banco de dados PostgreSQL"""
         conn = self._get_connection()
@@ -504,6 +531,128 @@ class HistoryPreferencesAgent:
                     state.get('wait_time', 0.0),
                     not bool(state.get('error_message')),
                     state.get('error_message'),
+                    json.dumps(metadata, ensure_ascii=False) if metadata else None
+                ))
+                log_id = cursor.fetchone()[0]
+            
+            elif previous_module == "analysis_orchestrator":
+                print(f"  ✓ Salvando em analysis_orchestrator_logs")
+                
+                # Buscar parent IDs do banco
+                parent_plan_confirm_id = self._get_plan_confirm_id_by_context(
+                    username, projeto, pergunta
+                )
+                parent_plan_builder_id = self._get_plan_builder_id_by_context(
+                    username, projeto, pergunta
+                )
+                parent_intent_validator_id = self._get_intent_validator_id_by_context(
+                    username, projeto, pergunta
+                )
+                
+                # Buscar parent_user_proposed_plan_id se existir (caso tenha havido rejeição)
+                parent_user_proposed_plan_id = self._get_user_proposed_plan_id_by_context(
+                    username, projeto, pergunta
+                )
+                
+                print(f"  🔍 DEBUG - plan_confirm_id encontrado: {parent_plan_confirm_id}")
+                print(f"  🔍 DEBUG - plan_builder_id encontrado: {parent_plan_builder_id}")
+                print(f"  🔍 DEBUG - intent_validator_id encontrado: {parent_intent_validator_id}")
+                print(f"  🔍 DEBUG - user_proposed_plan_id encontrado: {parent_user_proposed_plan_id}")
+                
+                # Preparar metadata
+                metadata = {
+                    'generation_timestamp': datetime.now().isoformat(),
+                    'query_length': len(state.get('query_sql', '')),
+                    'columns_count': len(state.get('columns_used', [])),
+                    'filters_count': len(state.get('filters_applied', [])),
+                    'security_checks': state.get('security_violations', []),
+                    'optimization_applied': bool(state.get('optimization_notes')),
+                    'all_state_keys': list(state.keys())
+                }
+                metadata = {k: v for k, v in metadata.items() if v is not None}
+                
+                # Determinar query_complexity baseado nos dados
+                query_sql = state.get('query_sql', '')
+                query_complexity = 'baixa'
+                
+                # Verifica complexidade pela query
+                if 'JOIN' in query_sql.upper() or 'SUBQUERY' in query_sql.upper() or query_sql.count('SELECT') > 1:
+                    query_complexity = 'alta'
+                elif any(agg in query_sql.upper() for agg in ['SUM(', 'COUNT(', 'AVG(', 'GROUP BY']) or len(state.get('filters_applied', [])) > 2:
+                    query_complexity = 'média'
+                
+                # Determinar error_type se houver erro
+                error_type = None
+                if state.get('error'):
+                    if 'security' in state.get('error', '').lower():
+                        error_type = 'security'
+                    elif 'syntax' in state.get('error', '').lower():
+                        error_type = 'syntax'
+                    elif 'timeout' in state.get('error', '').lower():
+                        error_type = 'timeout'
+                    else:
+                        error_type = 'api_error'
+                
+                # Buscar intent_category e confirmed do plan_confirm
+                intent_category = None
+                plan_confirmed = True  # Se chegou aqui foi porque confirmou
+                
+                try:
+                    cursor.execute("""
+                        SELECT intent_category FROM intent_validator_logs 
+                        WHERE username = %s AND projeto = %s AND pergunta = %s
+                        ORDER BY horario DESC LIMIT 1
+                    """, (username, projeto, pergunta))
+                    result = cursor.fetchone()
+                    if result:
+                        intent_category = result[0]
+                except Exception as e:
+                    print(f"  ⚠️  Erro ao buscar intent_category: {e}")
+                
+                # Determinar has_aggregation analisando a query SQL
+                query_sql = state.get('query_sql', '')
+                has_aggregation = any(keyword in query_sql.upper() for keyword in ['SUM(', 'COUNT(', 'AVG(', 'MAX(', 'MIN(', 'GROUP BY'])
+                
+                cursor.execute("""
+                    INSERT INTO analysis_orchestrator_logs (
+                        execution_sequence, parent_plan_confirm_id, parent_plan_builder_id, 
+                        parent_intent_validator_id, parent_user_proposed_plan_id,
+                        username, projeto, pergunta,
+                        plan, intent_category, plan_confirmed,
+                        query_sql, query_explanation, columns_used, filters_applied,
+                        security_validated, security_violations, 
+                        forbidden_columns_detected, forbidden_operations_detected,
+                        optimization_notes, query_complexity, has_aggregation,
+                        execution_time, model_used,
+                        success, error_message, error_type, metadata
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (
+                    5,  # Analysis orchestrator é sequence 5 (depois do plan_confirm)
+                    parent_plan_confirm_id,
+                    parent_plan_builder_id,
+                    parent_intent_validator_id,
+                    parent_user_proposed_plan_id,
+                    username, projeto, pergunta,
+                    state.get('plan', ''),
+                    intent_category,
+                    plan_confirmed,
+                    query_sql,
+                    state.get('query_explanation', ''),
+                    state.get('columns_used', []),
+                    state.get('filters_applied', []),
+                    state.get('security_validated', False),
+                    state.get('security_violations', []),
+                    state.get('forbidden_columns_detected', []),
+                    state.get('forbidden_operations_detected', []),
+                    state.get('optimization_notes', ''),
+                    query_complexity,
+                    has_aggregation,
+                    state.get('execution_time', 0.0),
+                    state.get('model_used', 'gpt-4o'),
+                    not bool(state.get('error')),
+                    state.get('error'),
+                    error_type,
                     json.dumps(metadata, ensure_ascii=False) if metadata else None
                 ))
                 log_id = cursor.fetchone()[0]
