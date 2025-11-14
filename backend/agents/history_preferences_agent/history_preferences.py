@@ -84,6 +84,33 @@ class HistoryPreferencesAgent:
         
         return result[0] if result else None
     
+    def _get_plan_builder_id_by_context(self, username, projeto, pergunta):
+        """Busca o plan_builder_log_id mais recente para o mesmo contexto"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        print(f"  🔍 Buscando plan_builder_logs recente: user={username}, projeto={projeto}")
+        
+        cursor.execute("""
+            SELECT id FROM plan_builder_logs 
+            WHERE username = %s 
+              AND projeto = %s 
+              AND pergunta = %s
+            ORDER BY horario DESC 
+            LIMIT 1
+        """, (username, projeto, pergunta))
+        
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if result:
+            print(f"  ✅ Encontrado plan_builder_id: {result[0]}")
+        else:
+            print(f"  ❌ Nenhum plan_builder_logs encontrado")
+        
+        return result[0] if result else None
+    
     def _init_database(self):
         """Inicializa tabelas do banco de dados PostgreSQL"""
         conn = self._get_connection()
@@ -334,6 +361,59 @@ class HistoryPreferencesAgent:
                     state.get('execution_time', 0.0),
                     state.get('model_used', 'gpt-4o'),
                     state.get('tokens_used'),
+                    not bool(state.get('error_message')),
+                    state.get('error_message'),
+                    json.dumps(metadata, ensure_ascii=False) if metadata else None
+                ))
+                log_id = cursor.fetchone()[0]
+            
+            elif previous_module == "plan_confirm":
+                print(f"  ✓ Salvando em plan_confirm_logs")
+                
+                # Buscar parent_plan_builder_id e parent_intent_validator_id do banco
+                parent_plan_builder_id = self._get_plan_builder_id_by_context(
+                    username, projeto, pergunta
+                )
+                parent_intent_validator_id = self._get_intent_validator_id_by_context(
+                    username, projeto, pergunta
+                )
+                
+                print(f"  🔍 DEBUG - plan_builder_id encontrado: {parent_plan_builder_id}")
+                print(f"  🔍 DEBUG - intent_validator_id encontrado: {parent_intent_validator_id}")
+                
+                # Preparar metadata
+                metadata = {
+                    'confirmation_timestamp': state.get('confirmation_time'),
+                    'timeout_occurred': state.get('timeout_occurred', False),
+                    'response_time': state.get('response_time'),
+                    'all_state_keys': list(state.keys())
+                }
+                metadata = {k: v for k, v in metadata.items() if v is not None}
+                
+                cursor.execute("""
+                    INSERT INTO plan_confirm_logs (
+                        execution_sequence, parent_plan_builder_id, parent_intent_validator_id,
+                        username, projeto, pergunta,
+                        plan, plan_steps, estimated_complexity,
+                        confirmed, confirmation_method, confirmation_time,
+                        user_feedback, plan_accepted,
+                        execution_time, success, error_message, metadata
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (
+                    3,  # Plan confirm é sequence 3 (depois do plan_builder)
+                    parent_plan_builder_id,
+                    parent_intent_validator_id,
+                    username, projeto, pergunta,
+                    state.get('plan', ''),
+                    state.get('plan_steps', []),
+                    state.get('estimated_complexity', 'média'),
+                    state.get('confirmed', False),
+                    state.get('confirmation_method', 'interactive'),
+                    state.get('confirmation_time'),
+                    state.get('user_feedback'),
+                    state.get('plan_accepted', False),
+                    state.get('execution_time', 0.0),
                     not bool(state.get('error_message')),
                     state.get('error_message'),
                     json.dumps(metadata, ensure_ascii=False) if metadata else None

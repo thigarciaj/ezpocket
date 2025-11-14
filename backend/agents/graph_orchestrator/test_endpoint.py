@@ -17,6 +17,7 @@ load_dotenv(dotenv_path)
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from agents.graph_orchestrator.graph_orchestrator import GraphOrchestrator
+from agents.graph_orchestrator.graph_config import EXPECTED_FLOW
 
 app = Flask(__name__)
 CORS(app)
@@ -113,27 +114,8 @@ def test_orchestrator():
             initial_data={"pergunta": pergunta}
         )
         
-        # Determina fluxo esperado mostrando branches paralelas
-        next_modules = orchestrator.connections.get(module, [])
-        
-        if len(next_modules) == 0:
-            flow = module
-        elif len(next_modules) == 1:
-            # Fluxo linear
-            flow = f"{module} -> {next_modules[0]}"
-            # Adicionar próximos níveis
-            next_next = orchestrator.connections.get(next_modules[0], [])
-            if next_next:
-                flow += f" -> {', '.join(next_next)}"
-        else:
-            # Fluxo paralelo - mostrar branches
-            flow = f"{module} -> [{', '.join(next_modules)}]"
-            # Verificar se as branches convergem
-            all_next = set()
-            for nm in next_modules:
-                all_next.update(orchestrator.connections.get(nm, []))
-            if all_next:
-                flow += f" -> {', '.join(all_next)}"
+        # Usar fluxo esperado do graph_config
+        flow = EXPECTED_FLOW.get(module, f"{module} (flow não definido)")
         
         return jsonify({
             "success": True,

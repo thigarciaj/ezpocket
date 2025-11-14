@@ -115,6 +115,57 @@ CREATE INDEX idx_plan_builder_parent_intent ON plan_builder_logs(parent_intent_v
 CREATE INDEX idx_plan_builder_execution_sequence ON plan_builder_logs(execution_sequence);
 
 -- =====================================================
+-- MÓDULO 1.6: PLAN CONFIRM AGENT (NÓ DE CONFIRMAÇÃO)
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS plan_confirm_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    
+    -- Rastreio de execução
+    execution_sequence INTEGER,  -- Ordem de execução no fluxo
+    parent_plan_builder_id UUID REFERENCES plan_builder_logs(id),  -- FK para plan_builder
+    parent_intent_validator_id UUID REFERENCES intent_validator_logs(id),  -- FK para intent_validator
+    
+    -- Identificação (sempre presente)
+    username VARCHAR(100) NOT NULL,
+    projeto VARCHAR(100) NOT NULL,
+    horario TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    
+    -- Input
+    pergunta TEXT NOT NULL,
+    plan TEXT,
+    plan_steps TEXT[],
+    estimated_complexity VARCHAR(20),
+    
+    -- Confirmação
+    confirmed BOOLEAN,
+    confirmation_method VARCHAR(50),  -- 'interactive', 'timeout', 'auto'
+    confirmation_time TIMESTAMP,
+    user_feedback TEXT,
+    plan_accepted BOOLEAN,
+    
+    -- Performance
+    execution_time REAL,
+    
+    -- Status
+    success BOOLEAN DEFAULT TRUE,
+    error_message TEXT,
+    
+    -- Metadata adicional
+    metadata JSONB
+);
+
+CREATE INDEX idx_plan_confirm_username ON plan_confirm_logs(username);
+CREATE INDEX idx_plan_confirm_projeto ON plan_confirm_logs(projeto);
+CREATE INDEX idx_plan_confirm_horario ON plan_confirm_logs(horario DESC);
+CREATE INDEX idx_plan_confirm_username_projeto ON plan_confirm_logs(username, projeto);
+CREATE INDEX idx_plan_confirm_confirmed ON plan_confirm_logs(confirmed);
+CREATE INDEX idx_plan_confirm_method ON plan_confirm_logs(confirmation_method);
+CREATE INDEX idx_plan_confirm_parent_plan ON plan_confirm_logs(parent_plan_builder_id);
+CREATE INDEX idx_plan_confirm_parent_intent ON plan_confirm_logs(parent_intent_validator_id);
+CREATE INDEX idx_plan_confirm_execution_sequence ON plan_confirm_logs(execution_sequence);
+
+-- =====================================================
 -- MÓDULO 2: HISTORY PREFERENCES AGENT (NÓ 1)
 -- =====================================================
 -- COMENTADO: Tabela não utilizada no momento

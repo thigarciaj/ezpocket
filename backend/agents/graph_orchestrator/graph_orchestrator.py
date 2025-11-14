@@ -22,6 +22,9 @@ from redis import Redis
 import uuid
 from copy import deepcopy
 
+# Importar configuração do grafo
+from agents.graph_orchestrator.graph_config import GRAPH_CONNECTIONS
+
 load_dotenv()
 
 # =====================================================
@@ -33,23 +36,6 @@ REDIS_CONFIG = {
     'port': int(os.getenv('REDIS_PORT', 6493)),
     'db': int(os.getenv('REDIS_DB', 0)),
     'decode_responses': True
-}
-
-# =====================================================
-# DEFINIÇÃO DO GRAFO
-# =====================================================
-# Módulo → [Módulos que receberão o output]
-
-GRAPH_CONNECTIONS = {
-    'intent_validator': ['plan_builder', 'history_preferences'],  # Intent vai para plan_builder E history
-    'plan_builder': ['plan_confirm', 'history_preferences'],  # Plan builder vai para plan_confirm E history
-    'plan_confirm': [],  # Nó final de confirmação (não persiste)
-    'history_preferences': [],  # Nó final (por enquanto)
-    
-    # Adicione mais conexões conforme necessário:
-    # 'router': ['generator'],
-    # 'generator': ['responder'],
-    # 'responder': []
 }
 
 # =====================================================
