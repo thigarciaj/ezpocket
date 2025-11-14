@@ -182,7 +182,6 @@ def test_orchestrator(pergunta: str, username: str = "test_user", projeto: str =
             print(f"{'='*80}")
             print(f"✓ Job ID: {result['job_id']}")
             print(f"✓ Módulo: {result['module']}")
-            print(f"✓ Fluxo esperado: {result['expected_flow']}")
             
             print(f"\n{'='*80}")
             print(f"⏳ MONITORANDO STATUS")
@@ -196,47 +195,85 @@ def test_orchestrator(pergunta: str, username: str = "test_user", projeto: str =
             for i in range(300):
                 time.sleep(1)
                 
-                # Checar se há confirmação pendente a cada 2 segundos
-                if not confirmation_checked and i > 3 and i % 2 == 0:
+                # Checar se há confirmação pendente ou sugestão do usuário a cada 2 segundos
+                if i > 3 and i % 2 == 0:
                     try:
                         import redis
                         redis_client = redis.Redis(host='localhost', port=6493, decode_responses=True)
                         
-                        pending_key = f"plan_confirm:pending:{username}:{projeto}"
-                        response_key = f"plan_confirm:response:{username}:{projeto}"
+                        # Verificar plan_confirm
+                        if not confirmation_checked:
+                            pending_key = f"plan_confirm:pending:{username}:{projeto}"
+                            response_key = f"plan_confirm:response:{username}:{projeto}"
+                            
+                            if redis_client.exists(pending_key):
+                                confirmation_checked = True
+                                
+                                # Ler dados do plano do Redis
+                                plan_data = redis_client.hgetall(pending_key)
+                                
+                                print(f"\n{'='*80}")
+                                print(f"⏸️  CONFIRMAÇÃO NECESSÁRIA!")
+                                print(f"{'='*80}")
+                                print(f"📋 Plano: {plan_data.get('plan', '')}")
+                                print(f"\n📊 Passos:")
+                                
+                                plan_steps = json.loads(plan_data.get('plan_steps', '[]'))
+                                for idx, step in enumerate(plan_steps, 1):
+                                    print(f"   {idx}. {step}")
+                                
+                                print(f"\n{'='*80}")
+                                print(f"🤔 Deseja prosseguir com este plano? (s/n): ", end='', flush=True)
+                                
+                                # Ler resposta do usuário
+                                user_response = input().strip().lower()
+                                confirmed = user_response in ['s', 'sim', 'y', 'yes']
+                                
+                                # Salvar resposta no Redis
+                                redis_client.set(response_key, str(confirmed).lower(), ex=60)
+                                
+                                status_msg = "✅ APROVADO" if confirmed else "❌ REJEITADO"
+                                print(f"{status_msg} - Continuando processamento...")
+                                print(f"{'='*80}\n")
                         
-                        if redis_client.exists(pending_key):
-                            confirmation_checked = True
-                            
-                            # Ler dados do plano do Redis
-                            plan_data = redis_client.hgetall(pending_key)
+                        # Verificar user_proposed_plan (sempre verificar, pode acontecer múltiplas vezes)
+                        user_plan_key = f"user_proposed_plan:pending:{username}:{projeto}"
+                        user_plan_response_key = f"user_proposed_plan:response:{username}:{projeto}"
+                        
+                        if redis_client.exists(user_plan_key):
+                            # Ler contexto
+                            user_plan_data = redis_client.hgetall(user_plan_key)
                             
                             print(f"\n{'='*80}")
-                            print(f"⏸️  CONFIRMAÇÃO NECESSÁRIA!")
+                            print(f"💡 SUGESTÃO DO USUÁRIO NECESSÁRIA!")
                             print(f"{'='*80}")
-                            print(f"📋 Plano: {plan_data.get('plan', '')}")
-                            print(f"\n📊 Passos:")
-                            
-                            plan_steps = json.loads(plan_data.get('plan_steps', '[]'))
-                            for idx, step in enumerate(plan_steps, 1):
-                                print(f"   {idx}. {step}")
-                            
+                            print(f"📝 Pergunta original: {user_plan_data.get('pergunta', '')}")
+                            print(f"❌ O plano anterior foi rejeitado")
                             print(f"\n{'='*80}")
-                            print(f"🤔 Deseja prosseguir com este plano? (s/n): ", end='', flush=True)
+                            print(f"💬 O que você quer que a IA faça? ", end='', flush=True)
                             
-                            # Ler resposta do usuário
-                            user_response = input().strip().lower()
-                            confirmed = user_response in ['s', 'sim', 'y', 'yes']
+                            # Ler sugestão do usuário
+                            user_suggestion = input().strip()
                             
-                            # Salvar resposta no Redis
-                            redis_client.set(response_key, str(confirmed).lower(), ex=60)
+                            # Salvar sugestão no Redis
+                            redis_client.set(user_plan_response_key, user_suggestion, ex=300)
                             
-                            status_msg = "✅ APROVADO" if confirmed else "❌ REJEITADO"
-                            print(f"{status_msg} - Continuando processamento...")
+                            print(f"✅ Sugestão registrada e será processada.")
                             print(f"{'='*80}\n")
                             
+                            # Aguardar 3 segundos para o sistema processar
+                            time.sleep(3)
+                            
+                            # Verificar se job foi completado (user_proposed_plan → history → fim)
+                            final_status = get_job_status(result['job_id'], silent=True)
+                            if final_status and final_status.get('status', {}).get('consolidated_status') == 'completed':
+                                print(f"\n{'='*80}")
+                                print(f"✅ SUGESTÃO REGISTRADA E JOB FINALIZADO")
+                                print(f"{'='*80}\n")
+                                return
+                            
                     except Exception as e:
-                        print(f"\n❌ Erro ao processar confirmação: {e}\n")
+                        print(f"\n❌ Erro ao processar interação: {e}\n")
                 
                 status_result = get_job_status(result['job_id'], silent=True)
                 
@@ -349,8 +386,7 @@ def get_examples() -> None:
             
             for i, example in enumerate(data['examples'], 1):
                 print(f"{i}. {example['name']}")
-                print(f"   Pergunta: \"{example['request']['pergunta']}\"")
-                print(f"   Fluxo esperado: {example['expected_result']['expected_flow']}\n")
+                print(f"   Pergunta: \"{example['request']['pergunta']}\"\n")
             
             print(f"{'='*80}\n")
     except:

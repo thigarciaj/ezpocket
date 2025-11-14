@@ -12,7 +12,11 @@ class PlanConfirmAgent:
     def __init__(self):
         """Inicializa o agente de confirmação"""
         self.agent_name = "PlanConfirmAgent"
-        print(f"✅ {self.agent_name} carregado\n")
+        print("\n" + "="*80)
+        print("✅ PLAN CONFIRM AGENT - CONFIRMAÇÃO DO USUÁRIO")
+        print("="*80)
+        print("✅ Agente inicializado")
+        print("="*80 + "\n")
     
     def confirm_plan(self, state: dict) -> dict:
         """

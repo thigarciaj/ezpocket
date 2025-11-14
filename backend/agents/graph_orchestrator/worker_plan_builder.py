@@ -21,7 +21,6 @@ class PlanBuilderWorker(ModuleWorker):
     def __init__(self):
         super().__init__('plan_builder')
         self.agent = PlanBuilderAgent()
-        print(f"✅ Plan Builder Agent carregado")
     
     def process(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -77,7 +76,9 @@ class PlanBuilderWorker(ModuleWorker):
             'pergunta': data.get('pergunta'),
             'username': data.get('username'),
             'projeto': data.get('projeto'),
-            'intent_category': data.get('intent_category')
+            'intent_category': data.get('intent_category'),
+            # IMPORTANTE: Propagar user_proposed_plan se existir (para debug/logs)
+            'user_proposed_plan': data.get('user_proposed_plan', '')
         }
 
 if __name__ == '__main__':

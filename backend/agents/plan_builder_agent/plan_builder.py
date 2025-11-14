@@ -15,6 +15,12 @@ class PlanBuilderAgent:
     """
     
     def __init__(self):
+        print("\n" + "="*80)
+        print("📋 PLAN BUILDER AGENT - GERADOR DE PLANOS")
+        print("="*80)
+        print("✅ Agente inicializado")
+        print("="*80 + "\n")
+        
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = "gpt-4o"
     
@@ -207,7 +213,21 @@ Retorne APENAS um JSON válido no formato:
 
 IMPORTANTE: data_sources será SEMPRE ["report_orders"] pois é a única tabela disponível no sistema."""
 
-            user_prompt = f"""Pergunta do usuário: "{pergunta}"
+            # Verificar se há sugestão do usuário vinda do user_proposed_plan
+            user_proposed_plan = state.get("user_proposed_plan", "")
+            
+            if user_proposed_plan:
+                print(f"[PLAN_BUILDER]    💡 Sugestão do usuário detectada: {user_proposed_plan[:100]}...")
+                user_prompt = f"""Pergunta do usuário: "{pergunta}"
+Categoria: {intent_category}
+Projeto: {projeto}
+
+⚠️ IMPORTANTE: O usuário rejeitou o plano anterior e forneceu a seguinte sugestão:
+"{user_proposed_plan}"
+
+Crie um NOVO plano de execução que INCORPORE a sugestão do usuário e responda melhor à pergunta original."""
+            else:
+                user_prompt = f"""Pergunta do usuário: "{pergunta}"
 Categoria: {intent_category}
 Projeto: {projeto}
 

@@ -325,6 +325,13 @@ class ModuleWorker:
             
             execution_time = time.time() - start_time
             
+            # EXTRAIR _next_modules ANTES de processar o resto
+            custom_next_modules = output.pop('_next_modules', None)
+            
+            print(f"   🔍 DEBUG _next_modules:")
+            print(f"      - Existe no output? {custom_next_modules is not None}")
+            print(f"      - Valor: {custom_next_modules}")
+            
             # Registrar execução
             job_data['execution_chain'].append({
                 'module': self.module_name,
@@ -348,7 +355,12 @@ class ModuleWorker:
             print(f"   📤 Output: {list(output.keys())}")
             
             # Depositar em próximos módulos
-            next_modules = self.connections.get(self.module_name, [])
+            # Verificar se o worker definiu próximos módulos customizados
+            if custom_next_modules:
+                next_modules = custom_next_modules
+                print(f"   🔀 Worker definiu próximos módulos: {next_modules}")
+            else:
+                next_modules = self.connections.get(self.module_name, [])
             
             if next_modules:
                 print(f"   ⬇️  Depositando em: {', '.join(next_modules)}")

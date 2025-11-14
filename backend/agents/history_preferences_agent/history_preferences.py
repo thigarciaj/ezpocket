@@ -111,6 +111,33 @@ class HistoryPreferencesAgent:
         
         return result[0] if result else None
     
+    def _get_plan_confirm_id_by_context(self, username, projeto, pergunta):
+        """Busca o plan_confirm_log_id mais recente para o mesmo contexto"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        print(f"  🔍 Buscando plan_confirm_logs recente: user={username}, projeto={projeto}")
+        
+        cursor.execute("""
+            SELECT id FROM plan_confirm_logs 
+            WHERE username = %s 
+              AND projeto = %s 
+              AND pergunta = %s
+            ORDER BY horario DESC 
+            LIMIT 1
+        """, (username, projeto, pergunta))
+        
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if result:
+            print(f"  ✅ Encontrado plan_confirm_id: {result[0]}")
+        else:
+            print(f"  ❌ Nenhum plan_confirm_logs encontrado")
+        
+        return result[0] if result else None
+    
     def _init_database(self):
         """Inicializa tabelas do banco de dados PostgreSQL"""
         conn = self._get_connection()
@@ -414,6 +441,67 @@ class HistoryPreferencesAgent:
                     state.get('user_feedback'),
                     state.get('plan_accepted', False),
                     state.get('execution_time', 0.0),
+                    not bool(state.get('error_message')),
+                    state.get('error_message'),
+                    json.dumps(metadata, ensure_ascii=False) if metadata else None
+                ))
+                log_id = cursor.fetchone()[0]
+            
+            elif previous_module == "user_proposed_plan":
+                print(f"  ✓ Salvando em user_proposed_plan_logs")
+                
+                # Buscar parent_plan_confirm_id, parent_plan_builder_id e parent_intent_validator_id do banco
+                parent_plan_confirm_id = self._get_plan_confirm_id_by_context(
+                    username, projeto, pergunta
+                )
+                parent_plan_builder_id = self._get_plan_builder_id_by_context(
+                    username, projeto, pergunta
+                )
+                parent_intent_validator_id = self._get_intent_validator_id_by_context(
+                    username, projeto, pergunta
+                )
+                
+                print(f"  🔍 DEBUG - plan_confirm_id encontrado: {parent_plan_confirm_id}")
+                print(f"  🔍 DEBUG - plan_builder_id encontrado: {parent_plan_builder_id}")
+                print(f"  🔍 DEBUG - intent_validator_id encontrado: {parent_intent_validator_id}")
+                
+                # Preparar metadata
+                metadata = {
+                    'received_timestamp': state.get('received_at'),
+                    'timeout_occurred': state.get('timeout_occurred', False),
+                    'response_time': state.get('wait_time'),
+                    'user_input_raw': state.get('user_proposed_plan'),
+                    'all_state_keys': list(state.keys())
+                }
+                metadata = {k: v for k, v in metadata.items() if v is not None}
+                
+                cursor.execute("""
+                    INSERT INTO user_proposed_plan_logs (
+                        execution_sequence, parent_plan_confirm_id, parent_plan_builder_id, parent_intent_validator_id,
+                        username, projeto, pergunta,
+                        rejected_plan, user_proposed_plan, plan_received,
+                        received_at, input_method,
+                        input_length, is_refinement, iteration_count,
+                        execution_time, wait_time,
+                        success, error_message, metadata
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (
+                    4,  # User proposed plan é sequence 4 (depois do plan_confirm)
+                    parent_plan_confirm_id,
+                    parent_plan_builder_id,
+                    parent_intent_validator_id,
+                    username, projeto, pergunta,
+                    state.get('plan', ''),  # O plano que foi rejeitado
+                    state.get('user_proposed_plan', ''),
+                    state.get('plan_received', False),
+                    state.get('received_at'),
+                    state.get('input_method', 'interactive'),
+                    len(state.get('user_proposed_plan', '')),
+                    True,  # is_refinement - sempre True pois vem de rejeição
+                    state.get('iteration_count', 1),
+                    state.get('execution_time', 0.0),
+                    state.get('wait_time', 0.0),
                     not bool(state.get('error_message')),
                     state.get('error_message'),
                     json.dumps(metadata, ensure_ascii=False) if metadata else None

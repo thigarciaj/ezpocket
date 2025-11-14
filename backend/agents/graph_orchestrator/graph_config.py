@@ -21,8 +21,11 @@ GRAPH_CONNECTIONS = {
     # Plan Builder → [Plan Confirm, History Preferences] (paralelo)
     "plan_builder": ["plan_confirm", "history_preferences"],
     
-    # Plan Confirm → History Preferences (salva resultado da confirmação)
-    "plan_confirm": ["history_preferences"],
+    # Plan Confirm → History Preferences (se aceito) OU [User Proposed Plan, History] (se rejeitado)
+    "plan_confirm": ["history_preferences"],  # Condicional definido no orchestrator
+    
+    # User Proposed Plan → History Preferences (apenas registra e encerra)
+    "user_proposed_plan": ["history_preferences"],
     
     # History Preferences → (fim)
     "history_preferences": [],
@@ -45,10 +48,19 @@ GRAPH_CONNECTIONS_DETAILED = {
         "description": "Plan Builder gera plano e deposita em paralelo para Plan Confirm e History"
     },
     
-    # Plan Confirm → History Preferences (salva resultado da confirmação)
+    # Plan Confirm → History Preferences (se aceito) OU [User Proposed Plan, History] (se rejeitado)
     "plan_confirm": {
+        "connected_to": ["history_preferences"],  # Default se aceito
+        "conditional_routes": {
+            "rejected": ["user_proposed_plan", "history_preferences"]  # Se rejeitado: 2 paralelos
+        },
+        "description": "Plan Confirm solicita confirmação. Se rejeitado, vai para User Proposed Plan e History em paralelo"
+    },
+    
+    # User Proposed Plan → History Preferences (recebe sugestão e apenas registra)
+    "user_proposed_plan": {
         "connected_to": ["history_preferences"],
-        "description": "Plan Confirm solicita confirmação do usuário e envia resultado para History"
+        "description": "User Proposed Plan recebe sugestão do usuário, registra no histórico e encerra"
     },
     
     # History Preferences → (fim)
@@ -81,9 +93,10 @@ GRAPH_CONNECTIONS_DETAILED = {
 # =====================================================
 
 EXPECTED_FLOW = {
-    "intent_validator": "intent_validator -> [plan_builder, history_preferences] -> [plan_confirm, history_preferences] -> history_preferences",
-    "plan_builder": "plan_builder -> [plan_confirm, history_preferences] -> history_preferences",
-    "plan_confirm": "plan_confirm -> history_preferences",
+    "intent_validator": "intent_validator -> [plan_builder, history] -> [plan_confirm, history] -> history (aceito) OU [user_proposed, history] (rejeitado)",
+    "plan_builder": "plan_builder -> [plan_confirm, history] -> history",
+    "plan_confirm": "plan_confirm -> history (aceito) OU [user_proposed, history] (rejeitado - 2 paralelos)",
+    "user_proposed_plan": "user_proposed_plan -> history -> FIM (apenas registra sugestão)",
     "history_preferences": "history_preferences (final)",
 }
 

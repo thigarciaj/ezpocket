@@ -166,6 +166,62 @@ CREATE INDEX idx_plan_confirm_parent_intent ON plan_confirm_logs(parent_intent_v
 CREATE INDEX idx_plan_confirm_execution_sequence ON plan_confirm_logs(execution_sequence);
 
 -- =====================================================
+-- MÓDULO 1.7: USER PROPOSED PLAN AGENT (NÓ DE SUGESTÃO DO USUÁRIO)
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS user_proposed_plan_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    
+    -- Rastreio de execução
+    execution_sequence INTEGER,  -- Ordem de execução no fluxo
+    parent_plan_confirm_id UUID REFERENCES plan_confirm_logs(id),  -- FK para plan_confirm
+    parent_plan_builder_id UUID REFERENCES plan_builder_logs(id),  -- FK para plan_builder
+    parent_intent_validator_id UUID REFERENCES intent_validator_logs(id),  -- FK para intent_validator
+    
+    -- Identificação (sempre presente)
+    username VARCHAR(100) NOT NULL,
+    projeto VARCHAR(100) NOT NULL,
+    horario TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    
+    -- Input
+    pergunta TEXT NOT NULL,
+    rejected_plan TEXT,  -- O plano que foi rejeitado
+    
+    -- Sugestão do usuário
+    user_proposed_plan TEXT,
+    plan_received BOOLEAN,
+    received_at TIMESTAMP,
+    input_method VARCHAR(50),  -- 'interactive', 'api', 'timeout'
+    
+    -- Contexto
+    input_length INTEGER,
+    is_refinement BOOLEAN DEFAULT FALSE,  -- Se é refinamento do plano anterior
+    iteration_count INTEGER DEFAULT 1,  -- Número de iterações (rejeições)
+    
+    -- Performance
+    execution_time REAL,
+    wait_time REAL,  -- Tempo esperando resposta do usuário
+    
+    -- Status
+    success BOOLEAN DEFAULT TRUE,
+    error_message TEXT,
+    
+    -- Metadata adicional
+    metadata JSONB
+);
+
+CREATE INDEX idx_user_proposed_plan_username ON user_proposed_plan_logs(username);
+CREATE INDEX idx_user_proposed_plan_projeto ON user_proposed_plan_logs(projeto);
+CREATE INDEX idx_user_proposed_plan_horario ON user_proposed_plan_logs(horario DESC);
+CREATE INDEX idx_user_proposed_plan_username_projeto ON user_proposed_plan_logs(username, projeto);
+CREATE INDEX idx_user_proposed_plan_received ON user_proposed_plan_logs(plan_received);
+CREATE INDEX idx_user_proposed_plan_parent_confirm ON user_proposed_plan_logs(parent_plan_confirm_id);
+CREATE INDEX idx_user_proposed_plan_parent_plan ON user_proposed_plan_logs(parent_plan_builder_id);
+CREATE INDEX idx_user_proposed_plan_parent_intent ON user_proposed_plan_logs(parent_intent_validator_id);
+CREATE INDEX idx_user_proposed_plan_execution_sequence ON user_proposed_plan_logs(execution_sequence);
+CREATE INDEX idx_user_proposed_plan_iteration ON user_proposed_plan_logs(iteration_count);
+
+-- =====================================================
 -- MÓDULO 2: HISTORY PREFERENCES AGENT (NÓ 1)
 -- =====================================================
 -- COMENTADO: Tabela não utilizada no momento

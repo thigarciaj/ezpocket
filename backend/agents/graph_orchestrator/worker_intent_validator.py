@@ -21,7 +21,6 @@ class IntentValidatorWorker(ModuleWorker):
     def __init__(self):
         super().__init__('intent_validator')
         self.agent = IntentValidatorAgent()
-        print(f"✅ Intent Validator Agent carregado")
     
     def process(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """

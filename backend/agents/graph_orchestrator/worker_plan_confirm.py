@@ -21,7 +21,6 @@ class PlanConfirmWorker(ModuleWorker):
     def __init__(self):
         super().__init__('plan_confirm')
         self.agent = PlanConfirmAgent()
-        print(f"✅ Plan Confirm Agent carregado")
     
     def process(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -111,6 +110,15 @@ class PlanConfirmWorker(ModuleWorker):
                     parent_intent_validator_id=data.get('intent_validator_id')
                 )
                 
+                # LÓGICA CONDICIONAL: Se rejeitado, vai para user_proposed_plan e history (2 paralelos)
+                # O plan_builder será chamado DEPOIS do user_proposed_plan receber a sugestão
+                next_modules = ['user_proposed_plan', 'history_preferences'] if not confirmed else ['history_preferences']
+                
+                print(f"[PLAN_CONFIRM]    ❗ DEBUG:")
+                print(f"[PLAN_CONFIRM]       confirmed = {confirmed}")
+                print(f"[PLAN_CONFIRM]       not confirmed = {not confirmed}")
+                print(f"[PLAN_CONFIRM]    🔀 Próximos módulos definidos: {next_modules}")
+                
                 output = {
                     'pergunta': pergunta,
                     'username': username,
@@ -125,8 +133,12 @@ class PlanConfirmWorker(ModuleWorker):
                     'plan': plan,
                     'plan_steps': plan_steps,
                     'estimated_complexity': data.get('estimated_complexity', 'média'),
-                    'execution_time': time.time() - start
+                    'execution_time': time.time() - start,
+                    '_next_modules': next_modules
                 }
+                
+                print(f"[PLAN_CONFIRM]    ✅ Output contém '_next_modules': {'_next_modules' in output}")
+                print(f"[PLAN_CONFIRM]    ✅ Valor de '_next_modules': {output.get('_next_modules')}")
                 
                 return output
             
@@ -171,8 +183,12 @@ class PlanConfirmWorker(ModuleWorker):
             'plan_steps': plan_steps,
             'estimated_complexity': data.get('estimated_complexity', 'média'),
             'execution_time': timeout,
-            'error_message': 'Timeout aguardando confirmação do usuário'
+            'error_message': 'Timeout aguardando confirmação do usuário',
+            # LÓGICA CONDICIONAL: Timeout = rejeitado, vai para user_proposed_plan
+            '_next_modules': ['user_proposed_plan', 'history_preferences']
         }
+        
+        print(f"[PLAN_CONFIRM]    🔀 Próximos módulos (timeout): {output['_next_modules']}")
         
         return output
     

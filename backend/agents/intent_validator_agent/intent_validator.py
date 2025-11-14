@@ -17,6 +17,12 @@ class IntentValidatorAgent:
     """
     
     def __init__(self):
+        print("\n" + "="*80)
+        print("🛡️  INTENT VALIDATOR AGENT - VALIDAÇÃO DE INTENÇÃO")
+        print("="*80)
+        print("✅ Agente inicializado")
+        print("="*80 + "\n")
+        
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = "gpt-4o"
         
