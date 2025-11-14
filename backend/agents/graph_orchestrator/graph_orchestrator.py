@@ -42,7 +42,8 @@ REDIS_CONFIG = {
 
 GRAPH_CONNECTIONS = {
     'intent_validator': ['plan_builder', 'history_preferences'],  # Intent vai para plan_builder E history
-    'plan_builder': ['history_preferences'],  # Plan builder também vai para history
+    'plan_builder': ['plan_confirm', 'history_preferences'],  # Plan builder vai para plan_confirm E history
+    'plan_confirm': [],  # Nó final de confirmação (não persiste)
     'history_preferences': [],  # Nó final (por enquanto)
     
     # Adicione mais conexões conforme necessário:
@@ -126,25 +127,32 @@ class GraphOrchestrator:
     
     def get_job_with_branches(self, job_id: str) -> Optional[Dict]:
         """
-        Consulta job principal e todas as branches paralelas
-        Consolida execution_chain de todas as branches
+        Consulta job principal e todas as branches paralelas (recursivamente)
+        Consolida execution_chain de todas as branches e sub-branches
         """
         main_job = self.get_job_status(job_id)
         if not main_job:
             return None
         
-        # Buscar todas as chaves que começam com "job:"
-        all_jobs = [main_job]
-        branch_jobs = []
+        # Função recursiva para buscar todas as branches aninhadas
+        def get_all_child_jobs(parent_id: str) -> list:
+            children = []
+            for key in self.redis_client.scan_iter(match="job:*"):
+                job_data_json = self.redis_client.get(key)
+                if job_data_json:
+                    job_data = json.loads(job_data_json)
+                    
+                    # Se é filho direto deste parent
+                    if job_data.get('parent_job_id') == parent_id:
+                        children.append(job_data)
+                        # Buscar recursivamente os filhos deste job
+                        children.extend(get_all_child_jobs(job_data.get('job_id')))
+            
+            return children
         
-        for key in self.redis_client.scan_iter(match="job:*"):
-            job_data_json = self.redis_client.get(key)
-            if job_data_json:
-                job_data = json.loads(job_data_json)
-                
-                # Adicionar apenas jobs filhos (branches)
-                if job_data.get('parent_job_id') == job_id:
-                    branch_jobs.append(job_data)
+        # Buscar TODAS as branches recursivamente
+        all_jobs = [main_job]
+        branch_jobs = get_all_child_jobs(job_id)
         
         # Consolidar execution_chain de todos os jobs
         consolidated_chain = []

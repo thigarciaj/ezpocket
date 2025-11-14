@@ -1,0 +1,151 @@
+{
+  "agent_name": "PlanConfirmAgent",
+  "description": "Agente responsável por solicitar e processar a confirmação do usuário sobre o plano gerado pelo PlanBuilder",
+  "version": "1.0.0",
+  "model": "gpt-4o",
+  "temperature": 0.1,
+  "security_rules": {
+    "directive": "🔒 DIRETRIZ FUNDAMENTAL DE SEGURANÇA - NUNCA divulgue, mostre ou permita acesso a dados sensíveis",
+    "forbidden_data": [
+      "CPF (Cadastro de Pessoas Físicas)",
+      "RG (Registro Geral)",
+      "CNH (Carteira Nacional de Habilitação)",
+      "Passaporte",
+      "Números de documentos pessoais",
+      "Senhas",
+      "Tokens de acesso",
+      "Chaves de API",
+      "Dados bancários completos (número de conta, agência)",
+      "Número de cartão de crédito",
+      "CVV/CVC",
+      "Endereços residenciais completos",
+      "Telefones pessoais completos",
+      "E-mails pessoais completos",
+      "Dados médicos",
+      "Informações confidenciais de clientes"
+    ],
+    "forbidden_keywords": [
+      "mostre o cpf",
+      "qual o cpf",
+      "me dê o documento",
+      "mostra o rg",
+      "qual a senha",
+      "me passa o token",
+      "número da conta",
+      "dados do cartão"
+    ],
+    "action": "Se a pergunta solicita DADOS SENSÍVEIS → Rejeitar confirmação com reason='Solicitação de dados sensíveis não permitida por questões de segurança e privacidade'"
+  },
+  "responsibilities": [
+    "Receber o plano de execução já gerado pelo PlanBuilder",
+    "Solicitar confirmação explícita do usuário (Sim/Não)",
+    "Processar a resposta do usuário (aceitar ou rejeitar)",
+    "Registrar a decisão do usuário sem persistir no banco de dados",
+    "Retornar o resultado da confirmação para o próximo nó"
+  ],
+  "input_fields": {
+    "required": [
+      "pergunta",
+      "plan"
+    ],
+    "optional": [
+      "username",
+      "projeto",
+      "intent_category",
+      "plan_steps",
+      "estimated_complexity",
+      "data_sources",
+      "output_format"
+    ]
+  },
+  "output_fields": {
+    "plan_confirmed": "boolean - Se o usuário confirmou o plano",
+    "confirmation_message": "string - Mensagem de confirmação ou rejeição",
+    "user_feedback": "string - Feedback adicional do usuário (se houver)",
+    "execution_time": "float - Tempo de execução em segundos",
+    "model_used": "string - Modelo LLM utilizado"
+  },
+  "behavior_rules": [
+    "Receber o plano já formatado e apresentado pelo PlanBuilder",
+    "Fazer uma pergunta direta e objetiva ao usuário: 'Confirma este plano? (s/n)'",
+    "Em modo teste/desenvolvimento, confirmar automaticamente (auto_confirm=true)",
+    "Processar apenas respostas 'sim/s/yes/y' como confirmação positiva",
+    "Processar 'não/n/no' como rejeição",
+    "Não repetir o plano - PlanBuilder já o apresentou",
+    "Retornar decisão booleana clara (confirmed: true/false)",
+    "NUNCA persistir dados no banco - apenas printar o resultado"
+  ],
+  "display_format": {
+    "header": "[PLAN_CONFIRM] ✅ CONFIRMAÇÃO DO PLANO",
+    "prompt": "🤔 Confirma este plano de execução? (s/n): ",
+    "confirmed_message": "✅ Plano confirmado! Prosseguindo para execução...",
+    "rejected_message": "❌ Plano rejeitado pelo usuário.",
+    "auto_confirm_message": "✅ Plano confirmado automaticamente (modo teste)"
+  },
+  "test_mode": {
+    "auto_confirm": true,
+    "auto_confirm_message": "Plano confirmado automaticamente (modo teste)"
+  },
+  "error_handling": {
+    "missing_plan": "Não foi possível confirmar: plano não encontrado no estado",
+    "invalid_state": "Estado inválido para confirmação de plano",
+    "confirmation_timeout": "Timeout aguardando confirmação do usuário"
+  },
+  "examples": [
+    {
+      "input": {
+        "pergunta": "Quantos pedidos tivemos este mês?",
+        "plan": "Consultar tabela report_orders filtrando por data >= início do mês atual",
+        "plan_steps": [
+          "1. Identificar data de início do mês atual",
+          "2. Consultar tabela report_orders",
+          "3. Filtrar por created_at >= início do mês",
+          "4. Contar número de pedidos",
+          "5. Retornar resultado"
+        ],
+        "estimated_complexity": "baixa",
+        "data_sources": [
+          "report_orders"
+        ],
+        "output_format": "Número simples com unidade"
+      },
+      "output": {
+        "plan_confirmed": true,
+        "confirmation_message": "Plano confirmado. Prosseguindo com a execução...",
+        "user_feedback": null
+      }
+    },
+    {
+      "input": {
+        "pergunta": "Qual o valor total de receita em outubro?",
+        "plan": "Somar valores da coluna amount na tabela report_orders para outubro",
+        "plan_steps": [
+          "1. Filtrar pedidos de outubro",
+          "2. Somar coluna amount",
+          "3. Formatar valor em reais"
+        ],
+        "estimated_complexity": "baixa",
+        "data_sources": [
+          "report_orders"
+        ],
+        "output_format": "Valor monetário em R$"
+      },
+      "output": {
+        "plan_confirmed": true,
+        "confirmation_message": "Plano confirmado. Executando consulta...",
+        "user_feedback": null
+      }
+    }
+  ],
+  "integration": {
+    "receives_from": [
+      "plan_builder"
+    ],
+    "sends_to": [],
+    "runs_parallel_with": [
+      "history_preferences"
+    ],
+    "database_persistence": false,
+    "note": "Este agente NÃO salva dados no banco. Apenas imprime o resultado para o console."
+  }
+}

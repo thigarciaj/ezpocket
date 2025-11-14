@@ -16,10 +16,16 @@ GRAPH_CONNECTIONS = {
         "description": "Intent Validator deposita em paralelo para Plan Builder e History"
     },
     
-    # Plan Builder → History Preferences (salva com FK)
+    # Plan Builder → [Plan Confirm, History Preferences] (paralelo)
     "plan_builder": {
-        "connected_to": ["history_preferences"],
-        "description": "Plan Builder gera plano e deposita no History para salvar"
+        "connected_to": ["plan_confirm", "history_preferences"],
+        "description": "Plan Builder gera plano e deposita em Plan Confirm e History"
+    },
+    
+    # Plan Confirm → (fim - não salva no banco)
+    "plan_confirm": {
+        "connected_to": [],
+        "description": "Plan Confirm solicita confirmação do usuário (não persiste)"
     },
     
     # History Preferences → (fim)

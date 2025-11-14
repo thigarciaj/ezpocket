@@ -25,6 +25,11 @@ MODULE_DISPLAY = {
         'title': 'PLAN BUILDER',
         'color': '\033[92m'  # Verde
     },
+    'plan_confirm': {
+        'emoji': '✅',
+        'title': 'PLAN CONFIRM',
+        'color': '\033[96m'  # Ciano
+    },
     'history_preferences': {
         'emoji': '🧠',
         'title': 'HISTORY & PREFERENCES',
@@ -109,6 +114,13 @@ def print_formatted_result(status_info: Dict[str, Any]) -> None:
             print(f"   📈 Formato: {output.get('output_format', 'N/A')}")
             print(f"   🪙 Tokens: {output.get('tokens_used', 0)}")
             
+        elif module == 'plan_confirm':
+            print(f"\n📤 OUTPUT:")
+            print(f"   ✅ Confirmado: {output.get('confirmed', False)}")
+            print(f"   📝 Método: {output.get('confirmation_method', 'N/A')}")
+            print(f"   💬 Feedback: {output.get('user_feedback', 'N/A')}")
+            print(f"   ✓ Plano Aceito: {output.get('plan_accepted', False)}")
+            
         elif module == 'history_preferences':
             print(f"\n📤 OUTPUT:")
             print(f"   💾 Context Loaded: {output.get('context_loaded', False)}")
@@ -176,9 +188,56 @@ def test_orchestrator(pergunta: str, username: str = "test_user", projeto: str =
             print(f"⏳ MONITORANDO STATUS")
             print(f"{'='*80}")
             
-            # Monitora status por até 30s
-            for i in range(30):
+            username = payload.get('username', 'test_user')
+            projeto = payload.get('projeto', 'test_project')
+            confirmation_checked = False
+            
+            # Monitora status por até 5 minutos (300s)
+            for i in range(300):
                 time.sleep(1)
+                
+                # Checar se há confirmação pendente a cada 2 segundos
+                if not confirmation_checked and i > 3 and i % 2 == 0:
+                    try:
+                        import redis
+                        redis_client = redis.Redis(host='localhost', port=6493, decode_responses=True)
+                        
+                        pending_key = f"plan_confirm:pending:{username}:{projeto}"
+                        response_key = f"plan_confirm:response:{username}:{projeto}"
+                        
+                        if redis_client.exists(pending_key):
+                            confirmation_checked = True
+                            
+                            # Ler dados do plano do Redis
+                            plan_data = redis_client.hgetall(pending_key)
+                            
+                            print(f"\n{'='*80}")
+                            print(f"⏸️  CONFIRMAÇÃO NECESSÁRIA!")
+                            print(f"{'='*80}")
+                            print(f"📋 Plano: {plan_data.get('plan', '')}")
+                            print(f"\n📊 Passos:")
+                            
+                            plan_steps = json.loads(plan_data.get('plan_steps', '[]'))
+                            for idx, step in enumerate(plan_steps, 1):
+                                print(f"   {idx}. {step}")
+                            
+                            print(f"\n{'='*80}")
+                            print(f"🤔 Deseja prosseguir com este plano? (s/n): ", end='', flush=True)
+                            
+                            # Ler resposta do usuário
+                            user_response = input().strip().lower()
+                            confirmed = user_response in ['s', 'sim', 'y', 'yes']
+                            
+                            # Salvar resposta no Redis
+                            redis_client.set(response_key, str(confirmed).lower(), ex=60)
+                            
+                            status_msg = "✅ APROVADO" if confirmed else "❌ REJEITADO"
+                            print(f"{status_msg} - Continuando processamento...")
+                            print(f"{'='*80}\n")
+                            
+                    except Exception as e:
+                        print(f"\n❌ Erro ao processar confirmação: {e}\n")
+                
                 status_result = get_job_status(result['job_id'], silent=True)
                 
                 if status_result:
@@ -194,6 +253,9 @@ def test_orchestrator(pergunta: str, username: str = "test_user", projeto: str =
                     
                     # Considerar completo quando todas as branches terminarem
                     if consolidated_status == 'completed':
+                        # Aguarda mais 2 segundos para garantir que branches aninhadas terminem
+                        print(f"[{i+1}s] Aguardando branches aninhadas...")
+                        time.sleep(2)
                         print(f"\n{'='*80}")
                         print(f"✅ JOB COMPLETADO COM SUCESSO")
                         print(f"{'='*80}")
@@ -217,7 +279,7 @@ def test_orchestrator(pergunta: str, username: str = "test_user", projeto: str =
                         print(f"{'='*80}\n")
                         return None
             
-            print(f"\n⚠️  Timeout: Job ainda em processamento após 30s")
+            print(f"\n⚠️  Timeout: Job ainda em processamento após 5 minutos")
             print(f"{'='*80}\n")
             
             return result
