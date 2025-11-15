@@ -92,23 +92,7 @@ class PlanConfirmWorker(ModuleWorker):
                 
                 print(f"[PLAN_CONFIRM]    ✅ Resposta recebida: {'APROVADO' if confirmed else 'REJEITADO'}")
                 
-                # Salvar no banco de dados
-                self._save_to_database(
-                    username=username,
-                    projeto=projeto,
-                    pergunta=pergunta,
-                    plan=plan,
-                    plan_steps=plan_steps,
-                    estimated_complexity=data.get('estimated_complexity', 'média'),
-                    confirmed=confirmed,
-                    confirmation_method='interactive',
-                    user_feedback='Plano aprovado' if confirmed else 'Plano rejeitado',
-                    plan_accepted=confirmed,
-                    execution_time=time.time() - start,
-                    success=True,
-                    parent_plan_builder_id=data.get('parent_id'),
-                    parent_intent_validator_id=data.get('intent_validator_id')
-                )
+                # Log será salvo automaticamente pelo History Preferences Agent
                 
                 # LÓGICA CONDICIONAL:
                 # Se ACEITO (SIM) → [analysis_orchestrator, history_preferences] (2 paralelos)
@@ -154,24 +138,7 @@ class PlanConfirmWorker(ModuleWorker):
         
         print(f"[PLAN_CONFIRM]    ⏱️  TIMEOUT - Rejeitando automaticamente")
         
-        # Salvar no banco com timeout
-        self._save_to_database(
-            username=username,
-            projeto=projeto,
-            pergunta=pergunta,
-            plan=plan,
-            plan_steps=plan_steps,
-            estimated_complexity=data.get('estimated_complexity', 'média'),
-            confirmed=False,
-            confirmation_method='timeout',
-            user_feedback='Timeout - sem resposta do usuário',
-            plan_accepted=False,
-            execution_time=timeout,
-            success=False,
-            error_message='Timeout aguardando confirmação do usuário',
-            parent_plan_builder_id=data.get('parent_id'),
-            parent_intent_validator_id=data.get('intent_validator_id')
-        )
+        # Log será salvo automaticamente pelo History Preferences Agent
         
         output = {
             'pergunta': pergunta,
@@ -200,65 +167,6 @@ class PlanConfirmWorker(ModuleWorker):
         print(f"[PLAN_CONFIRM]    🔀 Próximos módulos (timeout): {output['_next_modules']}")
         
         return output
-    
-    def _save_to_database(self, **kwargs):
-        """Salva log no banco de dados PostgreSQL"""
-        import psycopg2
-        from psycopg2.extras import Json
-        from datetime import datetime
-        
-        try:
-            conn = psycopg2.connect(
-                host='localhost',
-                port=5433,
-                database='ezpagdb',
-                user='ezpag_user',
-                password='ezpag2024'
-            )
-            
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                INSERT INTO plan_confirm_logs (
-                    username, projeto, pergunta, plan, plan_steps,
-                    estimated_complexity, confirmed, confirmation_method,
-                    confirmation_time, user_feedback, plan_accepted,
-                    execution_time, success, error_message,
-                    parent_plan_builder_id, parent_intent_validator_id
-                ) VALUES (
-                    %s, %s, %s, %s, %s,
-                    %s, %s, %s,
-                    %s, %s, %s,
-                    %s, %s, %s,
-                    %s, %s
-                )
-            """, (
-                kwargs.get('username'),
-                kwargs.get('projeto'),
-                kwargs.get('pergunta'),
-                kwargs.get('plan'),
-                kwargs.get('plan_steps'),
-                kwargs.get('estimated_complexity'),
-                kwargs.get('confirmed'),
-                kwargs.get('confirmation_method'),
-                datetime.now(),
-                kwargs.get('user_feedback'),
-                kwargs.get('plan_accepted'),
-                kwargs.get('execution_time'),
-                kwargs.get('success', True),
-                kwargs.get('error_message'),
-                kwargs.get('parent_plan_builder_id'),
-                kwargs.get('parent_intent_validator_id')
-            ))
-            
-            conn.commit()
-            cursor.close()
-            conn.close()
-            
-            print(f"[PLAN_CONFIRM]    💾 Salvo no banco de dados com sucesso")
-            
-        except Exception as e:
-            print(f"[PLAN_CONFIRM]    ❌ Erro ao salvar no banco: {e}")
 
 
 if __name__ == '__main__':
