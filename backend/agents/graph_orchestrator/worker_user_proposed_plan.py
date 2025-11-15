@@ -78,7 +78,9 @@ class UserProposedPlanWorker(ModuleWorker):
                 wait_time = time.time() - start
                 return {
                     'user_proposed_plan': user_suggestion,
+                    'user_suggestion': user_suggestion,  # Para plan_refiner
                     'plan': data.get('plan', ''),  # Plano rejeitado anterior
+                    'original_plan': data.get('plan', ''),  # Para plan_refiner
                     'plan_received': True,
                     'received_at': datetime.now().isoformat(),
                     'input_method': 'interactive',
@@ -88,7 +90,11 @@ class UserProposedPlanWorker(ModuleWorker):
                     'username': username,
                     'projeto': projeto,
                     'intent_category': data.get('intent_category'),
-                    'execution_time': wait_time
+                    'execution_time': wait_time,
+                    # Parent IDs - propagar do PlanConfirm/PlanBuilder
+                    'parent_intent_validator_id': data.get('parent_intent_validator_id'),
+                    'parent_plan_builder_id': data.get('parent_plan_builder_id'),
+                    'parent_user_proposed_plan_id': None  # Será preenchido pelo History
                 }
             
             time.sleep(0.5)

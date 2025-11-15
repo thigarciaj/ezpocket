@@ -21,7 +21,11 @@ graph TD
     
     AnalysisOrchestrator -->|Query gerada| H5[History Preferences<br/>Salva Analysis Orchestrator]
     
-    UserProposed -->|Sugestão recebida| H6[History Preferences<br/>Salva User Proposed]
+    UserProposed -->|Sugestão recebida| PlanRefiner[Plan Refiner<br/>Refina plano]
+    UserProposed --> H6[History Preferences<br/>Salva User Proposed]
+    
+    PlanRefiner -->|Plano refinado| PlanConfirm
+    PlanRefiner --> H7[History Preferences<br/>Salva Plan Refiner]
     
     H1 --> End1([Fim])
     H2 --> End2([Fim])
@@ -29,12 +33,14 @@ graph TD
     H4 --> End4([Fim])
     H5 --> End5([Fim])
     H6 --> End6([Fim])
+    H7 --> End7([Fim])
 
     style IntentValidator fill:#e1f5ff
     style PlanBuilder fill:#e1f5ff
     style PlanConfirm fill:#fff4e1
     style AnalysisOrchestrator fill:#e1ffe1
     style UserProposed fill:#ffe1e1
+    style PlanRefiner fill:#ffe8cc
     style Decision fill:#f0e1ff
     style Yes fill:#ffffff,stroke:#ffffff
     style No fill:#ffffff,stroke:#ffffff
@@ -44,3 +50,4 @@ graph TD
     style H4 fill:#f5f5f5
     style H5 fill:#f5f5f5
     style H6 fill:#f5f5f5
+    style H7 fill:#f5f5f5

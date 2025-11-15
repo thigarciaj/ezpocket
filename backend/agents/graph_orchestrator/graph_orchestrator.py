@@ -148,7 +148,8 @@ class GraphOrchestrator:
         # Ordenar por timestamp
         consolidated_chain.sort(key=lambda x: x.get('timestamp', ''))
         
-        # Verificar status de todas as branches
+        # Verificar status de todas as branches E do job principal
+        main_status = main_job.get('status', 'unknown')
         all_completed = all(job.get('status') == 'completed' for job in branch_jobs)
         any_failed = any(job.get('status') == 'failed' for job in branch_jobs)
         
@@ -156,12 +157,13 @@ class GraphOrchestrator:
         if branch_jobs:
             if any_failed:
                 consolidated_status = 'partial_failure'
-            elif all_completed:
+            elif all_completed and main_status == 'completed':
+                # Só considera completo quando TODAS as branches E o job principal completaram
                 consolidated_status = 'completed'
             else:
                 consolidated_status = 'processing_branches'
         else:
-            consolidated_status = main_job.get('status', 'unknown')
+            consolidated_status = main_status
         
         # Criar job consolidado
         result = main_job.copy()

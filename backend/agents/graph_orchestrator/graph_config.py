@@ -24,8 +24,11 @@ GRAPH_CONNECTIONS = {
     # Plan Confirm → History Preferences (se aceito) OU [User Proposed Plan, History] (se rejeitado)
     "plan_confirm": ["history_preferences"],  # Condicional definido no orchestrator
     
-    # User Proposed Plan → History Preferences (apenas registra e encerra)
-    "user_proposed_plan": ["history_preferences"],
+    # User Proposed Plan → [Plan Refiner, History Preferences] (paralelo)
+    "user_proposed_plan": ["plan_refiner", "history_preferences"],
+    
+    # Plan Refiner → [Plan Confirm, History Preferences] (paralelo - refina e pede confirmação novamente)
+    "plan_refiner": ["plan_confirm", "history_preferences"],
     
     # Analysis Orchestrator → History Preferences (gera query e registra)
     "analysis_orchestrator": ["history_preferences"],
@@ -61,10 +64,16 @@ GRAPH_CONNECTIONS_DETAILED = {
         "description": "Plan Confirm solicita confirmação. Se aceito, vai para Analysis Orchestrator e History. Se rejeitado, vai para User Proposed Plan e History"
     },
     
-    # User Proposed Plan → History Preferences (recebe sugestão e apenas registra)
+    # User Proposed Plan → [Plan Refiner, History Preferences] (paralelo)
     "user_proposed_plan": {
-        "connected_to": ["history_preferences"],
-        "description": "User Proposed Plan recebe sugestão do usuário, registra no histórico e encerra"
+        "connected_to": ["plan_refiner", "history_preferences"],
+        "description": "User Proposed Plan recebe sugestão do usuário e encaminha para Plan Refiner refinar o plano"
+    },
+    
+    # Plan Refiner → [Plan Confirm, History Preferences] (paralelo - refina e pede confirmação novamente)
+    "plan_refiner": {
+        "connected_to": ["plan_confirm", "history_preferences"],
+        "description": "Plan Refiner combina plano original com sugestões do usuário, gera plano refinado e volta para Plan Confirm"
     },
     
     # Analysis Orchestrator → History Preferences (gera query SQL e registra)
@@ -107,7 +116,8 @@ EXPECTED_FLOW = {
     "plan_builder": "plan_builder -> [plan_confirm, history] -> conditional",
     "plan_confirm": "plan_confirm -> [analysis_orchestrator, history] (aceito - 2 paralelos) OU [user_proposed, history] (rejeitado - 2 paralelos)",
     "analysis_orchestrator": "analysis_orchestrator -> history -> FIM (gera query SQL)",
-    "user_proposed_plan": "user_proposed_plan -> history -> FIM (registra sugestão)",
+    "user_proposed_plan": "user_proposed_plan -> [plan_refiner, history] -> [plan_confirm, history] (loop até aceitar)",
+    "plan_refiner": "plan_refiner -> [plan_confirm, history] -> volta para confirmação com plano refinado",
     "history_preferences": "history_preferences (final)",
 }
 
@@ -163,6 +173,27 @@ MODULE_PROCESSORS = {
             "columns_used",
             "filters_applied",
             "security_validated",
+            "execution_time"
+        ]
+    },
+    
+    "plan_refiner": {
+        "function": "refine_plan",
+        "input_fields": [
+            "username",
+            "projeto",
+            "pergunta",
+            "original_plan",
+            "user_suggestion",
+            "intent_category"
+        ],
+        "output_fields": [
+            "refined_plan",
+            "refinement_summary",
+            "changes_applied",
+            "user_suggestions_incorporated",
+            "improvements_made",
+            "validation_notes",
             "execution_time"
         ]
     },

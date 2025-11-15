@@ -554,10 +554,27 @@ class HistoryPreferencesAgent:
                     username, projeto, pergunta
                 )
                 
+                # Buscar parent_plan_refiner_id se existir (caso tenha havido refinamento)
+                parent_plan_refiner_id = None
+                try:
+                    cursor.execute("""
+                        SELECT id FROM plan_refiner_logs
+                        WHERE username = %s AND projeto = %s
+                        ORDER BY horario DESC
+                        LIMIT 1
+                    """, (username, projeto))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_plan_refiner_id = result[0]
+                        print(f"  ✅ Encontrado plan_refiner_id: {parent_plan_refiner_id}")
+                except Exception as e:
+                    print(f"  ⚠️  Erro ao buscar plan_refiner_id: {e}")
+                
                 print(f"  🔍 DEBUG - plan_confirm_id encontrado: {parent_plan_confirm_id}")
                 print(f"  🔍 DEBUG - plan_builder_id encontrado: {parent_plan_builder_id}")
                 print(f"  🔍 DEBUG - intent_validator_id encontrado: {parent_intent_validator_id}")
                 print(f"  🔍 DEBUG - user_proposed_plan_id encontrado: {parent_user_proposed_plan_id}")
+                print(f"  🔍 DEBUG - plan_refiner_id encontrado: {parent_plan_refiner_id}")
                 
                 # Preparar metadata
                 metadata = {
@@ -616,7 +633,7 @@ class HistoryPreferencesAgent:
                 cursor.execute("""
                     INSERT INTO analysis_orchestrator_logs (
                         execution_sequence, parent_plan_confirm_id, parent_plan_builder_id, 
-                        parent_intent_validator_id, parent_user_proposed_plan_id,
+                        parent_intent_validator_id, parent_user_proposed_plan_id, parent_plan_refiner_id,
                         username, projeto, pergunta,
                         plan, intent_category, plan_confirmed,
                         query_sql, query_explanation, columns_used, filters_applied,
@@ -625,7 +642,7 @@ class HistoryPreferencesAgent:
                         optimization_notes, query_complexity, has_aggregation,
                         execution_time, model_used,
                         success, error_message, error_type, metadata
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
                 """, (
                     5,  # Analysis orchestrator é sequence 5 (depois do plan_confirm)
@@ -633,6 +650,7 @@ class HistoryPreferencesAgent:
                     parent_plan_builder_id,
                     parent_intent_validator_id,
                     parent_user_proposed_plan_id,
+                    parent_plan_refiner_id,
                     username, projeto, pergunta,
                     state.get('plan', ''),
                     intent_category,
@@ -713,6 +731,137 @@ class HistoryPreferencesAgent:
                     True
                 ))
                 log_id = cursor.fetchone()[0]
+            
+            elif previous_module == "plan_refiner":
+                print(f"  ✓ Salvando em plan_refiner_logs")
+                
+                # DEBUG: Ver todos os campos disponíveis
+                print(f"  🔍 DEBUG - Campos do state:")
+                print(f"     refined_plan: {len(state.get('refined_plan', ''))} chars")
+                print(f"     original_plan: {len(state.get('original_plan', ''))} chars")
+                print(f"     user_suggestion: {state.get('user_suggestion', 'N/A')[:50]}...")
+                print(f"     intent_category: {state.get('intent_category')}")
+                print(f"     parent_plan_builder_id: {state.get('parent_plan_builder_id')}")
+                print(f"     parent_user_proposed_plan_id: {state.get('parent_user_proposed_plan_id')}")
+                print(f"     parent_intent_validator_id: {state.get('parent_intent_validator_id')}")
+                
+                # Calcular métricas
+                original_plan = state.get('original_plan', '')
+                refined_plan = state.get('refined_plan', '')
+                changes_applied = state.get('changes_applied', [])
+                user_suggestions_incorporated = state.get('user_suggestions_incorporated', [])
+                improvements_made = state.get('improvements_made', [])
+                
+                # Buscar parent_user_proposed_plan_id do último log
+                parent_user_proposed_plan_id = state.get('parent_user_proposed_plan_id')
+                if not parent_user_proposed_plan_id:
+                    # Buscar no banco o último log de user_proposed_plan para este user/projeto
+                    cursor.execute("""
+                        SELECT id FROM user_proposed_plan_logs
+                        WHERE username = %s AND projeto = %s
+                        ORDER BY horario DESC
+                        LIMIT 1
+                    """, (username, projeto))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_user_proposed_plan_id = result[0]
+                        print(f"  🔍 parent_user_proposed_plan_id obtido do banco: {parent_user_proposed_plan_id}")
+                
+                # Buscar parent_plan_builder_id se não vier no state
+                parent_plan_builder_id = state.get('parent_plan_builder_id')
+                if not parent_plan_builder_id:
+                    cursor.execute("""
+                        SELECT id FROM plan_builder_logs
+                        WHERE username = %s AND projeto = %s
+                        ORDER BY horario DESC
+                        LIMIT 1
+                    """, (username, projeto))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_plan_builder_id = result[0]
+                        print(f"  🔍 parent_plan_builder_id obtido do banco: {parent_plan_builder_id}")
+                
+                # Buscar parent_intent_validator_id se não vier no state
+                parent_intent_validator_id = state.get('parent_intent_validator_id')
+                if not parent_intent_validator_id:
+                    cursor.execute("""
+                        SELECT id FROM intent_validator_logs
+                        WHERE username = %s AND projeto = %s
+                        ORDER BY horario DESC
+                        LIMIT 1
+                    """, (username, projeto))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_intent_validator_id = result[0]
+                        print(f"  🔍 parent_intent_validator_id obtido do banco: {parent_intent_validator_id}")
+                
+                # Construir metadata
+                metadata = {
+                    'model_used': state.get('model_used', 'gpt-4o'),
+                    'temperature': state.get('temperature', 0.3),
+                    'execution_time': state.get('execution_time', 0.0),
+                    'num_changes': len(changes_applied),
+                    'num_suggestions': len(user_suggestions_incorporated),
+                    'num_improvements': len(improvements_made),
+                    'original_length': len(original_plan),
+                    'refined_length': len(refined_plan)
+                }
+                
+                cursor.execute("""
+                    INSERT INTO plan_refiner_logs (
+                        username, projeto, horario,
+                        pergunta, original_plan, user_suggestion, intent_category,
+                        refined_plan, refinement_summary,
+                        changes_applied, user_suggestions_incorporated,
+                        improvements_made, validation_notes,
+                        parent_intent_validator_id, parent_plan_builder_id, parent_user_proposed_plan_id,
+                        model_used, temperature,
+                        original_plan_length, refined_plan_length,
+                        num_changes_applied, num_suggestions_incorporated,
+                        execution_time, success, error_message, metadata
+                    ) VALUES (
+                        %s, %s, CURRENT_TIMESTAMP,
+                        %s, %s, %s, %s,
+                        %s, %s,
+                        %s, %s,
+                        %s, %s,
+                        %s, %s, %s,
+                        %s, %s,
+                        %s, %s,
+                        %s, %s,
+                        %s, %s, %s, %s
+                    )
+                    RETURNING id
+                """, (
+                    username,
+                    projeto,
+                    pergunta,
+                    original_plan,
+                    state.get('user_suggestion', ''),
+                    state.get('intent_category', 'unknown'),
+                    refined_plan,
+                    state.get('refinement_summary', ''),
+                    json.dumps(changes_applied, ensure_ascii=False),
+                    json.dumps(user_suggestions_incorporated, ensure_ascii=False),
+                    json.dumps(improvements_made, ensure_ascii=False),
+                    json.dumps({'notes': state.get('validation_notes', '')}, ensure_ascii=False),  # JSONB - converter string para objeto
+                    parent_intent_validator_id,  # Usar variável local (buscada do banco)
+                    parent_plan_builder_id,  # Usar variável local (buscada do banco)
+                    parent_user_proposed_plan_id,  # Usar variável local (buscada do banco)
+                    state.get('model_used', 'gpt-4o'),
+                    state.get('temperature', 0.3),
+                    len(original_plan),
+                    len(refined_plan),
+                    len(changes_applied),
+                    len(user_suggestions_incorporated),
+                    state.get('execution_time', 0.0),
+                    not bool(state.get('error')),
+                    state.get('error'),
+                    json.dumps(metadata, ensure_ascii=False)
+                ))
+                log_id = cursor.fetchone()[0]
+                print(f"  ✅ plan_refiner_logs salvo com ID: {log_id}")
+            
             conn.commit()
             cursor.close()
             conn.close()

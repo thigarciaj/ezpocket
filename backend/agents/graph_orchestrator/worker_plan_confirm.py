@@ -135,7 +135,11 @@ class PlanConfirmWorker(ModuleWorker):
                     'plan_steps': plan_steps,
                     'estimated_complexity': data.get('estimated_complexity', 'média'),
                     'execution_time': time.time() - start,
-                    '_next_modules': next_modules
+                    '_next_modules': next_modules,
+                    # Parent IDs para propagar
+                    'parent_intent_validator_id': data.get('intent_validator_id'),
+                    'parent_plan_builder_id': data.get('parent_id'),
+                    'intent_category': data.get('intent_category')
                 }
                 
                 print(f"[PLAN_CONFIRM]    ✅ Output contém '_next_modules': {'_next_modules' in output}")
@@ -178,6 +182,10 @@ class PlanConfirmWorker(ModuleWorker):
             'confirmation_method': 'timeout',
             'confirmation_time': datetime.now().isoformat(),
             'user_feedback': 'Timeout - sem resposta do usuário',
+            # Parent IDs para propagar
+            'parent_intent_validator_id': data.get('intent_validator_id'),
+            'parent_plan_builder_id': data.get('parent_id'),
+            'intent_category': data.get('intent_category'),
             'plan_accepted': False,
             # Manter dados do plano para o history salvar
             'plan': plan,

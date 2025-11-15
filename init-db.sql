@@ -222,6 +222,70 @@ CREATE INDEX idx_user_proposed_plan_execution_sequence ON user_proposed_plan_log
 CREATE INDEX idx_user_proposed_plan_iteration ON user_proposed_plan_logs(iteration_count);
 
 -- =====================================================
+-- MÓDULO 1.7: PLAN REFINER AGENT
+-- =====================================================
+CREATE TABLE IF NOT EXISTS plan_refiner_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    
+    -- Identificação (sempre presente)
+    username VARCHAR(100) NOT NULL,
+    projeto VARCHAR(100) NOT NULL,
+    horario TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    
+    -- Input do refinamento
+    pergunta TEXT NOT NULL,
+    original_plan TEXT NOT NULL,
+    user_suggestion TEXT NOT NULL,
+    intent_category VARCHAR(50),
+    
+    -- Output do refinamento
+    refined_plan TEXT,
+    refinement_summary TEXT,
+    changes_applied JSONB,  -- Array de mudanças aplicadas
+    user_suggestions_incorporated JSONB,  -- Array de sugestões incorporadas
+    improvements_made JSONB,  -- Array de melhorias feitas
+    validation_notes JSONB,  -- Array de notas de validação
+    
+    -- Parent IDs (para rastreabilidade)
+    parent_intent_validator_id UUID,
+    parent_plan_builder_id UUID,
+    parent_user_proposed_plan_id UUID,
+    
+    -- Configuração do modelo
+    model_used VARCHAR(50),
+    temperature REAL,
+    
+    -- Métricas
+    original_plan_length INTEGER,
+    refined_plan_length INTEGER,
+    num_changes_applied INTEGER,
+    num_suggestions_incorporated INTEGER,
+    execution_time REAL,
+    
+    -- Status
+    success BOOLEAN DEFAULT TRUE,
+    error_message TEXT,
+    
+    -- Metadata adicional
+    metadata JSONB,
+    
+    -- Foreign Keys
+    FOREIGN KEY (parent_intent_validator_id) REFERENCES intent_validator_logs(id) ON DELETE SET NULL,
+    FOREIGN KEY (parent_plan_builder_id) REFERENCES plan_builder_logs(id) ON DELETE SET NULL,
+    FOREIGN KEY (parent_user_proposed_plan_id) REFERENCES user_proposed_plan_logs(id) ON DELETE SET NULL
+);
+
+-- Índices para plan_refiner_logs
+CREATE INDEX idx_plan_refiner_username ON plan_refiner_logs(username);
+CREATE INDEX idx_plan_refiner_projeto ON plan_refiner_logs(projeto);
+CREATE INDEX idx_plan_refiner_horario ON plan_refiner_logs(horario DESC);
+CREATE INDEX idx_plan_refiner_intent_category ON plan_refiner_logs(intent_category);
+CREATE INDEX idx_plan_refiner_parent_intent_validator ON plan_refiner_logs(parent_intent_validator_id);
+CREATE INDEX idx_plan_refiner_parent_plan_builder ON plan_refiner_logs(parent_plan_builder_id);
+CREATE INDEX idx_plan_refiner_parent_user_proposed ON plan_refiner_logs(parent_user_proposed_plan_id);
+CREATE INDEX idx_plan_refiner_success ON plan_refiner_logs(success);
+
+-- =====================================================
 -- MÓDULO 1.8: ANALYSIS ORCHESTRATOR AGENT (MOTOR DE GERAÇÃO DE QUERIES)
 -- =====================================================
 
@@ -234,6 +298,7 @@ CREATE TABLE IF NOT EXISTS analysis_orchestrator_logs (
     parent_plan_builder_id UUID REFERENCES plan_builder_logs(id),  -- FK para plan_builder
     parent_intent_validator_id UUID REFERENCES intent_validator_logs(id),  -- FK para intent_validator
     parent_user_proposed_plan_id UUID REFERENCES user_proposed_plan_logs(id),  -- FK para user_proposed_plan (se houver)
+    parent_plan_refiner_id UUID REFERENCES plan_refiner_logs(id),  -- FK para plan_refiner (se houver)
     
     -- Identificação (sempre presente)
     username VARCHAR(100) NOT NULL,
@@ -287,6 +352,7 @@ CREATE INDEX idx_analysis_orchestrator_parent_confirm ON analysis_orchestrator_l
 CREATE INDEX idx_analysis_orchestrator_parent_plan ON analysis_orchestrator_logs(parent_plan_builder_id);
 CREATE INDEX idx_analysis_orchestrator_parent_intent ON analysis_orchestrator_logs(parent_intent_validator_id);
 CREATE INDEX idx_analysis_orchestrator_parent_user_proposed ON analysis_orchestrator_logs(parent_user_proposed_plan_id);
+CREATE INDEX idx_analysis_orchestrator_parent_refiner ON analysis_orchestrator_logs(parent_plan_refiner_id);
 CREATE INDEX idx_analysis_orchestrator_execution_sequence ON analysis_orchestrator_logs(execution_sequence);
 CREATE INDEX idx_analysis_orchestrator_category ON analysis_orchestrator_logs(intent_category);
 

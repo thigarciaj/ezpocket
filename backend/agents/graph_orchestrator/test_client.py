@@ -258,19 +258,11 @@ def test_orchestrator(pergunta: str, username: str = "test_user", projeto: str =
                             # Salvar sugestão no Redis
                             redis_client.set(user_plan_response_key, user_suggestion, ex=300)
                             
-                            print(f"✅ Sugestão registrada e será processada.")
+                            print(f"✅ Sugestão registrada e será processada pelo PlanRefinerAgent.")
                             print(f"{'='*80}\n")
                             
-                            # Aguardar 3 segundos para o sistema processar
-                            time.sleep(3)
-                            
-                            # Verificar se job foi completado (user_proposed_plan → history → fim)
-                            final_status = get_job_status(result['job_id'], silent=True)
-                            if final_status and final_status.get('status', {}).get('consolidated_status') == 'completed':
-                                print(f"\n{'='*80}")
-                                print(f"✅ SUGESTÃO REGISTRADA E JOB FINALIZADO")
-                                print(f"{'='*80}\n")
-                                return
+                            # Resetar flag de confirmação para permitir nova confirmação do plano refinado
+                            confirmation_checked = False
                             
                     except Exception as e:
                         print(f"\n❌ Erro ao processar interação: {e}\n")

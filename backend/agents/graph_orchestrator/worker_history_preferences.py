@@ -63,15 +63,18 @@ class HistoryPreferencesWorker(ModuleWorker):
         # Salvar interação no PostgreSQL (passa o state completo)
         save_state = self.agent.save_interaction(result_state)
         
-        return {
+        # IMPORTANTE: Retornar TODOS os dados do módulo anterior + info do history
+        # Isso permite que o próximo módulo (plan_confirm) tenha acesso a tudo
+        output = dict(data)  # Mantém TODOS os campos
+        output.update({
             'context_loaded': result_state.get('has_user_context', False),
             'interaction_saved': save_state.get('interaction_saved', False),
             'interaction_id': save_state.get('interaction_id'),
+            'log_id': save_state.get('log_id'),
             'execution_time': 0.1,  # TODO: medir tempo real
-            # Manter dados para próximo módulo
-            'pergunta': data.get('pergunta'),
-            'intent_category': data.get('intent_category')
-        }
+        })
+        
+        return output
 
 if __name__ == '__main__':
     worker = HistoryPreferencesWorker()
