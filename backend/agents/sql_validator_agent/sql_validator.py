@@ -95,7 +95,8 @@ class SQLValidatorAgent:
                 return self._build_error_response(
                     basic_validation['error'],
                     basic_validation,
-                    start_time
+                    start_time,
+                    query_sql
                 )
             
             # 2. Validação de segurança
@@ -104,7 +105,8 @@ class SQLValidatorAgent:
                 return self._build_error_response(
                     security_validation['error'],
                     security_validation,
-                    start_time
+                    start_time,
+                    query_sql
                 )
             
             # 3. Validação com GPT-4o (sintaxe Athena específica)
@@ -141,7 +143,7 @@ class SQLValidatorAgent:
         except Exception as e:
             error_msg = f"Erro na validação: {str(e)}"
             print(f"❌ {error_msg}")
-            return self._build_error_response(error_msg, {}, start_time)
+            return self._build_error_response(error_msg, {}, start_time, query_sql)
     
     def _basic_validation(self, query_sql: str) -> Dict[str, Any]:
         """Validações básicas da query"""
@@ -389,13 +391,13 @@ Analise a seguinte query SQL e valide:
         else:
             return 'low'
     
-    def _build_error_response(self, error_msg: str, validation: Dict, start_time: datetime) -> Dict[str, Any]:
+    def _build_error_response(self, error_msg: str, validation: Dict, start_time: datetime, query_sql: str = '') -> Dict[str, Any]:
         """Constrói resposta de erro"""
         execution_time = (datetime.now() - start_time).total_seconds()
         
         return {
             'valid': False,
-            'query_validated': None,
+            'query_validated': query_sql,  # Retornar query original mesmo quando inválida
             'syntax_valid': False,
             'athena_compatible': False,
             'security_issues': validation.get('issues', []),

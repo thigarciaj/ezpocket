@@ -70,10 +70,21 @@ class SQLValidatorWorker(ModuleWorker):
         print(f"[SQL_VALIDATOR]    Risk Level: {result['risk_level']}")
         print(f"[SQL_VALIDATOR]    Cost: ${result['estimated_cost_usd']} USD")
         
+        # Determinar próximos módulos baseado na validação
+        if result['valid']:
+            # Query válida: apenas history
+            next_modules = ['history_preferences']
+            print(f"[SQL_VALIDATOR] ✅ Query válida - Enviando para history")
+        else:
+            # Query inválida: auto_correction + history (paralelo)
+            next_modules = ['auto_correction', 'history_preferences']
+            print(f"[SQL_VALIDATOR] ⚠️  Query inválida - Enviando para auto_correction + history")
+        
         # Adicionar campos necessários para history
         output = {
             **result,
             'previous_module': 'sql_validator',
+            'query_sql': query_sql,  # IMPORTANTE: adicionar query original para o history
             'pergunta': data.get('pergunta', ''),
             'username': username,
             'projeto': projeto,
@@ -84,9 +95,8 @@ class SQLValidatorWorker(ModuleWorker):
             'parent_plan_confirm_id': data.get('parent_plan_confirm_id'),
             'parent_plan_builder_id': data.get('parent_plan_builder_id'),
             'parent_intent_validator_id': data.get('parent_intent_validator_id'),
-            # Próximos módulos: 2x history_preferences (salvar analysis_orchestrator + sql_validator)
-            # IMPORTANTE: Primeiro history salva analysis_orchestrator, segundo salva sql_validator
-            '_next_modules': ['history_preferences'],
+            # Próximos módulos: condicional baseado na validação
+            '_next_modules': next_modules,
             # Guardar dados do analysis_orchestrator para o history salvar primeiro
             'analysis_orchestrator_data': {
                 'previous_module': 'analysis_orchestrator',
@@ -110,8 +120,9 @@ class SQLValidatorWorker(ModuleWorker):
             }
         }
         
-        print(f"[SQL_VALIDATOR] 🔀 Próximo módulo: history_preferences")
-        print(f"[SQL_VALIDATOR] 📝 History vai salvar: analysis_orchestrator + sql_validator")
+        print(f"[SQL_VALIDATOR] 🔀 Próximos módulos: {next_modules}")
+        if not result['valid']:
+            print(f"[SQL_VALIDATOR] 🔧 AutoCorrection vai tentar corrigir a query")
         
         return output
 

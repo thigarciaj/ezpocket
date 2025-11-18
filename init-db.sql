@@ -424,6 +424,67 @@ CREATE INDEX idx_sql_validator_parent_intent ON sql_validator_logs(parent_intent
 CREATE INDEX idx_sql_validator_execution_sequence ON sql_validator_logs(execution_sequence);
 
 -- =====================================================
+-- MÓDULO 1.9: AUTO CORRECTION AGENT (NÓ DE CORREÇÃO)
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS auto_correction_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    
+    -- Rastreio de execução
+    execution_sequence INTEGER,  -- Ordem de execução no fluxo (7)
+    parent_sql_validator_id UUID REFERENCES sql_validator_logs(id),  -- FK para sql_validator
+    parent_analysis_orchestrator_id UUID REFERENCES analysis_orchestrator_logs(id),  -- FK para analysis_orchestrator
+    parent_plan_confirm_id UUID REFERENCES plan_confirm_logs(id),  -- FK para plan_confirm
+    parent_plan_builder_id UUID REFERENCES plan_builder_logs(id),  -- FK para plan_builder
+    parent_intent_validator_id UUID REFERENCES intent_validator_logs(id),  -- FK para intent_validator
+    
+    -- Identificação (sempre presente)
+    username VARCHAR(100) NOT NULL,
+    projeto VARCHAR(100) NOT NULL,
+    horario TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    
+    -- Input
+    pergunta TEXT NOT NULL,
+    query_original TEXT NOT NULL,  -- Query SQL original (inválida)
+    validation_issues JSONB,  -- Problemas encontrados pelo SQL Validator
+    
+    -- Resultado da Correção
+    success BOOLEAN NOT NULL,  -- Se conseguiu corrigir a query
+    query_corrected TEXT,  -- Query SQL corrigida
+    corrections_applied JSONB,  -- Lista de correções aplicadas
+    corrections_count INTEGER,  -- Número de correções
+    
+    -- Explicação
+    correction_explanation TEXT,  -- Explicação detalhada das mudanças
+    changes_summary TEXT,  -- Resumo das mudanças
+    confidence REAL,  -- Confiança na correção (0.0-1.0)
+    
+    -- Performance da Correção
+    execution_time REAL,  -- Tempo de execução do agente
+    model_used VARCHAR(50),  -- Modelo usado (gpt-4o)
+    tokens_used INTEGER,  -- Tokens consumidos
+    
+    -- Status
+    error_message TEXT,
+    
+    -- Metadata adicional
+    metadata JSONB
+);
+
+CREATE INDEX idx_auto_correction_username ON auto_correction_logs(username);
+CREATE INDEX idx_auto_correction_projeto ON auto_correction_logs(projeto);
+CREATE INDEX idx_auto_correction_horario ON auto_correction_logs(horario DESC);
+CREATE INDEX idx_auto_correction_username_projeto ON auto_correction_logs(username, projeto);
+CREATE INDEX idx_auto_correction_success ON auto_correction_logs(success);
+CREATE INDEX idx_auto_correction_corrections_count ON auto_correction_logs(corrections_count);
+CREATE INDEX idx_auto_correction_parent_validator ON auto_correction_logs(parent_sql_validator_id);
+CREATE INDEX idx_auto_correction_parent_analysis ON auto_correction_logs(parent_analysis_orchestrator_id);
+CREATE INDEX idx_auto_correction_parent_confirm ON auto_correction_logs(parent_plan_confirm_id);
+CREATE INDEX idx_auto_correction_parent_builder ON auto_correction_logs(parent_plan_builder_id);
+CREATE INDEX idx_auto_correction_parent_intent ON auto_correction_logs(parent_intent_validator_id);
+CREATE INDEX idx_auto_correction_execution_sequence ON auto_correction_logs(execution_sequence);
+
+-- =====================================================
 -- MÓDULO 2: HISTORY PREFERENCES AGENT (NÓ 1)
 -- =====================================================
 -- COMENTADO: Tabela não utilizada no momento

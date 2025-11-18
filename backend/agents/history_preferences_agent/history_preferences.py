@@ -757,6 +757,92 @@ class HistoryPreferencesAgent:
                 ))
                 log_id = cursor.fetchone()[0]
             
+            elif previous_module == "auto_correction":
+                print(f"  ✓ Salvando em auto_correction_logs")
+                
+                # Buscar parent IDs do banco
+                parent_sql_validator_id = None
+                try:
+                    cursor.execute("""
+                        SELECT id FROM sql_validator_logs
+                        WHERE username = %s AND projeto = %s AND pergunta = %s
+                        ORDER BY horario DESC LIMIT 1
+                    """, (username, projeto, pergunta))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_sql_validator_id = result[0]
+                        print(f"  ✅ Encontrado sql_validator_id: {parent_sql_validator_id}")
+                except Exception as e:
+                    print(f"  ⚠️  Erro ao buscar sql_validator_id: {e}")
+                
+                parent_analysis_orchestrator_id = None
+                try:
+                    cursor.execute("""
+                        SELECT id FROM analysis_orchestrator_logs
+                        WHERE username = %s AND projeto = %s AND pergunta = %s
+                        ORDER BY horario DESC LIMIT 1
+                    """, (username, projeto, pergunta))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_analysis_orchestrator_id = result[0]
+                except Exception as e:
+                    print(f"  ⚠️  Erro ao buscar analysis_orchestrator_id: {e}")
+                
+                parent_plan_confirm_id = self._get_plan_confirm_id_by_context(
+                    username, projeto, pergunta
+                )
+                parent_plan_builder_id = self._get_plan_builder_id_by_context(
+                    username, projeto, pergunta
+                )
+                parent_intent_validator_id = self._get_intent_validator_id_by_context(
+                    username, projeto, pergunta
+                )
+                
+                # Preparar metadata
+                metadata = {
+                    'correction_timestamp': datetime.now().isoformat(),
+                    'validation_issues_count': len(state.get('validation_issues', [])),
+                    'all_state_keys': list(state.keys())
+                }
+                metadata = {k: v for k, v in metadata.items() if v is not None}
+                
+                cursor.execute("""
+                    INSERT INTO auto_correction_logs (
+                        execution_sequence, parent_sql_validator_id, parent_analysis_orchestrator_id,
+                        parent_plan_confirm_id, parent_plan_builder_id, parent_intent_validator_id,
+                        username, projeto, pergunta,
+                        query_original, validation_issues, success,
+                        query_corrected, corrections_applied, corrections_count,
+                        correction_explanation, changes_summary, confidence,
+                        execution_time, model_used, tokens_used,
+                        error_message, metadata
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (
+                    7,  # Auto Correction é sequence 7 (depois do sql_validator)
+                    parent_sql_validator_id,
+                    parent_analysis_orchestrator_id,
+                    parent_plan_confirm_id,
+                    parent_plan_builder_id,
+                    parent_intent_validator_id,
+                    username, projeto, pergunta,
+                    state.get('query_original', ''),
+                    json.dumps(state.get('validation_issues', []), ensure_ascii=False),
+                    state.get('success', False),
+                    state.get('query_corrected', ''),
+                    json.dumps(state.get('corrections_applied', []), ensure_ascii=False),
+                    state.get('corrections_count', 0),
+                    state.get('correction_explanation', ''),
+                    state.get('changes_summary', ''),
+                    state.get('confidence', 0.0),
+                    state.get('execution_time', 0.0),
+                    state.get('model_used', 'gpt-4o'),
+                    state.get('tokens_used', 0),
+                    state.get('error'),
+                    json.dumps(metadata, ensure_ascii=False) if metadata else None
+                ))
+                log_id = cursor.fetchone()[0]
+            
             elif previous_module == "router":
                 print(f"  ✓ Salvando em router_logs")
                 
