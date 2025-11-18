@@ -86,16 +86,22 @@ WORKER5_PID=$!
 echo -e "      PID: $WORKER5_PID"
 echo ""
 
-echo -e "${GREEN}[6/7] Iniciando Worker: Analysis Orchestrator${NC}"
+echo -e "${GREEN}[6/8] Iniciando Worker: Analysis Orchestrator${NC}"
 python agents/graph_orchestrator/worker_analysis_orchestrator.py &
 WORKER6_PID=$!
 echo -e "      PID: $WORKER6_PID"
 echo ""
 
-echo -e "${GREEN}[7/7] Iniciando Worker: History Preferences${NC}"
-python agents/graph_orchestrator/worker_history_preferences.py &
+echo -e "${GREEN}[7/8] Iniciando Worker: SQL Validator${NC}"
+python agents/graph_orchestrator/worker_sql_validator.py &
 WORKER7_PID=$!
 echo -e "      PID: $WORKER7_PID"
+echo ""
+
+echo -e "${GREEN}[8/8] Iniciando Worker: History Preferences${NC}"
+python agents/graph_orchestrator/worker_history_preferences.py &
+WORKER8_PID=$!
+echo -e "      PID: $WORKER8_PID"
 echo ""
 
 echo -e "${BLUE}================================================================================${NC}"
@@ -109,7 +115,8 @@ echo -e "  • Plan Confirm (PID: $WORKER3_PID)"
 echo -e "  • User Proposed Plan (PID: $WORKER4_PID)"
 echo -e "  • Plan Refiner (PID: $WORKER5_PID)"
 echo -e "  • Analysis Orchestrator (PID: $WORKER6_PID)"
-echo -e "  • History Preferences (PID: $WORKER7_PID)"
+echo -e "  • SQL Validator (PID: $WORKER7_PID)"
+echo -e "  • History Preferences (PID: $WORKER8_PID)"
 echo ""
 echo -e "${YELLOW}Pressione Ctrl+C para parar todos os workers${NC}"
 echo ""

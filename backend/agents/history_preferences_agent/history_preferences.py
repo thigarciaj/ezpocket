@@ -675,6 +675,88 @@ class HistoryPreferencesAgent:
                 ))
                 log_id = cursor.fetchone()[0]
             
+            elif previous_module == "sql_validator":
+                print(f"  ✓ Salvando em sql_validator_logs")
+                
+                # Buscar parent IDs do banco
+                parent_analysis_orchestrator_id = None
+                try:
+                    cursor.execute("""
+                        SELECT id FROM analysis_orchestrator_logs
+                        WHERE username = %s AND projeto = %s AND pergunta = %s
+                        ORDER BY horario DESC LIMIT 1
+                    """, (username, projeto, pergunta))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_analysis_orchestrator_id = result[0]
+                        print(f"  ✅ Encontrado analysis_orchestrator_id: {parent_analysis_orchestrator_id}")
+                except Exception as e:
+                    print(f"  ⚠️  Erro ao buscar analysis_orchestrator_id: {e}")
+                
+                parent_plan_confirm_id = self._get_plan_confirm_id_by_context(
+                    username, projeto, pergunta
+                )
+                parent_plan_builder_id = self._get_plan_builder_id_by_context(
+                    username, projeto, pergunta
+                )
+                parent_intent_validator_id = self._get_intent_validator_id_by_context(
+                    username, projeto, pergunta
+                )
+                
+                print(f"  🔍 DEBUG - analysis_orchestrator_id: {parent_analysis_orchestrator_id}")
+                print(f"  🔍 DEBUG - plan_confirm_id: {parent_plan_confirm_id}")
+                print(f"  🔍 DEBUG - plan_builder_id: {parent_plan_builder_id}")
+                print(f"  🔍 DEBUG - intent_validator_id: {parent_intent_validator_id}")
+                
+                # Preparar metadata
+                metadata = {
+                    'validation_timestamp': datetime.now().isoformat(),
+                    'security_checks_performed': len(state.get('security_issues', [])),
+                    'warnings_count': len(state.get('warnings', [])),
+                    'suggestions_count': len(state.get('optimization_suggestions', [])),
+                    'all_state_keys': list(state.keys())
+                }
+                metadata = {k: v for k, v in metadata.items() if v is not None}
+                
+                cursor.execute("""
+                    INSERT INTO sql_validator_logs (
+                        execution_sequence, parent_analysis_orchestrator_id, parent_plan_confirm_id,
+                        parent_plan_builder_id, parent_intent_validator_id,
+                        username, projeto, pergunta,
+                        query_sql, valid, syntax_valid, athena_compatible,
+                        security_issues, warnings, optimization_suggestions,
+                        estimated_scan_size_gb, estimated_cost_usd, estimated_execution_time_seconds,
+                        risk_level, execution_time, model_used, tokens_used,
+                        success, error_message, metadata
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (
+                    6,  # SQL Validator é sequence 6 (depois do analysis_orchestrator)
+                    parent_analysis_orchestrator_id,
+                    parent_plan_confirm_id,
+                    parent_plan_builder_id,
+                    parent_intent_validator_id,
+                    username, projeto, pergunta,
+                    state.get('query_validated', state.get('query_sql', '')),
+                    state.get('valid', False),
+                    state.get('syntax_valid', False),
+                    state.get('athena_compatible', False),
+                    json.dumps(state.get('security_issues', []), ensure_ascii=False),
+                    json.dumps(state.get('warnings', []), ensure_ascii=False),
+                    json.dumps(state.get('optimization_suggestions', []), ensure_ascii=False),
+                    state.get('estimated_scan_size_gb', 0),
+                    state.get('estimated_cost_usd', 0),
+                    state.get('estimated_execution_time_seconds', 0),
+                    state.get('risk_level', 'unknown'),
+                    state.get('execution_time', 0.0),
+                    state.get('model_used', 'gpt-4o'),
+                    state.get('tokens_used', 0),
+                    not bool(state.get('error')),
+                    state.get('error'),
+                    json.dumps(metadata, ensure_ascii=False) if metadata else None
+                ))
+                log_id = cursor.fetchone()[0]
+            
             elif previous_module == "router":
                 print(f"  ✓ Salvando em router_logs")
                 

@@ -89,7 +89,10 @@ class AnalysisOrchestratorWorker(ModuleWorker):
             # IMPORTANTE: Propagar campos anteriores para rastreabilidade
             'intent_valid': data.get('intent_valid'),
             'plan_steps': data.get('plan_steps', []),
-            'estimated_complexity': data.get('estimated_complexity', 'média')
+            'estimated_complexity': data.get('estimated_complexity', 'média'),
+            # Definir próximos módulos: sql_validator e history_preferences em paralelo
+            # history salva analysis_orchestrator enquanto sql_validator valida
+            '_next_modules': ['sql_validator', 'history_preferences']
         }
 
 if __name__ == '__main__':

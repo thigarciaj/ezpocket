@@ -357,6 +357,73 @@ CREATE INDEX idx_analysis_orchestrator_execution_sequence ON analysis_orchestrat
 CREATE INDEX idx_analysis_orchestrator_category ON analysis_orchestrator_logs(intent_category);
 
 -- =====================================================
+-- MÓDULO 1.8: SQL VALIDATOR AGENT (NÓ DE VALIDAÇÃO)
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS sql_validator_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    
+    -- Rastreio de execução
+    execution_sequence INTEGER,  -- Ordem de execução no fluxo
+    parent_analysis_orchestrator_id UUID REFERENCES analysis_orchestrator_logs(id),  -- FK para analysis_orchestrator
+    parent_plan_confirm_id UUID REFERENCES plan_confirm_logs(id),  -- FK para plan_confirm
+    parent_plan_builder_id UUID REFERENCES plan_builder_logs(id),  -- FK para plan_builder
+    parent_intent_validator_id UUID REFERENCES intent_validator_logs(id),  -- FK para intent_validator
+    
+    -- Identificação (sempre presente)
+    username VARCHAR(100) NOT NULL,
+    projeto VARCHAR(100) NOT NULL,
+    horario TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    
+    -- Input
+    pergunta TEXT NOT NULL,
+    query_sql TEXT NOT NULL,  -- Query SQL a ser validada
+    
+    -- Resultado da Validação
+    valid BOOLEAN NOT NULL,  -- Se a query passou na validação
+    syntax_valid BOOLEAN,  -- Sintaxe SQL correta
+    athena_compatible BOOLEAN,  -- Compatível com AWS Athena (Presto)
+    
+    -- Problemas Encontrados
+    security_issues JSONB,  -- Lista de problemas de segurança
+    warnings JSONB,  -- Lista de avisos
+    optimization_suggestions JSONB,  -- Sugestões de otimização
+    
+    -- Estimativas AWS Athena
+    estimated_scan_size_gb NUMERIC(10,2),  -- Tamanho estimado de scan em GB
+    estimated_cost_usd NUMERIC(10,6),  -- Custo estimado em USD ($5/TB)
+    estimated_execution_time_seconds NUMERIC(10,2),  -- Tempo estimado de execução
+    
+    -- Análise de Risco
+    risk_level VARCHAR(50),  -- 'low', 'medium', 'high'
+    
+    -- Performance da Validação
+    execution_time REAL,  -- Tempo de execução do agente
+    model_used VARCHAR(50),  -- Modelo usado (gpt-4o)
+    tokens_used INTEGER,  -- Tokens consumidos
+    
+    -- Status
+    success BOOLEAN DEFAULT TRUE,
+    error_message TEXT,
+    
+    -- Metadata adicional
+    metadata JSONB
+);
+
+CREATE INDEX idx_sql_validator_username ON sql_validator_logs(username);
+CREATE INDEX idx_sql_validator_projeto ON sql_validator_logs(projeto);
+CREATE INDEX idx_sql_validator_horario ON sql_validator_logs(horario DESC);
+CREATE INDEX idx_sql_validator_username_projeto ON sql_validator_logs(username, projeto);
+CREATE INDEX idx_sql_validator_valid ON sql_validator_logs(valid);
+CREATE INDEX idx_sql_validator_risk_level ON sql_validator_logs(risk_level);
+CREATE INDEX idx_sql_validator_cost ON sql_validator_logs(estimated_cost_usd);
+CREATE INDEX idx_sql_validator_parent_analysis ON sql_validator_logs(parent_analysis_orchestrator_id);
+CREATE INDEX idx_sql_validator_parent_confirm ON sql_validator_logs(parent_plan_confirm_id);
+CREATE INDEX idx_sql_validator_parent_builder ON sql_validator_logs(parent_plan_builder_id);
+CREATE INDEX idx_sql_validator_parent_intent ON sql_validator_logs(parent_intent_validator_id);
+CREATE INDEX idx_sql_validator_execution_sequence ON sql_validator_logs(execution_sequence);
+
+-- =====================================================
 -- MÓDULO 2: HISTORY PREFERENCES AGENT (NÓ 1)
 -- =====================================================
 -- COMENTADO: Tabela não utilizada no momento
