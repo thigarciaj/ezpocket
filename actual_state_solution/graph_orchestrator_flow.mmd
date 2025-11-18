@@ -1,11 +1,11 @@
 graph TD
     Start([Usuário faz pergunta]) --> IntentValidator[Intent Validator]
     
-    IntentValidator -->|Paralelo| PlanBuilder[Plan Builder]
-    IntentValidator -->|Paralelo| H1[History Preferences]
+    IntentValidator --> PlanBuilder[Plan Builder]
+    IntentValidator --> H1[History Preferences]
     
-    PlanBuilder -->|Paralelo| PlanConfirm[Plan Confirm]
-    PlanBuilder -->|Paralelo| H2[History Preferences]
+    PlanBuilder --> PlanConfirm[Plan Confirm]
+    PlanBuilder --> H2[History Preferences]
     
     PlanConfirm -->|Aguarda resposta usuário| Decision{Usuário<br/>confirma?}
     
@@ -19,7 +19,12 @@ graph TD
     No --> UserProposed[User Proposed Plan<br/>Aguarda sugestão]
     No --> H4[History Preferences<br/>Salva Plan Confirm]
     
-    AnalysisOrchestrator -->|Query gerada| H5[History Preferences<br/>Salva Analysis Orchestrator]
+    %% Fluxo após Analysis Orchestrator: Paralelo para SQL Validator + History
+    AnalysisOrchestrator -->SQLValidator[SQL Validator<br/>Valida Query Athena]
+    AnalysisOrchestrator -->H5[History Preferences<br/>Salva Analysis Orchestrator]
+    
+    %% SQL Validator valida e salva
+    SQLValidator -->|Query validada| H8[History Preferences<br/>Salva SQL Validator]
     
     UserProposed -->|Sugestão recebida| PlanRefiner[Plan Refiner<br/>Refina plano]
     UserProposed --> H6[History Preferences<br/>Salva User Proposed]
@@ -34,11 +39,13 @@ graph TD
     H5 --> End5([Fim])
     H6 --> End6([Fim])
     H7 --> End7([Fim])
+    H8 --> End8([Fim])
 
     style IntentValidator fill:#e1f5ff
     style PlanBuilder fill:#e1f5ff
     style PlanConfirm fill:#fff4e1
     style AnalysisOrchestrator fill:#e1ffe1
+    style SQLValidator fill:#e1f5e1
     style UserProposed fill:#ffe1e1
     style PlanRefiner fill:#ffe8cc
     style Decision fill:#f0e1ff
@@ -51,3 +58,4 @@ graph TD
     style H5 fill:#f5f5f5
     style H6 fill:#f5f5f5
     style H7 fill:#f5f5f5
+    style H8 fill:#f5f5f5
