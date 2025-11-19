@@ -485,6 +485,67 @@ CREATE INDEX idx_auto_correction_parent_intent ON auto_correction_logs(parent_in
 CREATE INDEX idx_auto_correction_execution_sequence ON auto_correction_logs(execution_sequence);
 
 -- =====================================================
+-- ATHENA EXECUTOR AGENT - Execução de Queries
+-- =====================================================
+-- Tabela para registrar execução de queries no AWS Athena
+-- Execution Sequence: 8 (após sql_validator=6 ou auto_correction=7)
+-- Chamado quando: Query validada (sql_validator) OU corrigida (auto_correction)
+
+CREATE TABLE athena_executor_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    execution_sequence INTEGER DEFAULT 8 NOT NULL,
+    
+    -- Foreign Keys (Parent Modules)
+    parent_sql_validator_id UUID REFERENCES sql_validator_logs(id) ON DELETE CASCADE,
+    parent_auto_correction_id UUID REFERENCES auto_correction_logs(id) ON DELETE CASCADE,
+    parent_analysis_orchestrator_id UUID,
+    parent_plan_confirm_id UUID,
+    parent_plan_builder_id UUID,
+    parent_intent_validator_id UUID,
+    
+    -- Query Execution
+    query_executed TEXT NOT NULL,
+    success BOOLEAN NOT NULL DEFAULT FALSE,
+    
+    -- Results
+    row_count INTEGER DEFAULT 0,
+    column_count INTEGER DEFAULT 0,
+    columns JSONB, -- Array de nomes das colunas
+    results_preview JSONB, -- Primeiras 100 linhas em formato JSON
+    results_full JSONB, -- Todos os resultados completos
+    results_message TEXT, -- Mensagem formatada com os resultados
+    data_size_mb REAL DEFAULT 0,
+    
+    -- Athena Info
+    database VARCHAR(255),
+    region VARCHAR(50),
+    
+    -- Error Info (se houver)
+    error TEXT,
+    error_type VARCHAR(100),
+    
+    -- Performance Metrics
+    execution_time_seconds REAL,
+    
+    -- Metadata
+    username VARCHAR(255),
+    projeto VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes para performance
+CREATE INDEX idx_athena_executor_parent_validator ON athena_executor_logs(parent_sql_validator_id);
+CREATE INDEX idx_athena_executor_parent_correction ON athena_executor_logs(parent_auto_correction_id);
+CREATE INDEX idx_athena_executor_parent_analysis ON athena_executor_logs(parent_analysis_orchestrator_id);
+CREATE INDEX idx_athena_executor_parent_confirm ON athena_executor_logs(parent_plan_confirm_id);
+CREATE INDEX idx_athena_executor_parent_builder ON athena_executor_logs(parent_plan_builder_id);
+CREATE INDEX idx_athena_executor_parent_intent ON athena_executor_logs(parent_intent_validator_id);
+CREATE INDEX idx_athena_executor_success ON athena_executor_logs(success);
+CREATE INDEX idx_athena_executor_username_projeto ON athena_executor_logs(username, projeto);
+CREATE INDEX idx_athena_executor_created_at ON athena_executor_logs(created_at);
+CREATE INDEX idx_athena_executor_execution_sequence ON athena_executor_logs(execution_sequence);
+
+-- =====================================================
 -- MÓDULO 2: HISTORY PREFERENCES AGENT (NÓ 1)
 -- =====================================================
 -- COMENTADO: Tabela não utilizada no momento

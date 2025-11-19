@@ -26,15 +26,21 @@ graph TD
     %% SQL Validator decide o fluxo baseado na validação
     SQLValidator --> ValidationDecision{Query<br/>válida?}
     
-    %% Se query VÁLIDA: vai direto para History
+    %% Se query VÁLIDA: vai para Athena Executor + History (paralelo)
+    ValidationDecision -->|VÁLIDA| AthenaExecutor[Athena Executor<br/>Executa Query]
     ValidationDecision -->|VÁLIDA| H8[History Preferences<br/>Salva SQL Validator]
     
     %% Se query INVÁLIDA: vai para AutoCorrection + History (paralelo)
     ValidationDecision -->|INVÁLIDA| AutoCorrection[Auto Correction<br/>Corrige Query SQL]
     ValidationDecision -->|INVÁLIDA| H8B[History Preferences<br/>Salva SQL Validator]
     
-    %% AutoCorrection corrige e salva no History
+    %% AutoCorrection corrige e vai para Athena Executor + History (paralelo)
+    AutoCorrection --> AthenaExecutor2[Athena Executor<br/>Executa Query Corrigida]
     AutoCorrection --> H9[History Preferences<br/>Salva Auto Correction]
+    
+    %% Athena Executor salva no History
+    AthenaExecutor --> H10[History Preferences<br/>Salva Athena Executor]
+    AthenaExecutor2 --> H11[History Preferences<br/>Salva Athena Executor]
     
     UserProposed -->|Sugestão recebida| PlanRefiner[Plan Refiner<br/>Refina plano]
     UserProposed --> H6[History Preferences<br/>Salva User Proposed]
@@ -52,6 +58,8 @@ graph TD
     H8 --> End8([Fim])
     H8B --> End8B([Fim])
     H9 --> End9([Fim])
+    H10 --> End10([Fim])
+    H11 --> End11([Fim])
 
     style IntentValidator fill:#e1f5ff
     style PlanBuilder fill:#e1f5ff
@@ -75,3 +83,7 @@ graph TD
     style H8 fill:#f5f5f5
     style H8B fill:#f5f5f5
     style H9 fill:#f5f5f5
+    style H10 fill:#f5f5f5
+    style H11 fill:#f5f5f5
+    style AthenaExecutor fill:#e1ffe1
+    style AthenaExecutor2 fill:#e1ffe1
