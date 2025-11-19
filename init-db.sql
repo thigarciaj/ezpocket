@@ -247,9 +247,10 @@ CREATE TABLE IF NOT EXISTS plan_refiner_logs (
     validation_notes JSONB,  -- Array de notas de validação
     
     -- Parent IDs (para rastreabilidade)
-    parent_intent_validator_id UUID,
-    parent_plan_builder_id UUID,
-    parent_user_proposed_plan_id UUID,
+    parent_user_proposed_plan_id UUID REFERENCES user_proposed_plan_logs(id),
+    parent_plan_confirm_id UUID REFERENCES plan_confirm_logs(id),
+    parent_plan_builder_id UUID REFERENCES plan_builder_logs(id),
+    parent_intent_validator_id UUID REFERENCES intent_validator_logs(id),
     
     -- Configuração do modelo
     model_used VARCHAR(50),
@@ -544,6 +545,58 @@ CREATE INDEX idx_athena_executor_success ON athena_executor_logs(success);
 CREATE INDEX idx_athena_executor_username_projeto ON athena_executor_logs(username, projeto);
 CREATE INDEX idx_athena_executor_created_at ON athena_executor_logs(created_at);
 CREATE INDEX idx_athena_executor_execution_sequence ON athena_executor_logs(execution_sequence);
+
+-- =====================================================
+-- MÓDULO 8.5: PYTHON RUNTIME AGENT (ANÁLISE ESTATÍSTICA)
+-- =====================================================
+-- Tabela para registrar análises estatísticas dos resultados
+-- Execution Sequence: 9 (após athena_executor=8)
+-- Chamado quando: Query executada e resultados precisam de análise
+
+CREATE TABLE IF NOT EXISTS python_runtime_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    execution_sequence INTEGER DEFAULT 9 NOT NULL,
+    
+    -- Foreign Keys (Parent Modules)
+    parent_athena_executor_id UUID REFERENCES athena_executor_logs(id) ON DELETE CASCADE,
+    parent_auto_correction_id UUID REFERENCES auto_correction_logs(id) ON DELETE CASCADE,
+    parent_sql_validator_id UUID REFERENCES sql_validator_logs(id) ON DELETE CASCADE,
+    parent_analysis_orchestrator_id UUID,
+    parent_plan_confirm_id UUID,
+    parent_plan_builder_id UUID,
+    parent_intent_validator_id UUID,
+    
+    -- Identificação
+    username VARCHAR(100) NOT NULL,
+    projeto VARCHAR(100) NOT NULL,
+    horario TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    pergunta TEXT NOT NULL,
+    
+    -- Análise Estatística
+    success BOOLEAN NOT NULL DEFAULT FALSE,
+    has_analysis BOOLEAN DEFAULT FALSE,
+    analysis_summary TEXT,
+    statistics JSONB, -- {total, media, mediana, desvio_padrao, minimo, maximo}
+    insights JSONB, -- Array de insights gerados
+    
+    -- Performance
+    execution_time REAL,
+    
+    -- Error Info
+    error TEXT,
+    
+    -- Metadata adicional (código Python, visualizações sugeridas, etc)
+    metadata JSONB
+);
+
+-- Indexes para performance
+CREATE INDEX idx_python_runtime_parent_athena ON python_runtime_logs(parent_athena_executor_id);
+CREATE INDEX idx_python_runtime_parent_correction ON python_runtime_logs(parent_auto_correction_id);
+CREATE INDEX idx_python_runtime_parent_validator ON python_runtime_logs(parent_sql_validator_id);
+CREATE INDEX idx_python_runtime_parent_analysis ON python_runtime_logs(parent_analysis_orchestrator_id);
+CREATE INDEX idx_python_runtime_username_projeto ON python_runtime_logs(username, projeto);
+CREATE INDEX idx_python_runtime_horario ON python_runtime_logs(horario DESC);
+CREATE INDEX idx_python_runtime_execution_sequence ON python_runtime_logs(execution_sequence);
 
 -- =====================================================
 -- MÓDULO 2: HISTORY PREFERENCES AGENT (NÓ 1)

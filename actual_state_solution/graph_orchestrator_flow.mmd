@@ -11,7 +11,7 @@ graph TD
     
     %% Ramo SIM (apenas uma seta)
     Decision -->|SIM| Yes[  ]
-    Yes --> AnalysisOrchestrator[Analysis Orchestrator<br/>Gera Query SQL]
+    Yes --> AnalysisOrchestrator["🔧 Analysis Orchestrator<br/>Gera Query SQL"]
     Yes --> H3[History Preferences<br/>Salva Plan Confirm]
 
     %% Ramo NÃO (apenas uma seta)
@@ -20,14 +20,14 @@ graph TD
     No --> H4[History Preferences<br/>Salva Plan Confirm]
     
     %% Fluxo após Analysis Orchestrator: Paralelo para SQL Validator + History
-    AnalysisOrchestrator -->SQLValidator[SQL Validator<br/>Valida Query Athena]
+    AnalysisOrchestrator -->SQLValidator["🔍 SQL Validator<br/>Valida Query Athena"]
     AnalysisOrchestrator -->H5[History Preferences<br/>Salva Analysis Orchestrator]
     
     %% SQL Validator decide o fluxo baseado na validação
     SQLValidator --> ValidationDecision{Query<br/>válida?}
     
     %% Se query VÁLIDA: vai para Athena Executor + History (paralelo)
-    ValidationDecision -->|VÁLIDA| AthenaExecutor[Athena Executor<br/>Executa Query]
+    ValidationDecision -->|VÁLIDA| AthenaExecutor["⚡ Athena Executor<br/>Executa Query"]
     ValidationDecision -->|VÁLIDA| H8[History Preferences<br/>Salva SQL Validator]
     
     %% Se query INVÁLIDA: vai para AutoCorrection + History (paralelo)
@@ -35,12 +35,18 @@ graph TD
     ValidationDecision -->|INVÁLIDA| H8B[History Preferences<br/>Salva SQL Validator]
     
     %% AutoCorrection corrige e vai para Athena Executor + History (paralelo)
-    AutoCorrection --> AthenaExecutor2[Athena Executor<br/>Executa Query Corrigida]
+    AutoCorrection --> AthenaExecutor2["⚡ Athena Executor<br/>Executa Query Corrigida"]
     AutoCorrection --> H9[History Preferences<br/>Salva Auto Correction]
     
-    %% Athena Executor salva no History
+    %% Athena Executor vai para Python Runtime + History (paralelo)
+    AthenaExecutor --> PythonRuntime["📊 Python Runtime<br/>Análise Estatística"]
     AthenaExecutor --> H10[History Preferences<br/>Salva Athena Executor]
-    AthenaExecutor2 --> H11[History Preferences<br/>Salva Athena Executor]
+    AthenaExecutor2 --> PythonRuntime2["📊 Python Runtime<br/>Análise Estatística"]
+    AthenaExecutor2 --> H10B[History Preferences<br/>Salva Athena Executor]
+    
+    %% Python Runtime salva no History
+    PythonRuntime --> H11[History Preferences<br/>Salva Python Runtime]
+    PythonRuntime2 --> H12[History Preferences<br/>Salva Python Runtime]
     
     UserProposed -->|Sugestão recebida| PlanRefiner[Plan Refiner<br/>Refina plano]
     UserProposed --> H6[History Preferences<br/>Salva User Proposed]
@@ -59,7 +65,9 @@ graph TD
     H8B --> End8B([Fim])
     H9 --> End9([Fim])
     H10 --> End10([Fim])
+    H10B --> End10B([Fim])
     H11 --> End11([Fim])
+    H12 --> End12([Fim])
 
     style IntentValidator fill:#e1f5ff
     style PlanBuilder fill:#e1f5ff
@@ -84,6 +92,10 @@ graph TD
     style H8B fill:#f5f5f5
     style H9 fill:#f5f5f5
     style H10 fill:#f5f5f5
+    style H10B fill:#f5f5f5
     style H11 fill:#f5f5f5
+    style H12 fill:#f5f5f5
     style AthenaExecutor fill:#e1ffe1
     style AthenaExecutor2 fill:#e1ffe1
+    style PythonRuntime fill:#fff4cc
+    style PythonRuntime2 fill:#fff4cc
