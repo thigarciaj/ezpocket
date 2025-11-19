@@ -92,12 +92,12 @@ class ResponseComposerWorker(ModuleWorker):
             **result,
             # Tempo de execução
             'execution_time': execution_time,
-            # Próximo módulo: history_preferences (salvar response_composer)
+            # Próximo módulo: history_preferences (salvar response_composer primeiro)
             '_next_modules': ['history_preferences']
         }
         
         print(f"[RESPONSE_COMPOSER] 🔀 Enviando resposta formatada para: history_preferences")
-        print(f"[RESPONSE_COMPOSER] 📝 Resposta pronta para exibição ao usuário")
+        print(f"[RESPONSE_COMPOSER] 📝 History vai salvar e depois chamar user_feedback")
         
         return output
 

@@ -74,6 +74,11 @@ class HistoryPreferencesWorker(ModuleWorker):
             'execution_time': 0.1,  # TODO: medir tempo real
         })
         
+        # Se o agente definiu _next_modules, repassar (ex: response_composer → user_feedback)
+        if '_next_modules' in save_state:
+            output['_next_modules'] = save_state['_next_modules']
+            print(f"   🔀 Repassando _next_modules: {save_state['_next_modules']}")
+        
         return output
 
 if __name__ == '__main__':

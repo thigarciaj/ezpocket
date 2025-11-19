@@ -649,6 +649,69 @@ CREATE INDEX idx_response_composer_horario ON response_composer_logs(horario DES
 CREATE INDEX idx_response_composer_execution_sequence ON response_composer_logs(execution_sequence);
 
 -- =====================================================
+-- USER FEEDBACK AGENT (NÓ 11) - Avaliação do Usuário
+-- =====================================================
+CREATE TABLE IF NOT EXISTS user_feedback_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    execution_sequence INTEGER DEFAULT 11 NOT NULL,
+    
+    -- Foreign Keys (Parent Modules)
+    parent_response_composer_id UUID REFERENCES response_composer_logs(id) ON DELETE CASCADE,
+    parent_python_runtime_id UUID REFERENCES python_runtime_logs(id) ON DELETE CASCADE,
+    parent_athena_executor_id UUID REFERENCES athena_executor_logs(id) ON DELETE CASCADE,
+    parent_auto_correction_id UUID REFERENCES auto_correction_logs(id) ON DELETE CASCADE,
+    parent_sql_validator_id UUID REFERENCES sql_validator_logs(id) ON DELETE CASCADE,
+    parent_analysis_orchestrator_id UUID,
+    parent_plan_confirm_id UUID,
+    parent_plan_builder_id UUID,
+    parent_intent_validator_id UUID,
+    
+    -- Identificação
+    username VARCHAR(100) NOT NULL,
+    projeto VARCHAR(100) NOT NULL,
+    horario TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    pergunta TEXT NOT NULL,
+    
+    -- Resposta avaliada
+    response_text TEXT,  -- Resposta que foi apresentada ao usuário
+    
+    -- Avaliação do Usuário
+    success BOOLEAN NOT NULL DEFAULT TRUE,
+    rating INTEGER CHECK (rating >= 1 AND rating <= 5),  -- 1-5 estrelas
+    comment TEXT,  -- Comentário opcional
+    is_helpful BOOLEAN,  -- Se a resposta foi útil
+    response_quality VARCHAR(50),  -- poor/fair/good/very_good/excellent
+    user_satisfaction VARCHAR(50),  -- unsatisfied/neutral/satisfied/very_satisfied
+    would_recommend BOOLEAN,  -- Se recomendaria o sistema
+    feedback_tags TEXT[],  -- Tags: accurate, fast, clear, incomplete, wrong, etc
+    
+    -- Análise do Feedback
+    feedback_summary TEXT,
+    positive_aspects TEXT[],  -- Aspectos positivos mencionados
+    improvement_areas TEXT[],  -- Áreas que precisam melhorar
+    sentiment VARCHAR(50),  -- very_positive/positive/neutral/negative/very_negative
+    
+    -- Performance
+    execution_time REAL,
+    feedback_date TIMESTAMP,
+    
+    -- Error Info
+    error TEXT,
+    
+    -- Metadata adicional
+    metadata JSONB
+);
+
+-- Indexes para performance
+CREATE INDEX idx_user_feedback_parent_response ON user_feedback_logs(parent_response_composer_id);
+CREATE INDEX idx_user_feedback_parent_python ON user_feedback_logs(parent_python_runtime_id);
+CREATE INDEX idx_user_feedback_rating ON user_feedback_logs(rating);
+CREATE INDEX idx_user_feedback_sentiment ON user_feedback_logs(sentiment);
+CREATE INDEX idx_user_feedback_username_projeto ON user_feedback_logs(username, projeto);
+CREATE INDEX idx_user_feedback_horario ON user_feedback_logs(horario DESC);
+CREATE INDEX idx_user_feedback_execution_sequence ON user_feedback_logs(execution_sequence);
+
+-- =====================================================
 -- MÓDULO 2: HISTORY PREFERENCES AGENT (NÓ 1)
 -- =====================================================
 -- COMENTADO: Tabela não utilizada no momento

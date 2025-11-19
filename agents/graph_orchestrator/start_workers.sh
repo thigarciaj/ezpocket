@@ -121,10 +121,16 @@ WORKER11_PID=$!
 echo -e "      PID: $WORKER11_PID"
 echo ""
 
-echo -e "${GREEN}[12/12] Iniciando Worker: History Preferences${NC}"
-python agents/graph_orchestrator/worker_history_preferences.py &
+echo -e "${GREEN}[12/13] Iniciando Worker: User Feedback${NC}"
+python agents/graph_orchestrator/worker_user_feedback.py &
 WORKER12_PID=$!
 echo -e "      PID: $WORKER12_PID"
+echo ""
+
+echo -e "${GREEN}[13/13] Iniciando Worker: History Preferences${NC}"
+python agents/graph_orchestrator/worker_history_preferences.py &
+WORKER13_PID=$!
+echo -e "      PID: $WORKER13_PID"
 echo ""
 
 echo -e "${BLUE}================================================================================${NC}"
@@ -143,7 +149,8 @@ echo -e "  • Auto Correction (PID: $WORKER8_PID)"
 echo -e "  • Athena Executor (PID: $WORKER9_PID)"
 echo -e "  • Python Runtime (PID: $WORKER10_PID)"
 echo -e "  • Response Composer (PID: $WORKER11_PID)"
-echo -e "  • History Preferences (PID: $WORKER12_PID)"
+echo -e "  • User Feedback (PID: $WORKER12_PID)"
+echo -e "  • History Preferences (PID: $WORKER13_PID)"
 echo ""
 echo -e "${YELLOW}Pressione Ctrl+C para parar todos os workers${NC}"
 echo ""

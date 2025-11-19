@@ -1221,6 +1221,200 @@ class HistoryPreferencesAgent:
                 ))
                 log_id = cursor.fetchone()[0]
             
+            elif previous_module == "user_feedback":
+                print(f"  ✓ Salvando em user_feedback_logs")
+                
+                # Buscar todos os parent IDs do banco
+                parent_response_composer_id = None
+                parent_python_runtime_id = None
+                parent_athena_executor_id = None
+                parent_auto_correction_id = None
+                parent_sql_validator_id = None
+                parent_analysis_orchestrator_id = None
+                parent_plan_confirm_id = None
+                parent_plan_builder_id = None
+                parent_intent_validator_id = None
+                
+                try:
+                    # Buscar response_composer_id
+                    cursor.execute("""
+                        SELECT id FROM response_composer_logs
+                        WHERE username = %s AND projeto = %s AND pergunta = %s
+                        ORDER BY horario DESC LIMIT 1
+                    """, (username, projeto, pergunta))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_response_composer_id = result[0]
+                        print(f"  ✅ parent_response_composer_id: {parent_response_composer_id}")
+                    
+                    # Buscar python_runtime_id
+                    cursor.execute("""
+                        SELECT id FROM python_runtime_logs
+                        WHERE username = %s AND projeto = %s AND pergunta = %s
+                        ORDER BY horario DESC LIMIT 1
+                    """, (username, projeto, pergunta))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_python_runtime_id = result[0]
+                        print(f"  ✅ parent_python_runtime_id: {parent_python_runtime_id}")
+                    
+                    # Buscar athena_executor_id
+                    cursor.execute("""
+                        SELECT id FROM athena_executor_logs
+                        WHERE username = %s AND projeto = %s
+                        ORDER BY created_at DESC LIMIT 1
+                    """, (username, projeto))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_athena_executor_id = result[0]
+                        print(f"  ✅ parent_athena_executor_id: {parent_athena_executor_id}")
+                    
+                    # Buscar auto_correction_id
+                    cursor.execute("""
+                        SELECT id FROM auto_correction_logs
+                        WHERE username = %s AND projeto = %s AND pergunta = %s
+                        ORDER BY horario DESC LIMIT 1
+                    """, (username, projeto, pergunta))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_auto_correction_id = result[0]
+                        print(f"  ✅ parent_auto_correction_id: {parent_auto_correction_id}")
+                    
+                    # Buscar sql_validator_id
+                    cursor.execute("""
+                        SELECT id FROM sql_validator_logs
+                        WHERE username = %s AND projeto = %s AND pergunta = %s
+                        ORDER BY horario DESC LIMIT 1
+                    """, (username, projeto, pergunta))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_sql_validator_id = result[0]
+                        print(f"  ✅ parent_sql_validator_id: {parent_sql_validator_id}")
+                    
+                    # Buscar analysis_orchestrator_id
+                    cursor.execute("""
+                        SELECT id FROM analysis_orchestrator_logs
+                        WHERE username = %s AND projeto = %s AND pergunta = %s
+                        ORDER BY horario DESC LIMIT 1
+                    """, (username, projeto, pergunta))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_analysis_orchestrator_id = result[0]
+                        print(f"  ✅ parent_analysis_orchestrator_id: {parent_analysis_orchestrator_id}")
+                    
+                    # Buscar plan_confirm_id
+                    cursor.execute("""
+                        SELECT id FROM plan_confirm_logs
+                        WHERE username = %s AND projeto = %s AND pergunta = %s
+                        ORDER BY horario DESC LIMIT 1
+                    """, (username, projeto, pergunta))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_plan_confirm_id = result[0]
+                        print(f"  ✅ parent_plan_confirm_id: {parent_plan_confirm_id}")
+                    
+                    # Buscar plan_builder_id
+                    cursor.execute("""
+                        SELECT id FROM plan_builder_logs
+                        WHERE username = %s AND projeto = %s AND pergunta = %s
+                        ORDER BY horario DESC LIMIT 1
+                    """, (username, projeto, pergunta))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_plan_builder_id = result[0]
+                        print(f"  ✅ parent_plan_builder_id: {parent_plan_builder_id}")
+                    
+                    # Buscar intent_validator_id
+                    cursor.execute("""
+                        SELECT id FROM intent_validator_logs
+                        WHERE username = %s AND projeto = %s AND pergunta = %s
+                        ORDER BY horario DESC LIMIT 1
+                    """, (username, projeto, pergunta))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_intent_validator_id = result[0]
+                        print(f"  ✅ parent_intent_validator_id: {parent_intent_validator_id}")
+                        
+                except Exception as e:
+                    print(f"  ⚠️  Erro ao buscar parent IDs: {e}")
+                
+                # Preparar metadata
+                metadata = {
+                    'response_evaluated': state.get('response_text', ''),
+                    'feedback_tags': state.get('feedback_tags', []),
+                    'positive_aspects': state.get('positive_aspects', []),
+                    'improvement_areas': state.get('improvement_areas', [])
+                }
+                
+                cursor.execute("""
+                    INSERT INTO user_feedback_logs (
+                        execution_sequence,
+                        parent_response_composer_id,
+                        parent_python_runtime_id,
+                        parent_athena_executor_id,
+                        parent_auto_correction_id,
+                        parent_sql_validator_id,
+                        parent_analysis_orchestrator_id,
+                        parent_plan_confirm_id,
+                        parent_plan_builder_id,
+                        parent_intent_validator_id,
+                        username,
+                        projeto,
+                        pergunta,
+                        response_text,
+                        success,
+                        rating,
+                        comment,
+                        is_helpful,
+                        response_quality,
+                        user_satisfaction,
+                        would_recommend,
+                        feedback_tags,
+                        feedback_summary,
+                        positive_aspects,
+                        improvement_areas,
+                        sentiment,
+                        execution_time,
+                        feedback_date,
+                        error,
+                        metadata
+                    ) VALUES (
+                        11, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    )
+                    RETURNING id
+                """, (
+                    parent_response_composer_id,
+                    parent_python_runtime_id,
+                    parent_athena_executor_id,
+                    parent_auto_correction_id,
+                    parent_sql_validator_id,
+                    parent_analysis_orchestrator_id,
+                    parent_plan_confirm_id,
+                    parent_plan_builder_id,
+                    parent_intent_validator_id,
+                    username,
+                    projeto,
+                    pergunta,
+                    state.get('response_text', ''),
+                    not bool(state.get('error')),
+                    state.get('rating', 0),
+                    state.get('comment', ''),
+                    state.get('is_helpful', False),
+                    state.get('response_quality', ''),
+                    state.get('user_satisfaction', ''),
+                    state.get('would_recommend', False),
+                    state.get('feedback_tags', []),
+                    state.get('feedback_summary', ''),
+                    state.get('positive_aspects', []),
+                    state.get('improvement_areas', []),
+                    state.get('sentiment', 'neutral'),
+                    state.get('execution_time', 0.0),
+                    state.get('feedback_date'),
+                    state.get('error'),
+                    json.dumps(metadata)
+                ))
+                log_id = cursor.fetchone()[0]
+            
             elif previous_module == "router":
                 print(f"  ✓ Salvando em router_logs")
                 
@@ -1417,6 +1611,12 @@ class HistoryPreferencesAgent:
             print("\n📤 OUTPUT:")
             print(f"  • Tabela: {previous_module}_logs")
             print(f"  • ID: {log_id}")
+            
+            # Se salvou response_composer, próximo é user_feedback
+            if previous_module == "response_composer":
+                print(f"  🔀 Próximo módulo: user_feedback (pedir rating ao usuário)")
+                state["_next_modules"] = ['user_feedback']
+            
             print("="*80 + "\n")
             
             state["interaction_saved"] = True
