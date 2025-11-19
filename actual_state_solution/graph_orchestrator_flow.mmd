@@ -50,13 +50,15 @@ graph TD
     PythonRuntime2 --> ResponseComposer2["🎨 Response Composer<br/>Formata Resposta Bonita"]
     PythonRuntime2 --> H12[History Preferences<br/>Salva Python Runtime]
     
-    %% Response Composer vai para User Feedback (OPCIONAL) + History (paralelo)
-    ResponseComposer --> UserFeedback["📊 User Feedback<br/>Avaliação do Usuário"]
+    %% Response Composer vai para History primeiro
     ResponseComposer --> H13[History Preferences<br/>Salva Response Composer]
-    ResponseComposer2 --> UserFeedback2["📊 User Feedback<br/>Avaliação do Usuário"]
     ResponseComposer2 --> H14[History Preferences<br/>Salva Response Composer]
     
-    %% User Feedback salva no History
+    %% History chama User Feedback após salvar Response Composer
+    H13 --> UserFeedback["📊 User Feedback<br/>Busca resposta do banco<br/>Pede rating ao usuário"]
+    H14 --> UserFeedback2["📊 User Feedback<br/>Busca resposta do banco<br/>Pede rating ao usuário"]
+    
+    %% User Feedback salva no History (última etapa)
     UserFeedback --> H15[History Preferences<br/>Salva User Feedback]
     UserFeedback2 --> H16[History Preferences<br/>Salva User Feedback]
     
