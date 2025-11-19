@@ -51,6 +51,41 @@ MODULE_DISPLAY = {
         'emoji': '⚙️',
         'title': 'QUERY GENERATOR',
         'color': '\033[96m'  # Ciano
+    },
+    'analysis_orchestrator': {
+        'emoji': '🔧',
+        'title': 'ANALYSIS ORCHESTRATOR',
+        'color': '\033[93m'  # Amarelo
+    },
+    'sql_validator': {
+        'emoji': '🔍',
+        'title': 'SQL VALIDATOR',
+        'color': '\033[96m'  # Ciano
+    },
+    'auto_correction': {
+        'emoji': '🔧',
+        'title': 'AUTO CORRECTION',
+        'color': '\033[93m'  # Amarelo
+    },
+    'athena_executor': {
+        'emoji': '⚡',
+        'title': 'ATHENA EXECUTOR',
+        'color': '\033[95m'  # Magenta
+    },
+    'python_runtime': {
+        'emoji': '🐍',
+        'title': 'PYTHON RUNTIME',
+        'color': '\033[92m'  # Verde
+    },
+    'response_composer': {
+        'emoji': '🎨',
+        'title': 'RESPONSE COMPOSER',
+        'color': '\033[94m'  # Azul
+    },
+    'user_feedback': {
+        'emoji': '📊',
+        'title': 'USER FEEDBACK',
+        'color': '\033[96m'  # Ciano
     }
 }
 
