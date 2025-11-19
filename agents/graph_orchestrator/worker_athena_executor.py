@@ -229,8 +229,8 @@ class AthenaExecutorWorker(ModuleWorker):
             'parent_intent_validator_id': parent_intent_validator_id,
                 # Resultados do Athena (adiciona DEPOIS dos parent_ids para não sobrescrever)
                 **result,
-                # Próximo módulo: history_preferences (salvar athena_executor)
-                '_next_modules': ['history_preferences']
+                # Próximos módulos: python_runtime (análise) e history_preferences (salvar athena_executor)
+                '_next_modules': ['python_runtime', 'history_preferences']
             }
             print(f"[ATHENA_EXECUTOR] ✅ Dict output criado com sucesso!")
             
@@ -240,7 +240,7 @@ class AthenaExecutorWorker(ModuleWorker):
             print(f"[ATHENA_EXECUTOR]    result = {result}")
             raise
         
-        print(f"[ATHENA_EXECUTOR] 🔀 Próximo módulo: history_preferences")
+        print(f"[ATHENA_EXECUTOR] 🔀 Próximos módulos: python_runtime, history_preferences")
         
         return output
 

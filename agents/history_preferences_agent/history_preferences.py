@@ -903,6 +903,155 @@ class HistoryPreferencesAgent:
                 ))
                 log_id = cursor.fetchone()[0]
             
+            elif previous_module == "python_runtime":
+                print(f"  ✓ Salvando em python_runtime_logs")
+                
+                # Buscar todos os parent IDs do banco
+                parent_athena_executor_id = None
+                parent_auto_correction_id = None
+                parent_sql_validator_id = None
+                parent_analysis_orchestrator_id = None
+                parent_plan_confirm_id = None
+                parent_plan_builder_id = None
+                parent_intent_validator_id = None
+                
+                try:
+                    # Buscar athena_executor_id
+                    cursor.execute("""
+                        SELECT id FROM athena_executor_logs
+                        WHERE username = %s AND projeto = %s
+                        ORDER BY created_at DESC LIMIT 1
+                    """, (username, projeto))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_athena_executor_id = result[0]
+                        print(f"  ✅ parent_athena_executor_id: {parent_athena_executor_id}")
+                    
+                    # Buscar auto_correction_id
+                    cursor.execute("""
+                        SELECT id FROM auto_correction_logs
+                        WHERE username = %s AND projeto = %s AND pergunta = %s
+                        ORDER BY horario DESC LIMIT 1
+                    """, (username, projeto, pergunta))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_auto_correction_id = result[0]
+                        print(f"  ✅ parent_auto_correction_id: {parent_auto_correction_id}")
+                    
+                    # Buscar sql_validator_id
+                    cursor.execute("""
+                        SELECT id FROM sql_validator_logs
+                        WHERE username = %s AND projeto = %s AND pergunta = %s
+                        ORDER BY horario DESC LIMIT 1
+                    """, (username, projeto, pergunta))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_sql_validator_id = result[0]
+                        print(f"  ✅ parent_sql_validator_id: {parent_sql_validator_id}")
+                    
+                    # Buscar analysis_orchestrator_id
+                    cursor.execute("""
+                        SELECT id FROM analysis_orchestrator_logs
+                        WHERE username = %s AND projeto = %s AND pergunta = %s
+                        ORDER BY horario DESC LIMIT 1
+                    """, (username, projeto, pergunta))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_analysis_orchestrator_id = result[0]
+                        print(f"  ✅ parent_analysis_orchestrator_id: {parent_analysis_orchestrator_id}")
+                    
+                    # Buscar plan_confirm_id
+                    cursor.execute("""
+                        SELECT id FROM plan_confirm_logs
+                        WHERE username = %s AND projeto = %s AND pergunta = %s
+                        ORDER BY horario DESC LIMIT 1
+                    """, (username, projeto, pergunta))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_plan_confirm_id = result[0]
+                        print(f"  ✅ parent_plan_confirm_id: {parent_plan_confirm_id}")
+                    
+                    # Buscar plan_builder_id
+                    cursor.execute("""
+                        SELECT id FROM plan_builder_logs
+                        WHERE username = %s AND projeto = %s AND pergunta = %s
+                        ORDER BY horario DESC LIMIT 1
+                    """, (username, projeto, pergunta))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_plan_builder_id = result[0]
+                        print(f"  ✅ parent_plan_builder_id: {parent_plan_builder_id}")
+                    
+                    # Buscar intent_validator_id
+                    cursor.execute("""
+                        SELECT id FROM intent_validator_logs
+                        WHERE username = %s AND projeto = %s AND pergunta = %s
+                        ORDER BY horario DESC LIMIT 1
+                    """, (username, projeto, pergunta))
+                    result = cursor.fetchone()
+                    if result:
+                        parent_intent_validator_id = result[0]
+                        print(f"  ✅ parent_intent_validator_id: {parent_intent_validator_id}")
+                        
+                except Exception as e:
+                    print(f"  ⚠️  Erro ao buscar parent IDs: {e}")
+                
+                # Preparar metadata com dados extras (visualizations, recommendations, analysis_type, tokens, model)
+                metadata = {
+                    'visualizations': state.get('visualizations', []),
+                    'recommendations': state.get('recommendations', []),
+                    'analysis_type': state.get('analysis_type', 'descriptive_statistics'),
+                    'tokens_used': state.get('tokens_used', 0),
+                    'model_used': state.get('model_used', 'gpt-4o')
+                }
+                
+                cursor.execute("""
+                    INSERT INTO python_runtime_logs (
+                        execution_sequence,
+                        parent_athena_executor_id,
+                        parent_auto_correction_id,
+                        parent_sql_validator_id,
+                        parent_analysis_orchestrator_id,
+                        parent_plan_confirm_id,
+                        parent_plan_builder_id,
+                        parent_intent_validator_id,
+                        username,
+                        projeto,
+                        pergunta,
+                        success,
+                        has_analysis,
+                        analysis_summary,
+                        statistics,
+                        insights,
+                        execution_time,
+                        error,
+                        metadata
+                    ) VALUES (
+                        9, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    )
+                    RETURNING id
+                """, (
+                    parent_athena_executor_id,
+                    parent_auto_correction_id,
+                    parent_sql_validator_id,
+                    parent_analysis_orchestrator_id,
+                    parent_plan_confirm_id,
+                    parent_plan_builder_id,
+                    parent_intent_validator_id,
+                    username,
+                    projeto,
+                    pergunta,
+                    not bool(state.get('error')),
+                    bool(state.get('analysis_summary')),
+                    state.get('analysis_summary', ''),
+                    json.dumps(state.get('statistics', {}), ensure_ascii=False),
+                    json.dumps(state.get('insights', []), ensure_ascii=False),
+                    state.get('execution_time', 0.0),
+                    state.get('error'),
+                    json.dumps(metadata, ensure_ascii=False)
+                ))
+                log_id = cursor.fetchone()[0]
+            
             elif previous_module == "router":
                 print(f"  ✓ Salvando em router_logs")
                 
