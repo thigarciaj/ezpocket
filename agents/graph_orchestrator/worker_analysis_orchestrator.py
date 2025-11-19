@@ -44,6 +44,7 @@ class AnalysisOrchestratorWorker(ModuleWorker):
             - optimization_notes: str
         """
         
+        print(f"[ANALYSIS_ORCHESTRATOR] 🔧 Analisando e gerando query SQL...")
         print(f"[ANALYSIS_ORCHESTRATOR]    🔍 Debug - Data recebido no worker:")
         print(f"[ANALYSIS_ORCHESTRATOR]       pergunta: {data.get('pergunta')}")
         print(f"[ANALYSIS_ORCHESTRATOR]       plan: {data.get('plan', '')[:100]}...")

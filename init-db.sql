@@ -599,6 +599,56 @@ CREATE INDEX idx_python_runtime_horario ON python_runtime_logs(horario DESC);
 CREATE INDEX idx_python_runtime_execution_sequence ON python_runtime_logs(execution_sequence);
 
 -- =====================================================
+-- RESPONSE COMPOSER AGENT (NÓ 10) - Formatação de Respostas
+-- =====================================================
+CREATE TABLE IF NOT EXISTS response_composer_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    execution_sequence INTEGER DEFAULT 10 NOT NULL,
+    
+    -- Foreign Keys (Parent Modules)
+    parent_python_runtime_id UUID REFERENCES python_runtime_logs(id) ON DELETE CASCADE,
+    parent_athena_executor_id UUID REFERENCES athena_executor_logs(id) ON DELETE CASCADE,
+    parent_auto_correction_id UUID REFERENCES auto_correction_logs(id) ON DELETE CASCADE,
+    parent_sql_validator_id UUID REFERENCES sql_validator_logs(id) ON DELETE CASCADE,
+    parent_analysis_orchestrator_id UUID,
+    parent_plan_confirm_id UUID,
+    parent_plan_builder_id UUID,
+    parent_intent_validator_id UUID,
+    
+    -- Identificação
+    username VARCHAR(100) NOT NULL,
+    projeto VARCHAR(100) NOT NULL,
+    horario TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    pergunta TEXT NOT NULL,
+    
+    -- Resposta Formatada
+    success BOOLEAN NOT NULL DEFAULT FALSE,
+    response_text TEXT,
+    response_summary TEXT,
+    key_numbers TEXT[],
+    formatting_style VARCHAR(50),
+    user_friendly_score REAL,
+    
+    -- Performance
+    execution_time REAL,
+    tokens_used INTEGER,
+    model_used VARCHAR(50),
+    
+    -- Error Info
+    error TEXT,
+    
+    -- Metadata adicional
+    metadata JSONB
+);
+
+-- Indexes para performance
+CREATE INDEX idx_response_composer_parent_python ON response_composer_logs(parent_python_runtime_id);
+CREATE INDEX idx_response_composer_parent_athena ON response_composer_logs(parent_athena_executor_id);
+CREATE INDEX idx_response_composer_username_projeto ON response_composer_logs(username, projeto);
+CREATE INDEX idx_response_composer_horario ON response_composer_logs(horario DESC);
+CREATE INDEX idx_response_composer_execution_sequence ON response_composer_logs(execution_sequence);
+
+-- =====================================================
 -- MÓDULO 2: HISTORY PREFERENCES AGENT (NÓ 1)
 -- =====================================================
 -- COMENTADO: Tabela não utilizada no momento

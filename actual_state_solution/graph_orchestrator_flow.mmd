@@ -44,9 +44,15 @@ graph TD
     AthenaExecutor2 --> PythonRuntime2["🐍 Python Runtime<br/>Análise Estatística Python"]
     AthenaExecutor2 --> H10B[History Preferences<br/>Salva Athena Executor]
     
-    %% Python Runtime salva no History
+    %% Python Runtime vai para Response Composer + History (paralelo)
+    PythonRuntime --> ResponseComposer["🎨 Response Composer<br/>Formata Resposta Bonita"]
     PythonRuntime --> H11[History Preferences<br/>Salva Python Runtime]
+    PythonRuntime2 --> ResponseComposer2["🎨 Response Composer<br/>Formata Resposta Bonita"]
     PythonRuntime2 --> H12[History Preferences<br/>Salva Python Runtime]
+    
+    %% Response Composer salva no History
+    ResponseComposer --> H13[History Preferences<br/>Salva Response Composer]
+    ResponseComposer2 --> H14[History Preferences<br/>Salva Response Composer]
     
     UserProposed -->|Sugestão recebida| PlanRefiner[Plan Refiner<br/>Refina plano]
     UserProposed --> H6[History Preferences<br/>Salva User Proposed]
@@ -68,6 +74,8 @@ graph TD
     H10B --> End10B([Fim])
     H11 --> End11([Fim])
     H12 --> End12([Fim])
+    H13 --> End13([Fim])
+    H14 --> End14([Fim])
 
     style IntentValidator fill:#e1f5ff
     style PlanBuilder fill:#e1f5ff
@@ -95,7 +103,11 @@ graph TD
     style H10B fill:#f5f5f5
     style H11 fill:#f5f5f5
     style H12 fill:#f5f5f5
+    style H13 fill:#f5f5f5
+    style H14 fill:#f5f5f5
     style AthenaExecutor fill:#e1ffe1
     style AthenaExecutor2 fill:#e1ffe1
     style PythonRuntime fill:#ffe8cc
     style PythonRuntime2 fill:#ffe8cc
+    style ResponseComposer fill:#e8f5ff
+    style ResponseComposer2 fill:#e8f5ff

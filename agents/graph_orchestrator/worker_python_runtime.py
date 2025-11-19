@@ -98,11 +98,11 @@ class PythonRuntimeWorker(ModuleWorker):
             **result,
             # Tempo de execução
             'execution_time': execution_time,
-            # Próximo módulo: history_preferences (salvar python_runtime)
-            '_next_modules': ['history_preferences']
+            # Próximos módulos: response_composer (formatar resposta) e history_preferences (salvar python_runtime)
+            '_next_modules': ['response_composer', 'history_preferences']
         }
         
-        print(f"[PYTHON_RUNTIME] 🔀 Enviando análise Python para: history_preferences")
+        print(f"[PYTHON_RUNTIME] 🔀 Enviando análise Python para: response_composer, history_preferences")
         print(f"[PYTHON_RUNTIME] 📝 Dados incluem: statistics, insights, visualizations, recommendations")
         
         return output

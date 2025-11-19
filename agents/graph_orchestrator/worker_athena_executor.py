@@ -57,7 +57,7 @@ class AthenaExecutorWorker(ModuleWorker):
         came_from_correction = 'query_corrected' in data
         came_from_validator = 'query_validated' in data and not came_from_correction
         
-        print(f"[ATHENA_EXECUTOR] 🚀 Executando query no Athena...")
+        print(f"[ATHENA_EXECUTOR] ⚡ Executando query no Athena...")
         print(f"[ATHENA_EXECUTOR]    Username: {username}")
         print(f"[ATHENA_EXECUTOR]    Projeto: {projeto}")
         print(f"[ATHENA_EXECUTOR]    Origem: {'AutoCorrection' if came_from_correction else 'SQLValidator'}")
