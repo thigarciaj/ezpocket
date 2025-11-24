@@ -8,6 +8,34 @@ let waitingForFeedback = false;
 let currentRating = 0;
 let feedbackData = null;
 
+function formatMarkdownResponse(text) {
+    // Converter Markdown para HTML bonito
+    let html = text;
+    
+    // Títulos ## → <h2>
+    html = html.replace(/^## (.*?)$/gm, '<h2 class="response-title">$1</h2>');
+    
+    // Negrito **texto** → <strong>
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    
+    // Listas - X. texto → <li>
+    html = html.replace(/^\d+\.\s+(.*?)$/gm, '<li>$1</li>');
+    html = html.replace(/^-\s+(.*?)$/gm, '<li>$1</li>');
+    
+    // Envolver <li> consecutivos em <ol> ou <ul>
+    html = html.replace(/(<li>.*?<\/li>\s*)+/gs, (match) => {
+        return `<ul class="response-list">${match}</ul>`;
+    });
+    
+    // Quebras de linha duplas → <br><br>
+    html = html.replace(/\n\n/g, '<br><br>');
+    
+    // Quebras de linha simples → <br>
+    html = html.replace(/\n/g, '<br>');
+    
+    return html;
+}
+
 function addMessage(text, type = 'assistant') {
     const chatBox = document.getElementById('chatBox');
     const msgDiv = document.createElement('div');
@@ -76,27 +104,27 @@ function flushRedis() {
 function showConfirmation(planData) {
     waitingForConfirmation = true;
     
-    // Mostrar o plano
-    const msgDiv = addMessage('', 'confirmation');
-    msgDiv.innerHTML = `
-        <strong>📋 PLANO CRIADO</strong>
-        <div style="margin-top: 10px;">
-            <strong>Plano:</strong><br>
-            ${planData.plan}
-        </div>
-        <div style="margin-top: 10px;">
-            <strong>Passos:</strong><br>
-            ${planData.plan_steps.map((step, i) => `${i+1}. ${step}`).join('<br>')}
-        </div>
-    `;
+    // Modo development: mostrar plano completo
+    if (FRONTEND_MODE === 'development') {
+        const msgDiv = addMessage('', 'confirmation');
+        msgDiv.innerHTML = `
+            <strong>📋 PLANO CRIADO</strong>
+            <div style="margin-top: 10px;">
+                <strong>Plano:</strong><br>
+                ${planData.plan}
+            </div>
+            <div style="margin-top: 10px;">
+                <strong>Passos:</strong><br>
+                ${planData.plan_steps.map((step, i) => `${i+1}. ${step}`).join('<br>')}
+            </div>
+        `;
+    }
     
-    // Fazer pergunta no chat
-    setTimeout(() => {
-        addMessage('🤔 Deseja prosseguir com este plano? (s/n)', 'assistant');
-        enableInput();
-        document.getElementById('pergunta').placeholder = 'Digite s para SIM ou n para NÃO...';
-        document.getElementById('pergunta').focus();
-    }, 100);
+    // Fazer pergunta no chat (sempre, em ambos os modos)
+    addMessage('🤔 Deseja prosseguir com este plano? (s/n)', 'assistant');
+    enableInput();
+    document.getElementById('pergunta').placeholder = 'Digite s para SIM ou n para NÃO...';
+    document.getElementById('pergunta').focus();
 }
 
 function showFeedback(data) {
@@ -109,8 +137,12 @@ function showFeedback(data) {
     waitingForFeedback = 'rating';
     feedbackData = data;
     
-    // Mostrar a resposta
-    addMessage(`\n💬 RESPOSTA GERADA:\n\n${data.response_text}`, 'assistant');
+    // Converter Markdown para HTML formatado
+    const formattedResponse = formatMarkdownResponse(data.response_text);
+    
+    // Mostrar a resposta formatada
+    const msgDiv = addMessage('', 'assistant');
+    msgDiv.innerHTML = `<div class="response-container">${formattedResponse}</div>`;
     
     // Fazer pergunta de rating
     setTimeout(() => {
@@ -131,9 +163,11 @@ function showUserProposedPlan(data) {
     // Estado especial para sugestão
     window.waitingForUserSuggestion = true;
     
-    // Mostrar mensagem
-    addMessage('❌ O plano anterior foi rejeitado', 'system');
-    addMessage(`📝 Pergunta original: ${data.pergunta}`, 'assistant');
+    // Mostrar mensagem apenas em modo development
+    if (FRONTEND_MODE !== 'production') {
+        addMessage('❌ O plano anterior foi rejeitado', 'system');
+        addMessage(`📝 Pergunta original: ${data.pergunta}`, 'assistant');
+    }
     
     setTimeout(() => {
         addMessage('💬 O que você quer que a IA faça?', 'assistant');
@@ -152,39 +186,77 @@ function initWebSocket() {
     socket.on('connect', () => {
         console.log('WebSocket conectado!');
         setConnectionStatus(true);
-        addMessage('✅ Conectado ao servidor', 'system');
+        if (FRONTEND_MODE !== 'production') {
+            addMessage('✅ Conectado ao servidor', 'system');
+        }
         enableInput();
     });
 
     socket.on('disconnect', () => {
         console.log('WebSocket desconectado');
         setConnectionStatus(false);
-        addMessage('🔴 Desconectado do servidor', 'system');
+        if (FRONTEND_MODE !== 'production') {
+            addMessage('🔴 Desconectado do servidor', 'system');
+        }
         disableInput();
     });
 
     socket.on('connected', (data) => {
         console.log('Mensagem do servidor:', data.message);
+        // Não mostrar mensagem de conexão no chat em modo production
     });
 
     socket.on('job_started', (data) => {
         console.log('Job iniciado:', data);
         currentJobId = data.job_id;
-        addMessage(`🚀 Job iniciado: ${data.job_id.substring(0, 8)}...`, 'system');
-        addMessage(`📋 Módulo inicial: ${data.module}`, 'system');
-        addMessage(`🔀 Fluxo esperado: ${data.expected_flow}`, 'system');
-        setStatus('Processando...');
+        
+        // No modo production, não mostrar detalhes técnicos
+        if (FRONTEND_MODE === 'production') {
+            setStatus('Processando sua pergunta...');
+        } else {
+            addMessage(`🚀 Job iniciado: ${data.job_id.substring(0, 8)}...`, 'system');
+            addMessage(`📋 Módulo inicial: ${data.module}`, 'system');
+            addMessage(`🔀 Fluxo esperado: ${data.expected_flow}`, 'system');
+            setStatus('Processando...');
+        }
     });
 
     socket.on('module_update', (data) => {
         console.log('Atualização do módulo:', data);
+        
+        // Módulos que NÃO devem ser exibidos no modo production
+        const hiddenModulesInProduction = [
+            'intent_validator',
+            'history_preferences', 
+            'plan_builder',
+            'plan_refiner',
+            'plan_confirm',
+            'user_proposed_plan',
+            'analysis_orchestrator',
+            'sql_validator',
+            'athena_executor',
+            'python_runtime',
+            'response_composer'
+        ];
+        
+        if (FRONTEND_MODE === 'production' && hiddenModulesInProduction.includes(data.module)) {
+            // No modo production, apenas atualizar a barra de status
+            const emoji = getModuleEmoji(data.module);
+            setStatus(`${emoji} Processando: ${getModuleFriendlyName(data.module)}...`);
+            return; // Não exibir no chat
+        }
+        
+        // Modo development ou módulos sempre visíveis
         const emoji = getModuleEmoji(data.module);
         addMessage(`${emoji} ${data.module.toUpperCase()}\n\n${data.message}`, 'assistant');
     });
 
     socket.on('status_update', (data) => {
         console.log('Atualização de status:', data);
-        setStatus(`Status: ${data.status} ${data.branches_count > 0 ? `(${data.branches_count} branches)` : ''}`);
+        // No modo production, não sobrescrever o status de módulo
+        if (FRONTEND_MODE === 'development') {
+            setStatus(`Status: ${data.status} ${data.branches_count > 0 ? `(${data.branches_count} branches)` : ''}`);
+        }
     });
 
     socket.on('need_input', (data) => {
@@ -211,17 +283,21 @@ function initWebSocket() {
 
     socket.on('input_received', (data) => {
         console.log('Input recebido:', data);
-        addMessage(`✓ ${data.message}`, 'system');
-        if (data.next_module) {
-            setStatus(`Próximo módulo: ${data.next_module}`);
+        if (FRONTEND_MODE !== 'production') {
+            addMessage(`✓ ${data.message}`, 'system');
+            if (data.next_module) {
+                setStatus(`Próximo módulo: ${data.next_module}`);
+            }
         }
     });
 
     socket.on('job_completed', (data) => {
         console.log('Job completado:', data);
-        const statusEmoji = data.status === 'completed' ? '✅' : '❌';
-        addMessage(`${statusEmoji} JOB ${data.status.toUpperCase()}`, 'system');
-        addMessage(`📊 Total de etapas: ${data.execution_chain_length}`, 'system');
+        if (FRONTEND_MODE !== 'production') {
+            const statusEmoji = data.status === 'completed' ? '✅' : '❌';
+            addMessage(`${statusEmoji} JOB ${data.status.toUpperCase()}`, 'system');
+            addMessage(`📊 Total de etapas: ${data.execution_chain_length}`, 'system');
+        }
         setStatus('');
         currentJobId = null;
         enableInput();
@@ -296,6 +372,23 @@ function getModuleEmoji(module) {
     return emojis[module] || '📦';
 }
 
+function getModuleFriendlyName(module) {
+    const names = {
+        'intent_validator': 'Validando intenção',
+        'plan_builder': 'Criando plano',
+        'plan_confirm': 'Aguardando confirmação',
+        'history_preferences': 'Carregando histórico',
+        'analysis_orchestrator': 'Analisando dados',
+        'sql_validator': 'Validando consulta',
+        'auto_correction': 'Corrigindo consulta',
+        'athena_executor': 'Executando consulta',
+        'python_runtime': 'Processando resultados',
+        'response_composer': 'Gerando resposta',
+        'user_feedback': 'Aguardando feedback'
+    };
+    return names[module] || module.replace(/_/g, ' ');
+}
+
 function enviarPergunta() {
     const input = document.getElementById('pergunta');
     const texto = input.value.trim();
@@ -341,7 +434,9 @@ function enviarPergunta() {
                 input_type: 'plan_confirmation',
                 input_value: true
             });
-            addMessage('✅ Plano aprovado', 'system');
+            if (FRONTEND_MODE !== 'production') {
+                addMessage('✅ Plano aprovado', 'system');
+            }
             return;
         } else if (resposta === 'n' || resposta === 'nao' || resposta === 'não' || resposta === 'no') {
             console.log('[DEBUG] Plano REJEITADO - enviando false');
@@ -354,7 +449,9 @@ function enviarPergunta() {
                 input_type: 'plan_confirmation',
                 input_value: false
             });
-            addMessage('❌ Plano rejeitado', 'system');
+            if (FRONTEND_MODE !== 'production') {
+                addMessage('❌ Plano rejeitado', 'system');
+            }
             return;
         } else {
             addMessage('❌ Resposta inválida. Digite "s" ou "n"', 'system');

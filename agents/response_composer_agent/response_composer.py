@@ -31,6 +31,10 @@ class ResponseComposerAgent:
         recommendations = state.get('recommendations', [])
         visualizations = state.get('visualizations', [])
         row_count = state.get('row_count', 0)
+        results = state.get('results', [])
+        
+        # Limitar dados brutos para evitar tokens excessivos (max 50 registros)
+        results_sample = results[:50] if isinstance(results, list) else []
         
         prompt = f"""Você é um assistente especializado em criar respostas elegantes e amigáveis para usuários de negócios.
 
@@ -62,8 +66,12 @@ class ResponseComposerAgent:
 {json.dumps(visualizations, indent=2, ensure_ascii=False)}
 ```
 
-**DADOS BRUTOS:**
+**DADOS BRUTOS (amostra de até 50 registros):**
 - Total de registros: {row_count}
+- Dados disponíveis:
+```json
+{json.dumps(results_sample, indent=2, ensure_ascii=False)}
+```
 
 ---
 
@@ -79,6 +87,13 @@ Componha uma resposta BONITA e AMIGÁVEL para o usuário que:
 6. **Apresente recomendações de forma acionável** (o que fazer com essas informações)
 7. **Sugira visualizações relevantes** se aplicável
 8. **Use linguagem de negócio**, evitando termos muito técnicos
+
+**⚠️ REGRA IMPORTANTE - DETALHAMENTO:**
+- **Se o usuário pediu dados detalhados** (por vendedor, por dia, por produto, por categoria, etc.) E esses dados existem nos resultados:
+  * **MOSTRE OS DADOS DETALHADOS em formato de tabela ou lista**
+  * **NÃO resuma em totais agregados se o usuário quer o detalhamento**
+  * Use tabelas Markdown para apresentar dados por item quando solicitado
+  * Exemplos: "vendas por vendedor", "faturamento por dia", "produtos mais vendidos", "ranking de clientes"
 
 **ESTRUTURA RECOMENDADA:**
 

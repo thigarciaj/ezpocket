@@ -105,10 +105,12 @@ def monitor_job(job_id: str, sid: str):
                 # Verificar plan_confirm (pode acontecer múltiplas vezes após refinamentos)
                 if not confirmation_checked:
                     pending_key = f"plan_confirm:pending:{username}:{projeto}"
+                    print(f"[MONITOR] 🔍 Verificando chave Redis: {pending_key} (existe: {orchestrator.redis_client.exists(pending_key)})")
                     if orchestrator.redis_client.exists(pending_key):
                         plan_data = orchestrator.redis_client.hgetall(pending_key)
-                        print(f"[MONITOR] Plan confirm detectado via Redis: {pending_key}")
-                        print(f"[MONITOR] Solicitando confirmação do usuário (s/n)")
+                        print(f"[MONITOR] ✅ Plan confirm detectado via Redis: {pending_key}")
+                        print(f"[MONITOR] 📤 Emitindo need_input do tipo 'plan_confirmation' para sid {sid}")
+                        print(f"[MONITOR] 📋 Plan data: {plan_data.get('plan', '')[:100]}...")
                         
                         socketio.emit('need_input', {
                             'type': 'plan_confirmation',
@@ -119,7 +121,7 @@ def monitor_job(job_id: str, sid: str):
                         }, room=sid)
                         pending_inputs[job_id] = 'plan_confirmation'
                         confirmation_checked = True
-                        print(f"[MONITOR] confirmation_checked=True (aguardando resposta do usuário)")
+                        print(f"[MONITOR] ✅ confirmation_checked=True (aguardando resposta do usuário)")
                 
                 # Verificar user_feedback (só uma vez por job)
                 feedback_key = f"user_feedback:pending:{username}:{projeto}"
@@ -367,7 +369,8 @@ def format_module_output(module: str, output: dict, success: bool) -> str:
 @app.route('/')
 def index():
     """Serve o frontend WebSocket"""
-    return render_template('frontend.html')
+    frontend_mode = os.getenv('FRONTEND_MODE', 'production')
+    return render_template('frontend.html', frontend_mode=frontend_mode)
 
 
 @app.route('/test-orchestrator/health', methods=['GET'])
@@ -645,17 +648,46 @@ def handle_flush_redis(data):
             except Exception as e:
                 print(f"[WS] ⚠️ Erro ao processar {job_key}: {e}")
         
-        total_deleted = deleted_count + jobs_deleted
+        # 3. Deletar TODAS as filas (queues) dos módulos
+        print(f"\n[WS] 🔍 Removendo filas (queues) dos módulos...")
+        queue_patterns = [
+            "queue:intent_validator",
+            "queue:plan_builder", 
+            "queue:plan_confirm",
+            "queue:history_preferences",
+            "queue:analysis_orchestrator",
+            "queue:plan_refiner",
+            "queue:sql_validator",
+            "queue:auto_correction",
+            "queue:athena_executor",
+            "queue:python_runtime",
+            "queue:response_composer",
+            "queue:user_feedback",
+            "queue:user_proposed_plan"
+        ]
+        
+        queues_deleted = 0
+        for queue_name in queue_patterns:
+            # Limpar toda a fila
+            queue_length = orchestrator.redis_client.llen(queue_name)
+            if queue_length > 0:
+                orchestrator.redis_client.delete(queue_name)
+                queues_deleted += 1
+                print(f"[WS] 🗑️ Fila deletada: {queue_name} ({queue_length} items)")
+        
+        total_deleted = deleted_count + jobs_deleted + queues_deleted
         print(f"\n[WS] ✅ LIMPEZA TOTAL CONCLUÍDA:")
         print(f"     - Chaves de interação: {deleted_count}")
         print(f"     - Jobs (todos): {jobs_deleted}")
+        print(f"     - Filas (queues): {queues_deleted}")
         print(f"     - Sessões fechadas: {sessions_closed}")
         print(f"     - Total removido: {total_deleted}\n")
         
         emit('redis_flushed', {
-            'message': 'Todos os dados do usuário/projeto removidos do Redis',
+            'message': 'Todos os dados removidos do Redis (jobs, filas, cache, sessões)',
             'keys_deleted': deleted_count,
             'jobs_deleted': jobs_deleted,
+            'queues_deleted': queues_deleted,
             'sessions_closed': sessions_closed,
             'total_deleted': total_deleted,
             'username': username,

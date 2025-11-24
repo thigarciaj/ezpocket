@@ -383,3 +383,131 @@ body {
     transform: translateY(-10px);
   }
 }
+
+/* Estilos para o plano no modo production */
+.message.plan-box {
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+.plan-container {
+  background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+  color: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 10px 0;
+  box-shadow: 0 4px 15px rgba(74, 144, 226, 0.3);
+}
+
+.plan-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.plan-icon {
+  font-size: 24px;
+}
+
+.plan-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.plan-description {
+  font-size: 15px;
+  line-height: 1.6;
+  margin-bottom: 15px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.plan-steps {
+  margin-top: 15px;
+}
+
+.steps-icon {
+  font-size: 20px;
+  margin-bottom: 5px;
+}
+
+.steps-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.steps-list {
+  list-style: none;
+  counter-reset: step-counter;
+  padding-left: 0;
+}
+
+.steps-list li {
+  counter-increment: step-counter;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  position: relative;
+  padding-left: 35px;
+}
+
+.steps-list li:before {
+  content: counter(step-counter) ".";
+  position: absolute;
+  left: 12px;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Formatação bonita da resposta gerada */
+.response-container {
+  padding: 20px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-radius: 12px;
+  margin: 10px 0;
+}
+
+.response-container h2.response-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #667eea;
+  margin: 20px 0 10px 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #667eea;
+}
+
+.response-container h2.response-title:first-child {
+  margin-top: 0;
+}
+
+.response-container strong {
+  color: #764ba2;
+  font-weight: 600;
+}
+
+.response-container ul.response-list {
+  margin: 15px 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.response-container ul.response-list li {
+  padding: 10px 15px;
+  margin: 8px 0;
+  background: white;
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s;
+}
+
+.response-container ul.response-list li:hover {
+  transform: translateX(5px);
+}
