@@ -199,13 +199,14 @@ def monitor_job(job_id: str, sid: str):
                 'message': f'Erro no monitoramento: {str(e)}'
             }, room=sid)
             
-            # Agendar limpeza automática do job após 5 minutos
+            # Agendar limpeza automática do job
             def cleanup_job():
                 try:
-                    time.sleep(300)  # 5 minutos
+                    cleanup_timeout = int(os.getenv('JOB_CLEANUP_TIMEOUT', 300))
+                    time.sleep(cleanup_timeout)
                     if orchestrator.redis_client.exists(f"job:{job_id}"):
                         orchestrator.redis_client.delete(f"job:{job_id}")
-                        print(f"[CLEANUP] 🗑️ Job {job_id[:8]}... deletado automaticamente após 5 minutos")
+                        print(f"[CLEANUP] 🗑️ Job {job_id[:8]}... deletado automaticamente após {cleanup_timeout}s")
                 except Exception as e:
                     print(f"[CLEANUP] ⚠️ Erro ao limpar job {job_id[:8]}...: {e}")
             
