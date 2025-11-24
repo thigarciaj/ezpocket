@@ -20,6 +20,11 @@ class ResponseComposerAgent:
         """Inicializa o agente com configurações"""
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = os.getenv("LLM_MODEL", "gpt-4o")
+        
+        # Carregar roles.json
+        roles_path = Path(__file__).parent / "roles.json"
+        with open(roles_path, 'r', encoding='utf-8') as f:
+            self.roles = json.load(f)
     
     def _build_prompt(self, state: Dict[str, Any]) -> str:
         """Constrói o prompt para formatação da resposta"""
@@ -75,25 +80,15 @@ class ResponseComposerAgent:
 
 ---
 
+**DIRETRIZES DO AGENTE (roles.json):**
+```json
+{json.dumps(self.roles.get('formatting_guidelines', {}), indent=2, ensure_ascii=False)}
+```
+
 **SUA TAREFA:**
 
-Componha uma resposta BONITA e AMIGÁVEL para o usuário que:
-
-1. **Responda diretamente à pergunta** com os números principais em destaque
-2. **Use emojis apropriados** para tornar a resposta mais visual e agradável
-3. **Organize as informações hierarquicamente** (do mais importante ao detalhe)
-4. **Use formatação Markdown** para deixar a resposta estruturada e fácil de ler
-5. **Destaque os insights principais** que podem impactar decisões de negócio
-6. **Apresente recomendações de forma acionável** (o que fazer com essas informações)
-7. **Sugira visualizações relevantes** se aplicável
-8. **Use linguagem de negócio**, evitando termos muito técnicos
-
-**⚠️ REGRA IMPORTANTE - DETALHAMENTO:**
-- **Se o usuário pediu dados detalhados** (por vendedor, por dia, por produto, por categoria, etc.) E esses dados existem nos resultados:
-  * **MOSTRE OS DADOS DETALHADOS em formato de tabela ou lista**
-  * **NÃO resuma em totais agregados se o usuário quer o detalhamento**
-  * Use tabelas Markdown para apresentar dados por item quando solicitado
-  * Exemplos: "vendas por vendedor", "faturamento por dia", "produtos mais vendidos", "ranking de clientes"
+Componha uma resposta seguindo TODAS as diretrizes acima, especialmente:
+- ⚠️ **REGRA CRÍTICA DE DETALHAMENTO**: {self.roles['formatting_guidelines']['detailed_data_rule']}
 
 **ESTRUTURA RECOMENDADA:**
 

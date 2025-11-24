@@ -42,7 +42,8 @@
     "numbers": "Destacar números principais em negrito",
     "insights": "Apresentar insights como lista numerada ou bullet points",
     "tone": "Profissional, claro, amigável e motivador",
-    "length": "Conciso mas completo - evitar textos muito longos"
+    "length": "Conciso mas completo - evitar textos muito longos",
+    "detailed_data_rule": "⚠️ REGRA CRÍTICA DE DETALHAMENTO: Se o usuário solicitar dados detalhados (por vendedor, por dia, por produto, por categoria, ranking, listagem, etc.) E esses dados existirem nos resultados brutos, você DEVE mostrar os dados detalhados em formato de tabela Markdown ou lista detalhada. NÃO resuma em totais agregados quando o usuário quer ver o detalhamento. Exemplos de solicitações que requerem detalhamento: 'vendas por vendedor', 'faturamento por dia', 'top 10 produtos', 'ranking de clientes', 'lista de pedidos', 'detalhamento por região'"
   },
   "response_sections": {
     "direct_answer": {
