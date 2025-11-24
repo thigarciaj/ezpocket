@@ -85,7 +85,13 @@ class PlanConfirmWorker(ModuleWorker):
         while (time.time() - start) < timeout:
             response = redis_client.get(response_key)
             if response:
-                confirmed = response.lower() in ['true', 'yes', 's', 'sim', '1']
+                print(f"[PLAN_CONFIRM]    🔍 DEBUG - Resposta bruta do Redis: '{response}' (tipo: {type(response)})")
+                print(f"[PLAN_CONFIRM]    🔍 DEBUG - response.lower(): '{response.lower()}'")
+                print(f"[PLAN_CONFIRM]    🔍 DEBUG - response.strip(): '{response.strip()}'")
+                
+                confirmed = response.strip().lower() in ['true', 'yes', 's', 'sim', '1']
+                
+                print(f"[PLAN_CONFIRM]    🔍 DEBUG - confirmed final: {confirmed}")
                 
                 # Limpar Redis
                 redis_client.delete(pending_key)

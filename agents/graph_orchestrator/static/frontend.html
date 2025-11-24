@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EZPOCKET - IA Assistant (WebSocket)</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 EZPOCKET IA Assistant</h1>
+            <div class="connection-status" id="connectionStatus">🔴 Desconectado</div>
+            <div class="user-config">
+                <div class="config-group">
+                    <label for="username">👤 Usuário:</label>
+                    <input type="text" id="username" value="test_user" placeholder="Nome do usuário">
+                </div>
+                <div class="config-group">
+                    <label for="projeto">📁 Projeto:</label>
+                    <input type="text" id="projeto" value="test_project" placeholder="Nome do projeto">
+                </div>
+                <button id="btnFlushRedis" onclick="flushRedis()" title="Limpar cache Redis para este usuário/projeto">🗑️ Limpar Cache</button>
+                <button id="btnCleanupJobs" onclick="cleanupCompletedJobs()" title="Limpar jobs completados/finalizados">🧹 Limpar Histórico</button>
+            </div>
+        </div>
+        
+        <div class="chat-box" id="chatBox"></div>
+        
+        <div class="status" id="status"></div>
+        
+        <div class="input-area">
+            <input 
+                type="text" 
+                id="pergunta" 
+                placeholder="Digite sua pergunta..." 
+                autocomplete="off"
+                disabled
+            />
+            <button id="btnEnviar" onclick="enviarPergunta()" disabled>Enviar</button>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

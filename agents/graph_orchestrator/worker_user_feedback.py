@@ -64,10 +64,11 @@ class UserFeedbackWorker(ModuleWorker):
         try:
             import psycopg2
             conn = psycopg2.connect(
-                host="localhost",
-                database="ezpocket",
-                user="postgres",
-                password="postgres"
+                host=os.getenv('POSTGRES_HOST', 'localhost'),
+                port=int(os.getenv('POSTGRES_PORT', 5546)),
+                database=os.getenv('POSTGRES_DB', 'ezpocket_logs'),
+                user=os.getenv('POSTGRES_USER', 'ezpocket_user'),
+                password=os.getenv('POSTGRES_PASSWORD', 'ezpocket_pass_2025')
             )
             cursor = conn.cursor()
             
