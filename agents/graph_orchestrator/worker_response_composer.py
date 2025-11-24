@@ -72,6 +72,7 @@ class ResponseComposerWorker(ModuleWorker):
         print(f"[RESPONSE_COMPOSER]    Tamanho da resposta: {len(result.get('response_text', ''))} caracteres")
         print(f"[RESPONSE_COMPOSER]    User-friendly score: {result.get('user_friendly_score', 0)}")
         print(f"[RESPONSE_COMPOSER]    Tempo de execução: {execution_time:.2f}s")
+        print(f"[RESPONSE_COMPOSER]    response_text presente? {'response_text' in result}")
         
         # Preparar output - History vai buscar todos os parent_ids
         output = {
@@ -97,6 +98,7 @@ class ResponseComposerWorker(ModuleWorker):
         }
         
         print(f"[RESPONSE_COMPOSER] 🔀 Enviando resposta formatada para: history_preferences")
+        print(f"[RESPONSE_COMPOSER]    response_text no output? {'response_text' in output}")
         print(f"[RESPONSE_COMPOSER] 📝 History vai salvar e depois chamar user_feedback")
         
         return output

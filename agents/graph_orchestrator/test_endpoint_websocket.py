@@ -226,6 +226,13 @@ def monitor_job(job_id: str, sid: str):
 def format_module_output(module: str, output: dict, success: bool) -> str:
     """Formata a saída do módulo para exibição"""
     
+    # DEBUG: Ver o que está chegando
+    print(f"\n[FORMAT_MODULE_OUTPUT] DEBUG:")
+    print(f"  Module: {module}")
+    print(f"  Success: {success}")
+    print(f"  Output keys: {list(output.keys())}")
+    print(f"  Output (primeiras 500 chars): {str(output)[:500]}\n")
+    
     if not success:
         return f"❌ Erro no módulo {module}: {output.get('error', 'Erro desconhecido')}"
     
@@ -258,9 +265,16 @@ def format_module_output(module: str, output: dict, success: bool) -> str:
             return "❌ Plano rejeitado pelo usuário"
     
     elif module == 'sql_validator':
-        valid = output.get('sql_valid', False)
+        # DEBUG: Ver campos específicos
+        print(f"[SQL_VALIDATOR FORMAT] valid={output.get('valid')}")
+        print(f"[SQL_VALIDATOR FORMAT] sql_valid={output.get('sql_valid')}")
+        print(f"[SQL_VALIDATOR FORMAT] query_sql={output.get('query_sql', 'N/A')[:100]}")
+        print(f"[SQL_VALIDATOR FORMAT] sql_query={output.get('sql_query', 'N/A')[:100]}")
+        
+        # Aceitar 'valid' ou 'sql_valid'
+        valid = output.get('valid', output.get('sql_valid', False))
         if valid:
-            sql_query = output.get('sql_query', output.get('query_sql', ''))
+            sql_query = output.get('query_sql', output.get('sql_query', ''))
             return f"✅ SQL válido\n```sql\n{sql_query}\n```"
         else:
             errors = output.get('errors', [])
@@ -279,15 +293,24 @@ def format_module_output(module: str, output: dict, success: bool) -> str:
                 result += "  • Erro desconhecido (verifique os logs)"
             
             # Mostrar SQL que causou erro se disponível
-            sql_query = output.get('sql_query', output.get('query_sql', ''))
+            sql_query = output.get('query_sql', output.get('sql_query', ''))
             if sql_query:
                 result += f"\n\n📝 SQL:\n```sql\n{sql_query}\n```"
             
             return result
     
     elif module == 'athena_executor':
-        rows = output.get('rows_returned', 0)
-        data = output.get('data', [])
+        # DEBUG: Ver campos específicos
+        print(f"[ATHENA_EXECUTOR FORMAT] rows_returned={output.get('rows_returned')}")
+        print(f"[ATHENA_EXECUTOR FORMAT] row_count={output.get('row_count')}")
+        print(f"[ATHENA_EXECUTOR FORMAT] data={output.get('data', [])[:2]}")
+        print(f"[ATHENA_EXECUTOR FORMAT] results={output.get('results', [])[:2]}")
+        print(f"[ATHENA_EXECUTOR FORMAT] execution_time={output.get('execution_time')}")
+        
+        # Aceitar 'row_count' ou 'rows_returned'
+        rows = output.get('row_count', output.get('rows_returned', 0))
+        # Aceitar 'results' ou 'data'
+        data = output.get('results', output.get('data', []))
         execution_time = output.get('execution_time', 0)
         
         result = f"⚡ Query executada com sucesso\n📊 {rows} linha(s) retornada(s)\n⏱️ Tempo: {execution_time:.2f}s"
@@ -306,7 +329,14 @@ def format_module_output(module: str, output: dict, success: bool) -> str:
         return result
     
     elif module == 'response_composer':
+        # DEBUG: Ver campos específicos
+        print(f"[RESPONSE_COMPOSER FORMAT] response_text exists: {('response_text' in output)}")
+        print(f"[RESPONSE_COMPOSER FORMAT] response_text length: {len(output.get('response_text', ''))}")
+        print(f"[RESPONSE_COMPOSER FORMAT] response_text preview: {output.get('response_text', '')[:200]}")
+        
         response = output.get('response_text', '')
+        if not response:
+            return "⚠️ Resposta vazia gerada pelo response_composer"
         return f"🎨 Resposta gerada:\n\n{response}"
     
     elif module == 'user_feedback':
@@ -554,13 +584,13 @@ def handle_send_input(data):
 
 @socketio.on('flush_redis')
 def handle_flush_redis(data):
-    """Limpa todas as chaves Redis e jobs para um usuário/projeto específico"""
+    """Remove TODOS os dados do usuário/projeto do Redis: jobs (ativos+completados), cache, sessões, interações"""
     try:
         username = data.get('username', 'test_user')
         projeto = data.get('projeto', 'test_project')
         
         print(f"\n{'='*80}")
-        print(f"[WS] 🗑️ FLUSH REDIS + JOBS solicitado")
+        print(f"[WS] 🗑️ REMOVER TUDO DO REDIS - LIMPEZA TOTAL")
         print(f"[WS] Usuário: {username}")
         print(f"[WS] Projeto: {projeto}")
         print(f"{'='*80}\n")
@@ -583,8 +613,8 @@ def handle_flush_redis(data):
                 deleted_count += 1
                 print(f"[WS] 🗑️ Deletado: {pattern}")
         
-        # 2. Buscar e deletar todos os jobs do usuário/projeto
-        print(f"\n[WS] 🔍 Buscando jobs de {username}/{projeto}...")
+        # 2. Buscar e deletar TODOS os jobs do usuário/projeto (ativos + completados)
+        print(f"\n[WS] 🔍 Buscando TODOS os jobs de {username}/{projeto}...")
         all_job_keys = orchestrator.redis_client.keys("job:*")
         jobs_deleted = 0
         sessions_closed = 0
@@ -607,22 +637,23 @@ def handle_flush_redis(data):
                         if job_id in pending_inputs:
                             del pending_inputs[job_id]
                         
-                        # Deletar job do Redis
+                        # Deletar job do Redis (independente do status)
                         orchestrator.redis_client.delete(job_key)
                         jobs_deleted += 1
-                        print(f"[WS] 🗑️ Job deletado: {job_id[:8]}...")
+                        status = job_obj.get('consolidated_status', job_obj.get('status', 'unknown'))
+                        print(f"[WS] 🗑️ Job [{status}] deletado: {job_id[:8]}...")
             except Exception as e:
                 print(f"[WS] ⚠️ Erro ao processar {job_key}: {e}")
         
         total_deleted = deleted_count + jobs_deleted
-        print(f"\n[WS] ✅ Total deletado:")
+        print(f"\n[WS] ✅ LIMPEZA TOTAL CONCLUÍDA:")
         print(f"     - Chaves de interação: {deleted_count}")
-        print(f"     - Jobs: {jobs_deleted}")
+        print(f"     - Jobs (todos): {jobs_deleted}")
         print(f"     - Sessões fechadas: {sessions_closed}")
-        print(f"     - Total: {total_deleted}\n")
+        print(f"     - Total removido: {total_deleted}\n")
         
         emit('redis_flushed', {
-            'message': 'Cache, jobs e sessões limpos com sucesso',
+            'message': 'Todos os dados do usuário/projeto removidos do Redis',
             'keys_deleted': deleted_count,
             'jobs_deleted': jobs_deleted,
             'sessions_closed': sessions_closed,
@@ -632,74 +663,11 @@ def handle_flush_redis(data):
         })
         
     except Exception as e:
-        print(f"[WS] ❌ Erro ao fazer flush do Redis: {str(e)}")
+        print(f"[WS] ❌ Erro ao fazer limpeza total do Redis: {str(e)}")
         import traceback
         traceback.print_exc()
         emit('error', {
-            'message': f'Erro ao limpar cache: {str(e)}',
-            'type': type(e).__name__
-        })
-
-
-@socketio.on('cleanup_completed_jobs')
-def handle_cleanup_completed_jobs(data):
-    """Limpa jobs completados/failed de um usuário/projeto específico"""
-    try:
-        username = data.get('username', 'test_user')
-        projeto = data.get('projeto', 'test_project')
-        
-        print(f"\n{'='*80}")
-        print(f"[WS] 🧹 LIMPEZA DE JOBS COMPLETADOS solicitada")
-        print(f"[WS] Usuário: {username}")
-        print(f"[WS] Projeto: {projeto}")
-        print(f"{'='*80}\n")
-        
-        # Buscar jobs completados/failed do usuário/projeto
-        all_job_keys = orchestrator.redis_client.keys("job:*")
-        jobs_deleted = 0
-        jobs_kept = 0
-        
-        for job_key in all_job_keys:
-            try:
-                job_data = orchestrator.redis_client.get(job_key)
-                if job_data:
-                    job_obj = json.loads(job_data)
-                    if job_obj.get('username') == username and job_obj.get('projeto') == projeto:
-                        status = job_obj.get('status', '')
-                        consolidated_status = job_obj.get('consolidated_status', status)
-                        
-                        # Deletar apenas jobs completados, failed ou partial_failure
-                        if consolidated_status in ['completed', 'failed', 'partial_failure']:
-                            job_id = job_key.decode('utf-8') if isinstance(job_key, bytes) else job_key
-                            job_id = job_id.replace('job:', '')
-                            
-                            orchestrator.redis_client.delete(job_key)
-                            jobs_deleted += 1
-                            print(f"[WS] 🗑️ Job {consolidated_status}: {job_id[:8]}...")
-                        else:
-                            jobs_kept += 1
-                            
-            except Exception as e:
-                print(f"[WS] ⚠️ Erro ao processar {job_key}: {e}")
-        
-        print(f"\n[WS] ✅ Limpeza concluída:")
-        print(f"     - Jobs deletados: {jobs_deleted}")
-        print(f"     - Jobs ativos mantidos: {jobs_kept}\n")
-        
-        emit('jobs_cleaned', {
-            'message': 'Jobs completados limpos com sucesso',
-            'jobs_deleted': jobs_deleted,
-            'jobs_kept': jobs_kept,
-            'username': username,
-            'projeto': projeto
-        })
-        
-    except Exception as e:
-        print(f"[WS] ❌ Erro ao limpar jobs completados: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        emit('error', {
-            'message': f'Erro ao limpar jobs: {str(e)}',
+            'message': f'Erro ao remover dados: {str(e)}',
             'type': type(e).__name__
         })
 

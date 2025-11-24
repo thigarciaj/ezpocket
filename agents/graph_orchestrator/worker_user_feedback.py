@@ -57,42 +57,48 @@ class UserFeedbackWorker(ModuleWorker):
         projeto = data.get('projeto', 'default')
         rating = data.get('rating', 0)
         
-        print(f"[USER_FEEDBACK] 📊 Buscando resposta do banco para mostrar ao usuário...")
+        # IMPORTANTE: response_text vem no data do módulo anterior (response_composer via history)
+        response_text = data.get('response_text', '')
         
-        # Buscar input/output do banco (response_composer_logs)
-        response_text = ""
-        try:
-            import psycopg2
-            conn = psycopg2.connect(
-                host=os.getenv('POSTGRES_HOST', 'localhost'),
-                port=int(os.getenv('POSTGRES_PORT', 5546)),
-                database=os.getenv('POSTGRES_DB', 'ezpocket_logs'),
-                user=os.getenv('POSTGRES_USER', 'ezpocket_user'),
-                password=os.getenv('POSTGRES_PASSWORD', 'ezpocket_pass_2025')
-            )
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                SELECT response_text, pergunta
-                FROM response_composer_logs
-                WHERE username = %s AND projeto = %s AND pergunta = %s
-                ORDER BY horario DESC LIMIT 1
-            """, (username, projeto, pergunta))
-            result = cursor.fetchone()
-            
-            if result:
-                response_text = result[0]
-                print(f"[USER_FEEDBACK] ✅ Resposta encontrada no banco!")
-            else:
-                response_text = "(Resposta não encontrada)"
-                print(f"[USER_FEEDBACK] ⚠️  Resposta não encontrada no banco")
-            
-            cursor.close()
-            conn.close()
-            
-        except Exception as e:
-            print(f"[USER_FEEDBACK] ❌ Erro ao buscar do banco: {e}")
-            response_text = "(Erro ao buscar resposta)"
+        if not response_text:
+            print(f"[USER_FEEDBACK] ⚠️ response_text não veio no data, tentando buscar do banco...")
+        else:
+            print(f"[USER_FEEDBACK] ✅ response_text recebido ({len(response_text)} chars)")
+        
+        # FALLBACK: Buscar do banco apenas se não veio no data
+        if not response_text:
+            try:
+                import psycopg2
+                conn = psycopg2.connect(
+                    host=os.getenv('POSTGRES_HOST', 'localhost'),
+                    port=int(os.getenv('POSTGRES_PORT', 5546)),
+                    database=os.getenv('POSTGRES_DB', 'ezpocket_logs'),
+                    user=os.getenv('POSTGRES_USER', 'ezpocket_user'),
+                    password=os.getenv('POSTGRES_PASSWORD', 'ezpocket_pass_2025')
+                )
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    SELECT response_text, pergunta
+                    FROM response_composer_logs
+                    WHERE username = %s AND projeto = %s AND pergunta = %s
+                    ORDER BY horario DESC LIMIT 1
+                """, (username, projeto, pergunta))
+                result = cursor.fetchone()
+                
+                if result:
+                    response_text = result[0]
+                    print(f"[USER_FEEDBACK] ✅ Resposta encontrada no banco!")
+                else:
+                    response_text = "(Resposta não encontrada)"
+                    print(f"[USER_FEEDBACK] ⚠️  Resposta não encontrada no banco")
+                
+                cursor.close()
+                conn.close()
+                
+            except Exception as e:
+                print(f"[USER_FEEDBACK] ❌ Erro ao buscar do banco: {e}")
+                response_text = "(Erro ao buscar resposta)"
         
         # Se rating não foi fornecido, criar pending no Redis para aguardar input
         if not rating or rating <= 0:

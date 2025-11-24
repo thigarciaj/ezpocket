@@ -61,33 +61,13 @@ function flushRedis() {
     
     const config = getUserConfig();
     
-    if (!confirm(`Tem certeza que deseja limpar o cache Redis para:\nUsuário: ${config.username}\nProjeto: ${config.projeto}?`)) {
+    if (!confirm(`Tem certeza que deseja REMOVER TUDO para:\nUsuário: ${config.username}\nProjeto: ${config.projeto}\n\nIsso vai limpar: jobs ativos, jobs finalizados, cache, sessões e todos os dados no Redis.`)) {
         return;
     }
     
-    addMessage(`🗑️ Solicitando limpeza do cache...`, 'system');
+    addMessage(`🗑️ Removendo todos os dados do usuário/projeto do Redis...`, 'system');
     
     socket.emit('flush_redis', {
-        username: config.username,
-        projeto: config.projeto
-    });
-}
-
-function cleanupCompletedJobs() {
-    if (!socket) {
-        addMessage('❌ WebSocket não conectado', 'error');
-        return;
-    }
-    
-    const config = getUserConfig();
-    
-    if (!confirm(`Limpar jobs completados/finalizados para:\nUsuário: ${config.username}\nProjeto: ${config.projeto}?`)) {
-        return;
-    }
-    
-    addMessage(`🧹 Limpando histórico de jobs...`, 'system');
-    
-    socket.emit('cleanup_completed_jobs', {
         username: config.username,
         projeto: config.projeto
     });
