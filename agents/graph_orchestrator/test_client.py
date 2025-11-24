@@ -279,6 +279,52 @@ def test_orchestrator(pergunta: str, username: str = "test_user", projeto: str =
                                 print(f"{status_msg} - Continuando processamento...")
                                 print(f"{'='*80}\n")
                         
+                        # Verificar user_feedback (sempre verificar)
+                        feedback_key = f"user_feedback:pending:{username}:{projeto}"
+                        feedback_response_key = f"user_feedback:response:{username}:{projeto}"
+                        
+                        if redis_client.exists(feedback_key):
+                            # Ler dados do feedback do Redis
+                            feedback_data = redis_client.hgetall(feedback_key)
+                            
+                            print(f"\n{'='*80}")
+                            print(f"📊 AVALIAÇÃO DA RESPOSTA")
+                            print(f"{'='*80}")
+                            print(f"❓ Pergunta: {feedback_data.get('pergunta', '')}")
+                            print(f"\n💬 Resposta:")
+                            print(f"{feedback_data.get('response_text', '')}")
+                            print(f"\n{'='*80}")
+                            print(f"⭐ Como você avalia esta resposta?")
+                            print(f"   1 = Péssima")
+                            print(f"   2 = Ruim")
+                            print(f"   3 = Regular")
+                            print(f"   4 = Boa")
+                            print(f"   5 = Excelente")
+                            
+                            # Ler rating do usuário
+                            while True:
+                                try:
+                                    rating_input = input("\nDigite o rating (1-5): ").strip()
+                                    rating = int(rating_input)
+                                    if 1 <= rating <= 5:
+                                        break
+                                    print("❌ Rating deve ser entre 1 e 5")
+                                except ValueError:
+                                    print("❌ Digite um número válido")
+                            
+                            # Pedir comentário opcional
+                            comment = input("\n💭 Comentário (Enter para pular): ").strip()
+                            
+                            # Salvar resposta no Redis
+                            feedback_response = {
+                                'rating': rating,
+                                'comment': comment
+                            }
+                            redis_client.set(feedback_response_key, json.dumps(feedback_response), ex=60)
+                            
+                            print(f"\n✅ Feedback registrado!")
+                            print(f"{'='*80}\n")
+                        
                         # Verificar user_proposed_plan (sempre verificar, pode acontecer múltiplas vezes)
                         user_plan_key = f"user_proposed_plan:pending:{username}:{projeto}"
                         user_plan_response_key = f"user_proposed_plan:response:{username}:{projeto}"

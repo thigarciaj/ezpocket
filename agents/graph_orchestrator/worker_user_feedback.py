@@ -93,52 +93,63 @@ class UserFeedbackWorker(ModuleWorker):
             print(f"[USER_FEEDBACK] ❌ Erro ao buscar do banco: {e}")
             response_text = "(Erro ao buscar resposta)"
         
-        # Se rating não foi fornecido, pedir ao usuário via input()
+        # Se rating não foi fornecido, criar pending no Redis para aguardar input
         if not rating or rating <= 0:
-            print(f"\n" + "="*80)
-            print(f"📊 POR FAVOR, AVALIE A RESPOSTA:")
-            print(f"="*80)
-            print(f"\n❓ Pergunta: {pergunta}")
-            print(f"\n💬 Resposta:")
-            print(f"{response_text}")
-            print(f"\n" + "="*80)
-            print(f"⭐ Como você avalia esta resposta?")
-            print(f"   1 = Péssima")
-            print(f"   2 = Ruim")
-            print(f"   3 = Regular")
-            print(f"   4 = Boa")
-            print(f"   5 = Excelente")
+            print(f"[USER_FEEDBACK] 📝 Criando pending no Redis...")
             
-            while True:
-                try:
-                    rating_input = input("\nDigite o rating (1-5): ").strip()
-                    rating = int(rating_input)
-                    if 1 <= rating <= 5:
-                        break
-                    print("❌ Rating deve ser entre 1 e 5")
-                except ValueError:
-                    print("❌ Digite um número válido")
-                except EOFError:
-                    print("\n⚠️  Input não disponível, usando rating padrão 3")
-                    rating = 3
+            import redis
+            import os
+            from dotenv import load_dotenv
+            import json
+            
+            load_dotenv()
+            REDIS_PORT = int(os.getenv('REDIS_PORT', 6493))
+            r = redis.Redis(host='localhost', port=REDIS_PORT, decode_responses=True)
+            
+            feedback_key = f"user_feedback:pending:{username}:{projeto}"
+            feedback_response_key = f"user_feedback:response:{username}:{projeto}"
+            
+            # Salvar dados do feedback no Redis
+            r.hset(feedback_key, mapping={
+                'pergunta': pergunta,
+                'response_text': response_text,
+                'username': username,
+                'projeto': projeto
+            })
+            r.expire(feedback_key, 300)  # 5 minutos
+            
+            print(f"[USER_FEEDBACK] ⏳ Aguardando resposta do usuário...")
+            
+            # Aguardar resposta (timeout 5 minutos)
+            comment = ''
+            for _ in range(300):
+                if r.exists(feedback_response_key):
+                    feedback_response = json.loads(r.get(feedback_response_key))
+                    rating = feedback_response.get('rating', 3)
+                    comment = feedback_response.get('comment', '')
+                    print(f"[USER_FEEDBACK] ✅ Resposta recebida: rating={rating}")
+                    
+                    # Limpar chaves
+                    r.delete(feedback_key)
+                    r.delete(feedback_response_key)
                     break
-            
-            # Pedir comentário opcional
-            try:
-                comment = input("\n💭 Comentário (Enter para pular): ").strip()
-                if comment:
-                    data['comment'] = comment
-            except (EOFError, KeyboardInterrupt):
-                comment = ""
-            
-            # Atualizar data com o rating
-            data['rating'] = rating
-            data['response_text'] = response_text
-            data['is_helpful'] = rating >= 3
-            data['would_recommend'] = rating >= 4
-            
-            print(f"\n✅ Obrigado pelo feedback!")
-            print(f"="*80 + "\n")
+                time.sleep(1)
+            else:
+                # Timeout - usar rating padrão
+                print(f"[USER_FEEDBACK] ⏱️  Timeout - usando rating padrão (3)")
+                rating = 3
+                comment = ''
+                r.delete(feedback_key)
+        else:
+            # Rating já foi fornecido no input
+            comment = data.get('comment', '')
+        
+        # Atualizar data com o rating e response_text
+        data['rating'] = rating
+        data['response_text'] = response_text
+        data['comment'] = comment
+        data['is_helpful'] = rating >= 3
+        data['would_recommend'] = rating >= 4
         
         print(f"[USER_FEEDBACK] 📊 Processando feedback do usuário...")
         print(f"[USER_FEEDBACK]    Username: {username}")
