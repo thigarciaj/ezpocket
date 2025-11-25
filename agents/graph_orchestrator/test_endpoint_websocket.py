@@ -127,10 +127,15 @@ def monitor_job(job_id: str, sid: str):
                 # Verificar plan_confirm (pode acontecer múltiplas vezes após refinamentos)
                 if not confirmation_checked:
                     pending_key = f"plan_confirm:pending:{username}:{projeto}"
-                    exists = orchestrator.redis_client.exists(pending_key)
-                    print(f"[MONITOR] 🔍 Verificando chave Redis: {pending_key} (existe: {exists})")
+                    response_key = f"plan_confirm:response:{username}:{projeto}"
                     
-                    if exists:
+                    exists = orchestrator.redis_client.exists(pending_key)
+                    already_answered = orchestrator.redis_client.exists(response_key)
+                    
+                    print(f"[MONITOR] 🔍 Verificando chave Redis: {pending_key} (existe: {exists}, respondida: {already_answered})")
+                    
+                    # IMPORTANTE: Só mostrar se existe E ainda não foi respondida
+                    if exists and not already_answered:
                         plan_data = orchestrator.redis_client.hgetall(pending_key)
                         print(f"[MONITOR] ✅ Plan confirm detectado via Redis: {pending_key}")
                         print(f"[MONITOR] 📤 Emitindo module_update de plan_confirm com show_buttons=true para sid {sid}")
@@ -171,13 +176,20 @@ def monitor_job(job_id: str, sid: str):
                         pending_inputs[job_id] = 'plan_confirmation'
                         confirmation_checked = True
                         print(f"[MONITOR] ✅ confirmation_checked=True (aguardando resposta do usuário)")
+                    elif exists and already_answered:
+                        print(f"[MONITOR] ⏭️  Plan confirm já foi respondido - pulando re-exibição")
                 
                 # Verificar user_feedback (só uma vez por job)
                 # Emitir evento para usuário digitar nota de 1 a 5
                 feedback_key = f"user_feedback:pending:{username}:{projeto}"
                 if not feedback_checked:
+                    feedback_response_key = f"user_feedback:response:{username}:{projeto}"
+                    
                     exists = orchestrator.redis_client.exists(feedback_key)
-                    if exists:
+                    already_answered = orchestrator.redis_client.exists(feedback_response_key)
+                    
+                    # IMPORTANTE: Só mostrar se existe E ainda não foi respondida
+                    if exists and not already_answered:
                         feedback_data = orchestrator.redis_client.hgetall(feedback_key)
                         print(f"\n{'='*80}")
                         print(f"[MONITOR] 📊 USER FEEDBACK DETECTADO!")
@@ -199,12 +211,20 @@ def monitor_job(job_id: str, sid: str):
                         pending_inputs[job_id] = 'user_feedback'
                         feedback_checked = True
                         print(f"[MONITOR] ✅ feedback_checked=True (aguardando nota do usuário)")
+                    elif exists and already_answered:
+                        print(f"[MONITOR] ⏭️  User feedback já foi respondido - pulando re-exibição")
                 
                 # Verificar user_proposed_plan (quando usuário rejeita o plano)
                 # Pode acontecer múltiplas vezes (loop de refinamento)
                 if not user_plan_checked:
                     user_plan_key = f"user_proposed_plan:pending:{username}:{projeto}"
-                    if orchestrator.redis_client.exists(user_plan_key):
+                    user_plan_response_key = f"user_proposed_plan:response:{username}:{projeto}"
+                    
+                    exists = orchestrator.redis_client.exists(user_plan_key)
+                    already_answered = orchestrator.redis_client.exists(user_plan_response_key)
+                    
+                    # IMPORTANTE: Só mostrar se existe E ainda não foi respondida
+                    if exists and not already_answered:
                         user_plan_data = orchestrator.redis_client.hgetall(user_plan_key)
                         print(f"[MONITOR] User proposed plan detectado via Redis")
                         print(f"[MONITOR] Usuário pode propor plano alternativo")
@@ -221,6 +241,8 @@ def monitor_job(job_id: str, sid: str):
                         # Resetar confirmation_checked para permitir nova confirmação do plano refinado
                         confirmation_checked = False
                         print(f"[MONITOR] Flags resetadas: confirmation_checked=False para permitir re-confirmação")
+                    elif exists and already_answered:
+                        print(f"[MONITOR] ⏭️  User proposed plan já foi respondido - pulando re-exibição")
                 
                 # Se user_plan_checked e a chave não existe mais, resetar para permitir novo ciclo
                 elif user_plan_checked:
@@ -229,6 +251,22 @@ def monitor_job(job_id: str, sid: str):
                         # Worker processou, resetar flag para permitir nova rejeição
                         user_plan_checked = False
                         print(f"[MONITOR] user_plan_checked resetado - pronto para novo ciclo")
+                
+                # Resetar confirmation_checked se ambas as chaves foram deletadas (worker processou)
+                if confirmation_checked:
+                    pending_key = f"plan_confirm:pending:{username}:{projeto}"
+                    response_key = f"plan_confirm:response:{username}:{projeto}"
+                    if not orchestrator.redis_client.exists(pending_key) and not orchestrator.redis_client.exists(response_key):
+                        confirmation_checked = False
+                        print(f"[MONITOR] confirmation_checked resetado - confirmação foi processada")
+                
+                # Resetar feedback_checked se ambas as chaves foram deletadas (worker processou)
+                if feedback_checked:
+                    feedback_key = f"user_feedback:pending:{username}:{projeto}"
+                    feedback_response_key = f"user_feedback:response:{username}:{projeto}"
+                    if not orchestrator.redis_client.exists(feedback_key) and not orchestrator.redis_client.exists(feedback_response_key):
+                        feedback_checked = False
+                        print(f"[MONITOR] feedback_checked resetado - feedback foi processado")
             
             # Verificar se completou
             if current_status in ['completed', 'failed', 'partial_failure']:
@@ -983,6 +1021,23 @@ def handle_start_job(data):
             })
             return
         
+        # VERIFICAR SE JÁ EXISTE UM JOB ATIVO PARA ESTE USUÁRIO (evitar múltiplos jobs simultâneos)
+        for existing_job_id, sid in list(active_sessions.items()):
+            if sid == request.sid:
+                # Verificar se o job ainda está ativo
+                job_data_raw = orchestrator.redis_client.get(f"job:{existing_job_id}")
+                if job_data_raw:
+                    job_data = json.loads(job_data_raw)
+                    job_status = job_data.get('status', 'processing')
+                    if job_status not in ['completed', 'failed', 'partial_failure', 'cancelled']:
+                        print(f"[WS] ⚠️  Já existe um job ativo ({existing_job_id[:8]}...) para esta sessão")
+                        emit('error', {
+                            'message': 'Já existe uma consulta em andamento. Aguarde a conclusão ou recarregue a página.',
+                            'type': 'job_already_active',
+                            'existing_job_id': existing_job_id
+                        })
+                        return
+        
         print(f"\n{'='*80}")
         print(f"[WS] Novo job iniciado")
         print(f"[WS] Módulo: {module}")
@@ -1068,6 +1123,16 @@ def handle_send_input(data):
         if input_type == 'plan_confirmation':
             # Salvar resposta do plano (worker espera string 'true' ou 'false')
             response_key = f"plan_confirm:response:{username}:{projeto}"
+            
+            # VERIFICAR SE JÁ FOI RESPONDIDO (evitar duplo-clique)
+            if orchestrator.redis_client.exists(response_key):
+                print(f"[WS] ⚠️  Plan confirm já foi respondido - ignorando duplicata")
+                emit('input_received', {
+                    'message': 'Confirmação já foi registrada anteriormente',
+                    'duplicate': True
+                })
+                return
+            
             # IMPORTANTE: salvar apenas a string 'true' ou 'false' (não JSON)
             # Corrigir: comparar string explicitamente, não usar truthy/falsy
             if isinstance(input_value, str):
@@ -1093,6 +1158,16 @@ def handle_send_input(data):
         elif input_type == 'user_feedback':
             # Receber rating completo (usado no dashboard WebSocket)
             feedback_response_key = f"user_feedback:response:{username}:{projeto}"
+            
+            # VERIFICAR SE JÁ FOI RESPONDIDO (evitar duplo-clique)
+            if orchestrator.redis_client.exists(feedback_response_key):
+                print(f"[WS] ⚠️  User feedback já foi respondido - ignorando duplicata")
+                emit('input_received', {
+                    'message': 'Avaliação já foi registrada anteriormente',
+                    'duplicate': True
+                })
+                return
+            
             orchestrator.redis_client.set(feedback_response_key, input_value, ex=60)
             
             print(f"[WS] ========== DEBUG USER FEEDBACK ==========")
@@ -1111,6 +1186,16 @@ def handle_send_input(data):
             emit('input_received', {'message': 'Rating recebido, aguardando comentário'})
             
         elif input_type == 'user_feedback_comment':
+            # Verificar se já foi respondido
+            feedback_response_key = f"user_feedback:response:{username}:{projeto}"
+            if orchestrator.redis_client.exists(feedback_response_key):
+                print(f"[WS] ⚠️  User feedback comment já foi respondido - ignorando duplicata")
+                emit('input_received', {
+                    'message': 'Feedback já foi registrado anteriormente',
+                    'duplicate': True
+                })
+                return
+            
             # Buscar rating salvo
             temp_key = f"user_feedback:temp_rating:{username}:{projeto}"
             rating = orchestrator.redis_client.get(temp_key)
@@ -1118,7 +1203,6 @@ def handle_send_input(data):
                 rating = '5'  # Default
             
             # Salvar resposta completa
-            feedback_response_key = f"user_feedback:response:{username}:{projeto}"
             feedback_response = {
                 'rating': int(rating),
                 'comment': input_value
@@ -1137,6 +1221,16 @@ def handle_send_input(data):
         elif input_type == 'user_proposed_plan':
             # Salvar sugestão do usuário
             user_plan_response_key = f"user_proposed_plan:response:{username}:{projeto}"
+            
+            # VERIFICAR SE JÁ FOI RESPONDIDO (evitar duplo-envio)
+            if orchestrator.redis_client.exists(user_plan_response_key):
+                print(f"[WS] ⚠️  User proposed plan já foi respondido - ignorando duplicata")
+                emit('input_received', {
+                    'message': 'Sugestão já foi registrada anteriormente',
+                    'duplicate': True
+                })
+                return
+            
             orchestrator.redis_client.set(user_plan_response_key, input_value, ex=300)
             
             print(f"[WS] Sugestão do usuário salva: {user_plan_response_key}")

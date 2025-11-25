@@ -2758,13 +2758,25 @@
             }
         }
 
+        // Flag para evitar processamento duplicado
+        let isProcessingMessage = false;
+        
         async function sendMessage() {
             console.log('🚀 [SEND] sendMessage chamada');
+            
+            // PROTEÇÃO: Evitar processamento duplicado
+            if (isProcessingMessage) {
+                console.log('⚠️ [SEND] Mensagem já está sendo processada - ignorando duplicata');
+                return;
+            }
+            
             const input = document.getElementById('chatInput');
             const message = input.value.trim();
             console.log('📝 [SEND] Mensagem:', message);
             
             if (message && socket) {
+                // Marcar como processando
+                isProcessingMessage = true;
                 // RENOVAR TOKEN ANTES DE ENVIAR MENSAGEM
                 console.log('🔄 [REFRESH] INICIANDO REFRESH TOKEN...');
                 try {
@@ -2777,6 +2789,7 @@
                     
                     if (!refreshResponse.ok) {
                         console.error('❌ [REFRESH] Falha ao renovar token (status ' + refreshResponse.status + '), redirecionando para login...');
+                        isProcessingMessage = false;
                         alert('Sua sessão expirou. Você será redirecionado para o login.');
                         window.location.href = '/login';
                         return;
@@ -2785,17 +2798,24 @@
                     console.log('✅ [REFRESH] Token renovado com sucesso!');
                 } catch (error) {
                     console.error('❌ [REFRESH] Erro ao renovar token:', error);
+                    isProcessingMessage = false;
                     alert('Erro de autenticação. Você será redirecionado para o login.');
                     window.location.href = '/login';
                     return;
                 }
+                
+                // IMPORTANTE: Capturar flags ANTES de adicionar mensagem no chat
+                const isWaitingConfirmation = waitingForConfirmation;
+                const isWaitingRating = waitingForRating;
+                const isWaitingComment = waitingForComment;
+                const isWaitingPlanSuggestion = waitingForPlanSuggestion;
                 
                 // Adicionar mensagem do usuário na tela
                 addMessageToChat('Você', message, 'user');
                 input.value = '';
                 
                 // Se estiver aguardando confirmação do plano
-                if (waitingForConfirmation) {
+                if (isWaitingConfirmation) {
                     console.log('📤 Enviando confirmação de plano:', message);
                     const confirmed = ['sim', 's', 'yes', 'y', '1'].includes(message.toLowerCase());
                     
@@ -2819,16 +2839,19 @@
                     setTimeout(() => {
                         input.disabled = false;
                     }, 2000);
+                    
+                    isProcessingMessage = false;
                     return;
                 }
                 
                 // Se estiver aguardando nota do usuário
-                if (waitingForRating) {
+                if (isWaitingRating) {
                     console.log('⭐ Enviando nota:', message);
                     const rating = parseInt(message);
                     
                     if (isNaN(rating) || rating < 1 || rating > 5) {
                         addMessageToChat('EZPocket', '❌ Por favor, digite um número de 1 a 5', 'bot');
+                        isProcessingMessage = false;
                         return;
                     }
                     
@@ -2837,14 +2860,18 @@
                     waitingForRating = false;
                     waitingForComment = true;
                     
-                    addMessageToChat('EZPocket', `✅ Nota ${rating} registrada!\n\n**Deixe um comentário (opcional)**\nDigite seu comentário ou "pular" para finalizar`, 'bot');
+                    addMessageToChat('EZPocket', `✅ Nota ${rating} registrada!\n\n**Deixe um comentário (opcional)**\nDigite seu comentário ou pressione Enter`, 'bot');
+                    
+                    isProcessingMessage = false;
                     return;
                 }
                 
                 // Se estiver aguardando comentário
-                if (waitingForComment) {
+                if (isWaitingComment) {
                     console.log('💬 Enviando feedback completo');
-                    const comment = message.toLowerCase() === 'pular' ? '' : message;
+                    // IMPORTANTE: Se mensagem vazia, considerar como "pular"
+                    const comment = (message === '' || message.toLowerCase() === 'pular') ? '' : message;
+                    
                     
                     socket.emit('send_input', {
                         job_id: currentJobId,
@@ -2860,11 +2887,13 @@
                     setTimeout(() => {
                         input.disabled = false;
                     }, 2000);
+                    
+                    isProcessingMessage = false;
                     return;
                 }
                 
                 // Se estiver aguardando sugestão de plano
-                if (waitingForPlanSuggestion) {
+                if (isWaitingPlanSuggestion) {
                     console.log('💡 Enviando sugestão de plano:', message);
                     
                     addMessageToChat('EZPocket', '✅ Sugestão recebida! Refinando o plano...', 'bot');
@@ -2882,6 +2911,8 @@
                     setTimeout(() => {
                         input.disabled = false;
                     }, 2000);
+                    
+                    isProcessingMessage = false;
                     return;
                 }
                 
@@ -2903,6 +2934,9 @@
                 setTimeout(() => {
                     input.disabled = false;
                 }, 2000);
+                
+                // Reset flag após enviar job normal
+                isProcessingMessage = false;
             }
         }
 
