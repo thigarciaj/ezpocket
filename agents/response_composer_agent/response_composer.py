@@ -61,16 +61,6 @@ class ResponseComposerAgent:
 {json.dumps(insights, indent=2, ensure_ascii=False)}
 ```
 
-🎯 **Recomendações ({len(recommendations)}):**
-```json
-{json.dumps(recommendations, indent=2, ensure_ascii=False)}
-```
-
-📉 **Visualizações Sugeridas ({len(visualizations)}):**
-```json
-{json.dumps(visualizations, indent=2, ensure_ascii=False)}
-```
-
 **DADOS BRUTOS (amostra de até 50 registros):**
 - Total de registros: {row_count}
 - Dados disponíveis:
@@ -90,26 +80,13 @@ class ResponseComposerAgent:
 {json.dumps(self.roles.get('formatting_guidelines', {}), indent=2, ensure_ascii=False)}
 ```
 
-**Response Sections:**
-```json
-{json.dumps(self.roles.get('response_sections', {}), indent=2, ensure_ascii=False)}
-```
-
 **SUA TAREFA:**
-{self.roles['response_instructions']['follow_all_guidelines']}
-
-**Regras Críticas:**
-{json.dumps(self.roles['response_instructions']['critical_rules'], indent=2, ensure_ascii=False)}
-
-**ESTRUTURA RECOMENDADA:**
-```markdown
-{self.roles['prompt_structure']['template']}
-```
+{self.roles['response_instructions'].get('follow_all_guidelines', 'Componha uma resposta seguindo TODAS as diretrizes')}
 
 **FORMATO DE RESPOSTA (JSON):**
 {json.dumps(self.roles.get('output_format', {}), indent=2, ensure_ascii=False)}
 
-{self.roles['response_instructions']['format']}"""
+{self.roles['response_instructions'].get('format', 'Retorne JSON válido')}"""
         
         return prompt
     

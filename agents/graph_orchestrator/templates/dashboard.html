@@ -1253,6 +1253,153 @@
             border-radius: 8px;
             border-left: 4px solid #00ff88;
         }
+
+        /* Estilos para resposta HTML estruturada */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, rgba(0, 255, 136, 0.1) 0%, rgba(0, 200, 100, 0.05) 100%);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 255, 136, 0.2);
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #00ff88;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .data-table thead {
+            background: linear-gradient(135deg, rgba(0, 255, 136, 0.15) 0%, rgba(0, 200, 100, 0.1) 100%);
+        }
+
+        .data-table th {
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #00ff88;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .data-table td {
+            padding: 12px 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            color: #fff;
+        }
+
+        .data-table tbody tr:hover {
+            background: rgba(0, 255, 136, 0.05);
+        }
+
+        .insights {
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            border-left: 4px solid #00ff88;
+        }
+
+        .insights h3 {
+            color: #00ff88;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .insights ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .insights li {
+            padding: 8px 0;
+            color: #ccc;
+            line-height: 1.5;
+        }
+
+        .insights li::before {
+            content: "💡 ";
+            margin-right: 8px;
+        }
+
+        /* Estilos para tabelas HTML simples nas respostas */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        table thead {
+            background: rgba(0, 255, 136, 0.15);
+        }
+
+        table th {
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #00ff88;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+
+        table td {
+            padding: 12px 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            color: #fff;
+        }
+
+        table tbody tr:hover {
+            background: rgba(0, 255, 136, 0.05);
+        }
+
+        h3, h4 {
+            color: #00ff88;
+            margin: 20px 0 10px 0;
+        }
+
+        ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        ul li {
+            padding: 8px 0;
+            color: #ccc;
+        }
     </style>
 </head>
 <body>
@@ -2114,6 +2261,7 @@
         let waitingForConfirmation = false;
         let waitingForRating = false;
         let waitingForComment = false;
+        let waitingForPlanSuggestion = false;
         let userRating = 0;
 
         // Inicializar WebSocket
@@ -2160,20 +2308,26 @@
                     return;
                 }
                 
+                // Se for plan_confirm SEM show_buttons, é o resultado final (não mostrar)
+                if (data.module === 'plan_confirm') {
+                    console.log('⏭️ plan_confirm resultado final (oculto)');
+                    return;
+                }
+                
                 // Se for user_feedback, pedir nota ao usuário
                 if (data.module === 'user_feedback' && data.show_rating) {
                     console.log('⭐ user_feedback detectado - aguardando nota do usuário');
                     removeTypingIndicator();
-                    addMessageToChat('EZPocket', '**Avalie a resposta**\n_Digite uma nota de 1 a 5 (1=péssimo, 5=excelente)_', 'bot');
+                    addMessageToChat('EZPocket', '**Avalie a resposta**\nDigite uma nota de 1 a 5 (1=péssimo, 5=excelente)', 'bot');
                     waitingForRating = true;
                     return;
                 }
                 
                 // Módulos técnicos não aparecem no chat em produção
                 const hiddenModules = [
-                    'intent_validator', 'history_preferences', 'plan_refiner',
+                    'intent_validator', 'history_preferences',
                     'user_proposed_plan', 'analysis_orchestrator', 'sql_validator',
-                    'athena_executor', 'python_runtime'
+                    'athena_executor', 'python_runtime', 'auto_correction'
                 ];
                 
                 if (hiddenModules.includes(data.module)) {
@@ -2197,6 +2351,10 @@
                     if (data.data && data.data.response_text) {
                         addMessageToChat('EZPocket', data.data.response_text, 'bot');
                     }
+                } else if (data.type === 'user_proposed_plan') {
+                    // Usuário rejeitou o plano - pedir sugestões
+                    addMessageToChat('EZPocket', '💡 **Como você gostaria que o plano fosse modificado?**\n\nDescreva suas sugestões ou uma nova abordagem para a análise.', 'bot');
+                    waitingForPlanSuggestion = true;
                 }
             });
 
@@ -2573,67 +2731,6 @@
             }, 100);
         }
 
-        // Sobrescreve a função sendMessage para incluir projeto ativo
-        function sendMessage() {
-            console.log('sendMessage chamada');
-            const input = document.getElementById('chatInput');
-            const message = input.value.trim();
-            console.log('Mensagem:', message);
-            
-            if (message) {
-                // Adicionar mensagem do usuário na tela
-                addMessageToChat('Você', message, 'user');
-                
-                // Desabilitar input e mostrar que está processando
-                input.disabled = true;
-                addTypingIndicator();
-                
-                // Escolhe a rota baseada se tem projeto ativo
-                const endpoint = projetoAtivo ? '/ask-projeto' : '/ask';
-                const requestBody = projetoAtivo ? 
-                    { pergunta: message, projeto_id: projetoAtivo.id } : 
-                    { pergunta: message };
-                
-                console.log('Enviando requisição para', endpoint);
-                // Fazer requisição real ao backend
-                fetch(endpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(requestBody)
-                })
-                .then(response => {
-                    console.log('Resposta recebida:', response.status);
-                    if (response.status === 401) {
-                        window.location.href = '/login';
-                        return;
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log('Dados recebidos:', data);
-                    removeTypingIndicator();
-                    if (data && data.resposta) {
-                        addMessageToChat('EZPocket', data.resposta, 'bot');
-                        
-                        // Nota: Para projetos, as mensagens já são salvas pela rota /ask-projeto
-                    } else {
-                        addMessageToChat('EZPocket', 'Resposta inválida recebida.', 'bot');
-                    }
-                    input.disabled = false;
-                })
-                .catch(error => {
-                    console.error('Erro na requisição:', error);
-                    removeTypingIndicator();
-                    addMessageToChat('EZPocket', 'Desculpe, ocorreu um erro. Tente novamente.', 'bot');
-                    input.disabled = false;
-                });
-                
-                input.value = '';
-            }
-        }
-
         async function salvarMensagemProjeto(projetoId, sender, message, type) {
             try {
                 await fetch(`/projetos/${projetoId}/mensagem`, {
@@ -2661,6 +2758,13 @@
                 if (waitingForConfirmation) {
                     console.log('📤 Enviando confirmação de plano:', message);
                     const confirmed = ['sim', 's', 'yes', 'y', '1'].includes(message.toLowerCase());
+                    
+                    // Mostrar feedback visual
+                    if (confirmed) {
+                        addMessageToChat('EZPocket', '✅ Plano aprovado! Executando análise...', 'bot');
+                    } else {
+                        addMessageToChat('EZPocket', '❌ Plano rejeitado. Você pode sugerir modificações ou fazer uma nova pergunta.', 'bot');
+                    }
                     
                     socket.emit('send_input', {
                         job_id: currentJobId,
@@ -2710,6 +2814,28 @@
                     
                     waitingForComment = false;
                     userRating = 0;
+                    input.disabled = true;
+                    addTypingIndicator();
+                    
+                    setTimeout(() => {
+                        input.disabled = false;
+                    }, 2000);
+                    return;
+                }
+                
+                // Se estiver aguardando sugestão de plano
+                if (waitingForPlanSuggestion) {
+                    console.log('💡 Enviando sugestão de plano:', message);
+                    
+                    addMessageToChat('EZPocket', '✅ Sugestão recebida! Refinando o plano...', 'bot');
+                    
+                    socket.emit('send_input', {
+                        job_id: currentJobId,
+                        input_type: 'user_proposed_plan',
+                        input_value: message
+                    });
+                    
+                    waitingForPlanSuggestion = false;
                     input.disabled = true;
                     addTypingIndicator();
                     
@@ -2843,9 +2969,12 @@
                 welcomeMsg.style.display = 'none';
             }
             
-            // Aplicar formatação markdown se for resposta do bot
+            // Detectar se a mensagem já é HTML (contém tags HTML estruturadas)
+            const isHTML = message.includes('<div') || message.includes('<table') || message.includes('<h2>');
+            
+            // Aplicar formatação markdown se for resposta do bot E não for HTML
             let formattedMessage = message;
-            if (type === 'bot') {
+            if (type === 'bot' && !isHTML) {
                 formattedMessage = formatMarkdownResponse(message);
             }
             
@@ -2872,8 +3001,10 @@
                 ${type === 'user' ? 'justify-content: flex-end;' : 'justify-content: flex-start;'}
             `;
             
-            // Se for bot e tiver formatação markdown, adicionar classe response-container
-            if (type === 'bot' && (message.includes('##') || message.includes('**'))) {
+            // Se for HTML estruturado, renderizar diretamente; caso contrário, usar markdown
+            if (type === 'bot' && isHTML) {
+                messageDiv.innerHTML = formattedMessage;
+            } else if (type === 'bot' && (message.includes('##') || message.includes('**'))) {
                 messageDiv.innerHTML = `<div class="response-container">${formattedMessage}</div>`;
             } else {
                 messageDiv.innerHTML = formattedMessage;

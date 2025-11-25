@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from agents.graph_orchestrator.graph_orchestrator import GraphOrchestrator
 from agents.graph_orchestrator.graph_config import EXPECTED_FLOW
 
-app = Flask(__name__, static_folder='static', template_folder='static')
+app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app, resources={r"/*": {"origins": "*"}})
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 
@@ -276,6 +276,14 @@ def format_module_output(module: str, output: dict, success: bool) -> str:
         
         return f"📋 Plano criado:\n{plan}\n\n📊 Passos:\n{steps_text}"
     
+    elif module == 'plan_refiner':
+        # Mostrar plano refinado da mesma forma que plan_builder
+        refined_plan = output.get('refined_plan', output.get('plan', 'N/A'))
+        refined_steps = output.get('refined_plan_steps', output.get('plan_steps', []))
+        steps_text = '\n'.join([f"  {i+1}. {step}" for i, step in enumerate(refined_steps)])
+        
+        return f"🔄 **Plano Refinado:**\n{refined_plan}\n\n📊 Passos:\n{steps_text}"
+    
     elif module == 'plan_confirm':
         # O worker retorna 'confirmed' e 'plan_accepted'
         confirmed = output.get('confirmed', False)
@@ -360,7 +368,8 @@ def format_module_output(module: str, output: dict, success: bool) -> str:
         response = output.get('response_text', '')
         if not response:
             return "⚠️ Resposta vazia gerada pelo response_composer"
-        return f"🎨 Resposta gerada:\n\n{response}"
+        # Retornar response_text puro, já vem formatado do agente
+        return response
     
     elif module == 'user_feedback':
         rating = output.get('rating', 0)
@@ -391,7 +400,7 @@ def format_module_output(module: str, output: dict, success: bool) -> str:
 def index():
     """Serve o frontend WebSocket"""
     frontend_mode = os.getenv('FRONTEND_MODE', 'production')
-    return render_template('frontend.html', frontend_mode=frontend_mode)
+    return render_template('dashboard.html', frontend_mode=frontend_mode)
 
 
 @app.route('/test-orchestrator/health', methods=['GET'])
@@ -522,7 +531,12 @@ def handle_send_input(data):
             # Salvar resposta do plano (worker espera string 'true' ou 'false')
             response_key = f"plan_confirm:response:{username}:{projeto}"
             # IMPORTANTE: salvar apenas a string 'true' ou 'false' (não JSON)
-            value_to_save = 'true' if input_value else 'false'
+            # Corrigir: comparar string explicitamente, não usar truthy/falsy
+            if isinstance(input_value, str):
+                value_to_save = input_value.lower()  # 'true' ou 'false' já vem como string
+            else:
+                value_to_save = 'true' if input_value else 'false'
+            
             orchestrator.redis_client.set(response_key, value_to_save, ex=60)
             
             print(f"[WS] ========== DEBUG PLAN CONFIRMATION ==========")
@@ -535,7 +549,7 @@ def handle_send_input(data):
             
             emit('input_received', {
                 'message': 'Confirmação recebida',
-                'approved': input_value
+                'approved': value_to_save
             })
         
         elif input_type == 'user_feedback':

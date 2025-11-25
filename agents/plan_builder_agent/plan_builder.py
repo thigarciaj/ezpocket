@@ -22,7 +22,15 @@ class PlanBuilderAgent:
         print("="*80 + "\n")
         
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self.model = "gpt-4o"
+        
+        # Carregar roles.json
+        import json
+        from pathlib import Path
+        roles_path = Path(__file__).parent / "roles.json"
+        with open(roles_path, 'r', encoding='utf-8') as f:
+            self.roles = json.load(f)
+        
+        self.model = self.roles.get('model_config', {}).get('model', 'gpt-4o')
     
     def build_plan(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -64,154 +72,33 @@ class PlanBuilderAgent:
         start_time = time.time()
         
         try:
-            # Construir prompt para o GPT
-            system_prompt = """Você é um assistente especializado em criar planos de execução para análise de dados financeiros da EZPocket.
+            # Construir prompt para o GPT usando roles.json
+            import json
+            system_prompt = f"""Você é um {self.roles['description']}
 
 🎯 OBJETIVO:
-Gerar um plano detalhado e estruturado em linguagem natural que descreva EXATAMENTE como o sistema irá processar e responder à pergunta do usuário.
+{self.roles['objective']}
 
-📊 CONTEXTO DO SISTEMA EZPOCKET:
-- Sistema de análise financeira e transacional
-- Base de dados: Amazon Athena (receivables_db)
-- **TABELA ÚNICA**: report_orders (contém TODOS os dados de pedidos e transações)
-- Capacidades: consultas SQL, agregações, análises estatísticas, filtros temporais, window functions
-- Não há JOINs: todos os dados estão desnormalizados em report_orders
+🔒 REGRAS DE SEGURANÇA:
+{self.roles['security_rules']['directive']}
 
-🏗️ ESTRUTURA DO PLANO:
-Um plano deve conter:
-1. DESCRIÇÃO GERAL: Resumo em 2-3 frases do que será feito
-2. PASSOS DETALHADOS: Lista ordenada e específica de ações
-3. ESTIMATIVA DE COMPLEXIDADE: Análise realista baseada em operações necessárias
-4. FONTES DE DADOS: Tabelas/views específicas que serão consultadas
-5. FORMATO DE SAÍDA: Como o resultado será apresentado
+📊 CONTEXTO DO BANCO DE DADOS:
+{json.dumps(self.roles['database_context'], indent=2, ensure_ascii=False)}
 
-📋 CATEGORIAS E SEUS PADRÕES:
+📋 REGRAS DE PLANEJAMENTO:
+{json.dumps(self.roles['planning_rules'], indent=2, ensure_ascii=False)}
 
-QUANTIDADE (queries simples de contagem/soma):
-- Passos típicos: 1) Acessar tabela report_orders, 2) Aplicar filtros WHERE, 3) Executar agregação, 4) Formatar resultado
-- Complexidade: Baixa (filtros simples) ou Média (múltiplas condições/agregações)
-- Fonte: report_orders
-- Saída comum: número, tabela simples
+⚙️ DIRETRIZES DE COMPLEXIDADE:
+{json.dumps(self.roles['complexity_guidelines'], indent=2, ensure_ascii=False)}
 
-CONHECIMENTOS_GERAIS (FAQ, informações da empresa):
-- Passos típicos: 1) Identificar tópico, 2) Buscar em FAQ/documentação, 3) Formatar resposta contextualizada
-- Complexidade: Baixa
-- Fontes comuns: faq_database, knowledge_base, documentation
-- Saída comum: texto explicativo
+💡 EXEMPLOS:
+{json.dumps(self.roles['examples'], indent=2, ensure_ascii=False)}
 
-ANALISE_ESTATISTICA (tendências, comparações, insights):
-- Passos típicos: 1) Consultar report_orders com filtros temporais, 2) Aplicar agregações e GROUP BY, 3) Calcular métricas, 4) Identificar padrões, 5) Gerar insights
-- Complexidade: Média a Alta
-- Fonte: report_orders (com agregações complexas e window functions)
-- Saída comum: gráfico, tabela comparativa, texto com insights
+✓ CHECKLIST DE VALIDAÇÃO:
+{json.dumps(self.roles['validation_checklist'], indent=2, ensure_ascii=False)}
 
-⚙️ CRITÉRIOS DE COMPLEXIDADE:
-
-BAIXA:
-- Consulta simples em report_orders
-- Filtros básicos (1-2 condições WHERE)
-- Uma agregação simples (COUNT, SUM, AVG)
-- Sem GROUP BY ou GROUP BY simples (1 campo)
-- 2-3 passos no total
-
-MÉDIA:
-- Consulta em report_orders com múltiplos filtros
-- GROUP BY com 2-3 campos
-- Múltiplas agregações (COUNT, SUM, AVG no mesmo query)
-- Cálculos intermediários ou expressões CASE
-- Filtros complexos (BETWEEN, IN, múltiplos AND/OR)
-- 4-5 passos no total
-
-ALTA:
-- Consulta em report_orders com agregações encadeadas
-- GROUP BY complexo com HAVING
-- Window functions (ROW_NUMBER, RANK, LAG, LEAD)
-- Subqueries ou CTEs (WITH)
-- Múltiplas agregações com cálculos derivados
-- Análises estatísticas (percentuais, variações, médias móveis)
-- 6+ passos no total
-
-🎨 FORMATOS DE SAÍDA:
-
-- número: Valores únicos (total, contagem, média)
-- tabela: Listagens, rankings, comparações linha a linha
-- gráfico: Tendências temporais, distribuições, comparações visuais
-- texto: Explicações, FAQs, resumos narrativos
-- json: Dados estruturados para consumo por API
-
-📝 REGRAS PARA ESCREVER PASSOS:
-
-1. Use verbos de ação: "Consultar", "Filtrar", "Calcular", "Agregar", "Comparar"
-2. Seja específico: "Filtrar pedidos de outubro de 2024" em vez de "Filtrar dados"
-3. Sempre mencione report_orders: "Consultar tabela report_orders" 
-4. Indique operações SQL: "Aplicar GROUP BY cliente", "Usar WHERE status = 'completed'"
-5. Descreva transformações: "Calcular total somando coluna amount"
-6. Explique o output: "Formatar resultado como número com 2 casas decimais"
-7. Lembre: TODOS os dados estão em report_orders (não há outras tabelas)
-
-💡 EXEMPLOS DE BONS PLANOS:
-
-Pergunta: "Quantos pedidos tivemos em outubro?"
-{
-    "plan": "Consultar a tabela report_orders aplicando filtro temporal para o mês de outubro e contar o número total de registros. Resultado será apresentado como número único.",
-    "steps": [
-        "Consultar tabela 'report_orders' no Athena (receivables_db)",
-        "Aplicar filtro WHERE para outubro de 2024",
-        "Executar agregação COUNT(*) para contar pedidos",
-        "Retornar resultado como número inteiro"
-    ],
-    "estimated_complexity": "baixa",
-    "data_sources": ["report_orders"],
-    "output_format": "número"
-}
-
-Pergunta: "Compare as vendas dos últimos 3 meses"
-{
-    "plan": "Buscar dados de vendas dos últimos 3 meses na tabela report_orders, agregar por mês usando GROUP BY, calcular totais mensais e variações percentuais. Análise requer agregação temporal e cálculos de variação.",
-    "steps": [
-        "Consultar tabela 'report_orders' com filtro dos últimos 3 meses",
-        "Aplicar GROUP BY month para agregar por período",
-        "Calcular SUM(amount) para cada mês",
-        "Calcular variação percentual entre meses consecutivos usando window functions",
-        "Gerar tabela comparativa com meses, totais e variações",
-        "Formatar resultado como gráfico de linha temporal"
-    ],
-    "estimated_complexity": "média",
-    "data_sources": ["report_orders"],
-    "output_format": "gráfico"
-}
-
-Pergunta: "Quais são os top 5 clientes por receita este ano?"
-{
-    "plan": "Extrair dados de clientes e receitas de report_orders para o ano atual, agregar receita total por cliente, ordenar em ordem decrescente e retornar os 5 primeiros. Utiliza GROUP BY e ORDER BY com LIMIT.",
-    "steps": [
-        "Consultar tabela 'report_orders' filtrando ano atual",
-        "Aplicar GROUP BY customer_name para agregar por cliente",
-        "Calcular SUM(amount) como receita total de cada cliente",
-        "Ordenar resultados por receita DESC usando ORDER BY",
-        "Aplicar LIMIT 5 para retornar apenas top 5",
-        "Formatar como tabela com colunas: cliente, receita total"
-    ],
-    "estimated_complexity": "baixa",
-    "data_sources": ["report_orders"],
-    "output_format": "tabela"
-}
-
-Retorne APENAS um JSON válido no formato:
-{
-    "plan": "Descrição detalhada do plano em 2-3 frases completas",
-    "steps": [
-        "Passo 1: Ação específica com detalhes (sempre mencione report_orders)",
-        "Passo 2: Próxima ação específica",
-        "Passo 3: ...",
-        "(quantos passos forem necessários)"
-    ],
-    "estimated_complexity": "baixa|média|alta",
-    "data_sources": ["report_orders"],
-    "output_format": "número|tabela|gráfico|texto|json"
-}
-
-IMPORTANTE: data_sources será SEMPRE ["report_orders"] pois é a única tabela disponível no sistema."""
+RETORNE APENAS JSON válido no formato:
+{json.dumps(self.roles['output_structure'], indent=2, ensure_ascii=False)}"""
 
             # Verificar se há sugestão do usuário vinda do user_proposed_plan
             user_proposed_plan = state.get("user_proposed_plan", "")
@@ -233,7 +120,9 @@ Projeto: {projeto}
 
 Crie um plano de execução para responder esta pergunta."""
 
-            print(f"[PLAN_BUILDER]    🤖 Chamando GPT-4o para gerar plano...")
+            print(f"[PLAN_BUILDER]    🤖 Chamando {self.model} para gerar plano...")
+            
+            temperature = self.roles.get('model_config', {}).get('temperature', 0.3)
             
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -241,7 +130,7 @@ Crie um plano de execução para responder esta pergunta."""
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.3,
+                temperature=temperature,
                 max_tokens=800,
                 response_format={"type": "json_object"}
             )
