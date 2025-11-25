@@ -81,44 +81,35 @@ class ResponseComposerAgent:
 ---
 
 **DIRETRIZES DO AGENTE (roles.json):**
+
+**Responsibilities:**
+{json.dumps(self.roles.get('responsibilities', []), indent=2, ensure_ascii=False)}
+
+**Formatting Guidelines:**
 ```json
 {json.dumps(self.roles.get('formatting_guidelines', {}), indent=2, ensure_ascii=False)}
 ```
 
-**SUA TAREFA:**
+**Response Sections:**
+```json
+{json.dumps(self.roles.get('response_sections', {}), indent=2, ensure_ascii=False)}
+```
 
-Componha uma resposta seguindo TODAS as diretrizes acima, especialmente:
-- ⚠️ **REGRA CRÍTICA DE DETALHAMENTO**: {self.roles['formatting_guidelines']['detailed_data_rule']}
+**SUA TAREFA:**
+{self.roles['response_instructions']['follow_all_guidelines']}
+
+**Regras Críticas:**
+{json.dumps(self.roles['response_instructions']['critical_rules'], indent=2, ensure_ascii=False)}
 
 **ESTRUTURA RECOMENDADA:**
-
 ```markdown
-## 🎯 Resposta Direta
-[Responda a pergunta de forma clara e direta, destacando o número principal]
-
-## 📊 Análise Detalhada
-[Apresente as estatísticas de forma visual e organizada]
-
-## 💡 Principais Insights
-[Liste os 3-5 insights mais relevantes com impacto de negócio]
-
-## 🎯 Recomendações
-[Liste ações práticas baseadas na análise]
-
-## 📈 Visualizações Sugeridas
-[Sugira gráficos que ajudariam a entender melhor os dados]
+{self.roles['prompt_structure']['template']}
 ```
 
 **FORMATO DE RESPOSTA (JSON):**
-{{
-  "response_text": "Resposta completa em Markdown formatado",
-  "response_summary": "Resumo de 1-2 frases da resposta",
-  "key_numbers": ["número1", "número2", "número3"],
-  "formatting_style": "markdown_with_emojis",
-  "user_friendly_score": 9.5
-}}
+{json.dumps(self.roles.get('output_format', {}), indent=2, ensure_ascii=False)}
 
-Responda APENAS com o JSON, sem texto adicional."""
+{self.roles['response_instructions']['format']}"""
         
         return prompt
     
@@ -150,8 +141,8 @@ Responda APENAS com o JSON, sem texto adicional."""
                 model=self.model,
                 messages=[
                     {
-                        "role": "system",
-                        "content": "Você é um especialista em comunicação de negócios. Crie respostas elegantes, amigáveis e visualmente agradáveis. Retorne SEMPRE um JSON válido."
+                        "role": self.roles['system_message']['role'],
+                        "content": self.roles['system_message']['content']
                     },
                     {
                         "role": "user",

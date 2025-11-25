@@ -49,28 +49,51 @@
     "direct_answer": {
       "title": "🎯 Resposta Direta",
       "purpose": "Responder a pergunta imediatamente com o número/informação principal",
-      "style": "Claro, direto, destaque visual nos números"
+      "style": "Claro, direto, destaque visual nos números",
+      "instruction": "Responda a pergunta de forma clara e direta, destacando o número principal"
     },
     "detailed_analysis": {
       "title": "📊 Análise Detalhada",
       "purpose": "Apresentar estatísticas e métricas relevantes",
-      "style": "Tabelas, listas, comparações visuais"
+      "style": "Tabelas, listas, comparações visuais",
+      "instruction": "Apresente as estatísticas de forma visual e organizada"
     },
     "key_insights": {
       "title": "💡 Principais Insights",
       "purpose": "Destacar descobertas importantes que podem impactar decisões",
-      "style": "Lista numerada com título e descrição de cada insight"
+      "style": "Lista numerada com título e descrição de cada insight",
+      "instruction": "Liste os 3-5 insights mais relevantes com impacto de negócio"
     },
     "recommendations": {
       "title": "🎯 Recomendações",
       "purpose": "Sugerir ações práticas baseadas na análise",
-      "style": "Lista com prioridades e impacto esperado"
+      "style": "Lista com prioridades e impacto esperado",
+      "instruction": "Liste ações práticas baseadas na análise"
     },
     "visualizations": {
       "title": "📈 Visualizações Sugeridas",
       "purpose": "Indicar gráficos que facilitariam a compreensão",
-      "style": "Lista de tipos de gráfico com justificativa"
+      "style": "Lista de tipos de gráfico com justificativa",
+      "instruction": "Sugira gráficos que ajudariam a entender melhor os dados"
     }
+  },
+  "prompt_structure": {
+    "description": "Estrutura Markdown recomendada para as respostas",
+    "template": "## 🎯 Resposta Direta\n[instruction from response_sections.direct_answer]\n\n## 📊 Análise Detalhada\n[instruction from response_sections.detailed_analysis]\n\n## 💡 Principais Insights\n[instruction from response_sections.key_insights]\n\n## 🎯 Recomendações\n[instruction from response_sections.recommendations]\n\n## 📈 Visualizações Sugeridas\n[instruction from response_sections.visualizations]"
+  },
+  "system_message": {
+    "role": "system",
+    "content": "Você é um especialista em comunicação de negócios. Crie respostas elegantes, amigáveis e visualmente agradáveis. Retorne SEMPRE um JSON válido."
+  },
+  "response_instructions": {
+    "format": "Responda APENAS com o JSON, sem texto adicional",
+    "follow_all_guidelines": "Componha uma resposta seguindo TODAS as diretrizes do roles.json",
+    "critical_rules": [
+      "Use a estrutura Markdown recomendada em prompt_structure.template",
+      "Siga todas as formatting_guidelines",
+      "Aplique a regra de detalhamento (detailed_data_rule) quando aplicável",
+      "Mantenha o tom profissional mas amigável"
+    ]
   },
   "quality_criteria": {
     "clarity": "Usuário entende imediatamente a resposta",
