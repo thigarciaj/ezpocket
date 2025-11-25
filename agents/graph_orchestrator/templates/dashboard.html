@@ -1594,6 +1594,81 @@
     </div>
 
     <script>
+        // ===== FUNÇÕES UTILITÁRIAS =====
+        
+        // Função para pegar cookie por nome
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
+        }
+        
+        // Função para decodificar JWT (parse do payload base64)
+        function parseJwt(token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                return JSON.parse(jsonPayload);
+            } catch (e) {
+                console.error('Erro ao parsear JWT:', e);
+                return null;
+            }
+        }
+        
+        // Cache do username
+        let cachedUsername = null;
+        
+        // Função para pegar username do backend (MELHOR que decodificar JWT)
+        async function getLoggedUsername() {
+            // Se já temos cache, retornar
+            if (cachedUsername) {
+                console.log('✅ [AUTH] Username do cache:', cachedUsername);
+                return cachedUsername;
+            }
+            
+            console.log('🔍 [AUTH] Buscando username do backend...');
+            
+            try {
+                const response = await fetch('/api/user', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    cachedUsername = data.username || 'default_user';
+                    console.log('✅ [AUTH] Username obtido do backend:', cachedUsername);
+                    console.log('📋 [AUTH] Dados do usuário:', data);
+                    return cachedUsername;
+                } else {
+                    console.warn('⚠️ [AUTH] Erro ao buscar usuário do backend, status:', response.status);
+                    return 'default_user';
+                }
+            } catch (error) {
+                console.error('❌ [AUTH] Erro ao buscar username:', error);
+                
+                // Fallback: tentar decodificar JWT
+                console.log('🔄 [AUTH] Tentando fallback com JWT...');
+                const token = getCookie('access_token');
+                if (token) {
+                    const payload = parseJwt(token);
+                    if (payload) {
+                        const username = payload.preferred_username || payload.username || payload.sub || payload.email || 'default_user';
+                        console.log('✅ [AUTH] Username do JWT (fallback):', username);
+                        cachedUsername = username;
+                        return username;
+                    }
+                }
+                
+                console.warn('⚠️ [AUTH] Retornando default_user');
+                return 'default_user';
+            }
+        }
+        
         // Variável global para armazenar as permissões carregadas do SQLite
         let permissions = {};
 
@@ -2922,11 +2997,15 @@
                 
                 console.log('Enviando via WebSocket - Projeto:', projetoAtivo?.nome || 'Nenhum');
                 
+                // Pegar username do usuário logado (async)
+                const loggedUsername = await getLoggedUsername();
+                console.log('👤 [SEND] Username a ser usado:', loggedUsername);
+                
                 // Enviar via WebSocket
                 socket.emit('start_job', {
                     pergunta: message,
-                    username: 'dashboard_user',
-                    projeto: projetoAtivo?.nome || 'default',
+                    username: loggedUsername,
+                    projeto: 'default',  // Por enquanto default
                     module: 'intent_validator'
                 });
                 

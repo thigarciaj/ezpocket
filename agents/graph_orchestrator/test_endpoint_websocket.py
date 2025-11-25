@@ -643,6 +643,32 @@ def login_page():
     return render_template('login.html')
 
 
+@app.route('/api/user', methods=['GET'])
+def get_user():
+    """Retorna informações do usuário autenticado"""
+    try:
+        token = request.cookies.get('access_token')
+        if not token:
+            return jsonify({'error': 'Não autenticado'}), 401
+        
+        # Verificar e decodificar token
+        payload = verify_token(token)
+        
+        # Extrair username do token (Keycloak pode usar diferentes campos)
+        username = payload.get('preferred_username') or payload.get('username') or payload.get('sub', 'default_user')
+        
+        return jsonify({
+            'username': username,
+            'email': payload.get('email'),
+            'name': payload.get('name'),
+            'sub': payload.get('sub')
+        })
+        
+    except Exception as e:
+        print(f"[API/USER] Erro ao obter usuário: {str(e)}")
+        return jsonify({'error': 'Token inválido'}), 401
+
+
 @app.route('/api/login', methods=['POST'])
 def login():
     """Endpoint de autenticação"""
