@@ -3,7 +3,7 @@ Endpoint de teste para o Graph Orchestrator com suporte a WebSocket
 Permite testar o orquestrador com comunicação em tempo real
 """
 
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, make_response, redirect, url_for
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
 import sys
@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 import json
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Carrega variáveis de ambiente do .env
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'config', '.env')
@@ -23,9 +23,17 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 from agents.graph_orchestrator.graph_orchestrator import GraphOrchestrator
 from agents.graph_orchestrator.graph_config import EXPECTED_FLOW
+from agents.graph_orchestrator.auth import (
+    authenticate_user, 
+    verify_token, 
+    get_user_info,
+    logout_user,
+    token_required,
+    refresh_access_token
+)
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # Inicializa SocketIO com configurações para permitir CORS
@@ -531,14 +539,261 @@ def format_module_output(module: str, output: dict, success: bool) -> str:
         return f"✅ {module} executado com sucesso"
 
 
-# Função removida - agora o monitoramento é feito via Redis keys
-
+# ============================================================================
+# ROTAS DE AUTENTICAÇÃO
+# ============================================================================
 
 @app.route('/')
 def index():
-    """Serve o frontend WebSocket"""
-    frontend_mode = os.getenv('FRONTEND_MODE', 'production')
-    return render_template('dashboard.html', frontend_mode=frontend_mode)
+    """Redireciona para login se não autenticado, senão para dashboard"""
+    token = request.cookies.get('access_token')
+    
+    if token:
+        try:
+            verify_token(token)
+            # Token válido, mostrar dashboard
+            return render_template('dashboard.html', frontend_mode=os.getenv('FRONTEND_MODE', 'production'))
+        except:
+            # Token inválido, tentar refresh
+            refresh_token = request.cookies.get('refresh_token')
+            if refresh_token:
+                try:
+                    tokens = refresh_access_token(refresh_token)
+                    # Token renovado, criar resposta com novos cookies
+                    response = make_response(render_template('dashboard.html', frontend_mode=os.getenv('FRONTEND_MODE', 'production')))
+                    
+                    # Setar novos cookies seguros
+                    secure_cookies = os.getenv('SECURE_COOKIES', 'false').lower() == 'true'
+                    
+                    response.set_cookie(
+                        'access_token',
+                        tokens['access_token'],
+                        max_age=tokens.get('expires_in', 300),
+                        httponly=True,
+                        secure=secure_cookies,
+                        samesite='Lax'
+                    )
+                    
+                    if 'refresh_token' in tokens:
+                        response.set_cookie(
+                            'refresh_token',
+                            tokens['refresh_token'],
+                            max_age=tokens.get('refresh_expires_in', 1800),
+                            httponly=True,
+                            secure=secure_cookies,
+                            samesite='Lax'
+                        )
+                    
+                    return response
+                except:
+                    pass
+    
+    # Não autenticado ou tokens inválidos, redirecionar para login
+    return redirect(url_for('login_page'))
+
+
+@app.route('/login')
+def login_page():
+    """Serve a página de login"""
+    return render_template('login.html')
+
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    """Endpoint de autenticação"""
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        
+        if not username or not password:
+            return jsonify({'error': 'Usuário e senha são obrigatórios'}), 400
+        
+        # Autenticar no Keycloak
+        tokens = authenticate_user(username, password)
+        print(f"[LOGIN] Tokens recebidos com sucesso")
+        
+        # Decodificar token JWT para extrair informações do usuário
+        try:
+            decoded_token = verify_token(tokens['access_token'])
+            username_from_token = decoded_token.get('preferred_username', username)
+            email_from_token = decoded_token.get('email', '')
+            print(f"[LOGIN] Usuário autenticado: {username_from_token}")
+        except Exception as e:
+            print(f"[LOGIN] Erro ao decodificar token: {str(e)}")
+            username_from_token = username
+            email_from_token = ''
+        
+        # Criar resposta com cookies seguros
+        response = make_response(jsonify({
+            'message': 'Login realizado com sucesso',
+            'username': username_from_token,
+            'email': email_from_token
+        }))
+        print(f"[LOGIN] Criando resposta com cookies...")
+        
+        # Setar cookies HttpOnly e Secure
+        secure_cookies = os.getenv('SECURE_COOKIES', 'false').lower() == 'true'
+        
+        response.set_cookie(
+            'access_token',
+            tokens['access_token'],
+            max_age=tokens.get('expires_in', 300),  # 5 minutos
+            httponly=True,
+            secure=secure_cookies,
+            samesite='Lax'
+        )
+        
+        if 'refresh_token' in tokens:
+            response.set_cookie(
+                'refresh_token',
+                tokens['refresh_token'],
+                max_age=tokens.get('refresh_expires_in', 1800),  # 30 minutos
+                httponly=True,
+                secure=secure_cookies,
+                samesite='Lax'
+            )
+        
+        return response
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 401
+
+
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    """Endpoint de logout"""
+    try:
+        refresh_token = request.cookies.get('refresh_token')
+        
+        if refresh_token:
+            logout_user(refresh_token)
+        
+        # Criar resposta removendo cookies
+        response = make_response(jsonify({'message': 'Logout realizado com sucesso'}))
+        response.delete_cookie('access_token')
+        response.delete_cookie('refresh_token')
+        
+        return response
+        
+    except Exception as e:
+        # Mesmo com erro, remover cookies
+        response = make_response(jsonify({'message': 'Logout realizado'}))
+        response.delete_cookie('access_token')
+        response.delete_cookie('refresh_token')
+        return response
+
+
+@app.route('/api/refresh', methods=['POST'])
+def refresh():
+    """Endpoint para renovar o access token"""
+    try:
+        print(f"\n{'='*80}")
+        print(f"[REFRESH] 🔄 ENDPOINT /api/refresh CHAMADO")
+        print(f"{'='*80}\n")
+        
+        old_access_token = request.cookies.get('access_token')
+        refresh_token = request.cookies.get('refresh_token')
+        
+        print(f"[REFRESH] Access token presente: {bool(old_access_token)}")
+        print(f"[REFRESH] Refresh token presente: {bool(refresh_token)}")
+        
+        if not refresh_token:
+            print("[REFRESH] ❌ Refresh token não encontrado!")
+            return jsonify({'error': 'Refresh token não encontrado'}), 401
+        
+        # Verificar tempo restante do token antigo
+        old_time_remaining = "Token inválido ou expirado"
+        if old_access_token:
+            try:
+                decoded_old = verify_token(old_access_token)
+                old_exp = decoded_old.get('exp', 0)
+                current_time = int(time.time())
+                time_left = max(0, old_exp - current_time)
+                old_time_remaining = f"{time_left} segundos"
+                print(f"[REFRESH] Token antigo válido - Tempo restante: {time_left}s")
+            except Exception as e:
+                old_time_remaining = "Token expirado"
+                print(f"[REFRESH] Token antigo inválido/expirado: {str(e)}")
+        
+        # Renovar tokens
+        print("[REFRESH] Chamando refresh_access_token()...")
+        tokens = refresh_access_token(refresh_token)
+        print(f"[REFRESH] Tokens renovados: {bool(tokens)}")
+        
+        # Calcular novo tempo de validade
+        new_expires_in = tokens.get('expires_in', 300)
+        
+        print(f"\n{'='*80}")
+        print(f"[REFRESH] ✅ TOKEN RENOVADO COM SUCESSO!")
+        print(f"[REFRESH] ⏱️  Tempo restante do token ANTIGO: {old_time_remaining}")
+        print(f"[REFRESH] 🆕 Novo token válido por: {new_expires_in} segundos ({new_expires_in // 60} minutos)")
+        print(f"{'='*80}\n")
+        sys.stdout.flush()  # Forçar flush do buffer
+        
+        # Criar resposta com novos cookies
+        response = make_response(jsonify({
+            'message': 'Token renovado com sucesso',
+            'expires_in': tokens.get('expires_in', 300)
+        }))
+        
+        # Setar novos cookies
+        secure_cookies = os.getenv('SECURE_COOKIES', 'false').lower() == 'true'
+        
+        response.set_cookie(
+            'access_token',
+            tokens['access_token'],
+            max_age=tokens.get('expires_in', 300),
+            httponly=True,
+            secure=secure_cookies,
+            samesite='Lax'
+        )
+        
+        if 'refresh_token' in tokens:
+            response.set_cookie(
+                'refresh_token',
+                tokens['refresh_token'],
+                max_age=tokens.get('refresh_expires_in', 1800),
+                httponly=True,
+                secure=secure_cookies,
+                samesite='Lax'
+            )
+        
+        return response
+        
+    except Exception as e:
+        print(f"\n{'='*80}")
+        print(f"[REFRESH] ❌ ERRO ao renovar token: {str(e)}")
+        print(f"[REFRESH] ❌ Traceback completo:")
+        import traceback
+        traceback.print_exc()
+        print(f"{'='*80}\n")
+        sys.stdout.flush()
+        return jsonify({'error': 'Falha ao renovar token', 'details': str(e)}), 401
+
+
+@app.route('/api/me', methods=['GET'])
+@token_required
+def get_current_user():
+    """Retorna informações do usuário autenticado"""
+    try:
+        token = request.cookies.get('access_token')
+        user_info = get_user_info(token)
+        
+        return jsonify({
+            'username': user_info.get('preferred_username', 'unknown'),
+            'email': user_info.get('email', ''),
+            'name': user_info.get('name', ''),
+            'email_verified': user_info.get('email_verified', False)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 401
+
+
+# ============================================================================
+# ROTAS EXISTENTES
+# ============================================================================
 
 
 @app.route('/test-orchestrator/health', methods=['GET'])

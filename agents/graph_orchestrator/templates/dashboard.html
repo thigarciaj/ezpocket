@@ -2151,10 +2151,25 @@
             modal.classList.remove('show');
         }
 
-        function confirmLogout() {
+        async function confirmLogout() {
             hideModal();
-            // Redireciona diretamente para a rota de logout que já trata o redirecionamento
-            window.location.href = '/logout';
+            
+            try {
+                // Chamar API de logout
+                const response = await fetch('/api/logout', {
+                    method: 'POST',
+                    credentials: 'include'  // Importante para enviar cookies
+                });
+                
+                // Sempre redirecionar para login, mesmo se houver erro
+                console.log('Logout realizado, redirecionando...');
+                window.location.href = '/login';
+                
+            } catch (error) {
+                console.error('Erro ao fazer logout:', error);
+                // Mesmo com erro, redirecionar para login
+                window.location.href = '/login';
+            }
         }
 
         // Funções do Modal de Consultas Rápidas
@@ -2743,13 +2758,38 @@
             }
         }
 
-        function sendMessage() {
-            console.log('sendMessage chamada');
+        async function sendMessage() {
+            console.log('🚀 [SEND] sendMessage chamada');
             const input = document.getElementById('chatInput');
             const message = input.value.trim();
-            console.log('Mensagem:', message);
+            console.log('📝 [SEND] Mensagem:', message);
             
             if (message && socket) {
+                // RENOVAR TOKEN ANTES DE ENVIAR MENSAGEM
+                console.log('🔄 [REFRESH] INICIANDO REFRESH TOKEN...');
+                try {
+                    console.log('🔄 [REFRESH] Fazendo fetch para /api/refresh...');
+                    const refreshResponse = await fetch('/api/refresh', {
+                        method: 'POST',
+                        credentials: 'include'
+                    });
+                    console.log('🔄 [REFRESH] Response recebido, status:', refreshResponse.status);
+                    
+                    if (!refreshResponse.ok) {
+                        console.error('❌ [REFRESH] Falha ao renovar token (status ' + refreshResponse.status + '), redirecionando para login...');
+                        alert('Sua sessão expirou. Você será redirecionado para o login.');
+                        window.location.href = '/login';
+                        return;
+                    }
+                    
+                    console.log('✅ [REFRESH] Token renovado com sucesso!');
+                } catch (error) {
+                    console.error('❌ [REFRESH] Erro ao renovar token:', error);
+                    alert('Erro de autenticação. Você será redirecionado para o login.');
+                    window.location.href = '/login';
+                    return;
+                }
+                
                 // Adicionar mensagem do usuário na tela
                 addMessageToChat('Você', message, 'user');
                 input.value = '';

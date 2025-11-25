@@ -3,6 +3,9 @@
 -- Estrutura modular navegável por timestamp
 -- =====================================================
 
+-- Criar banco de dados do Keycloak (se não existir)
+SELECT 'CREATE DATABASE keycloak_db' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'keycloak_db')\gexec
+
 -- Extensões
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
