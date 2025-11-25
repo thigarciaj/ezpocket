@@ -111,7 +111,8 @@ class UserFeedbackWorker(ModuleWorker):
             
             load_dotenv()
             REDIS_PORT = int(os.getenv('REDIS_PORT', 6493))
-            r = redis.Redis(host='localhost', port=REDIS_PORT, decode_responses=True)
+            REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
+            r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
             
             feedback_key = f"user_feedback:pending:{username}:{projeto}"
             feedback_response_key = f"user_feedback:response:{username}:{projeto}"

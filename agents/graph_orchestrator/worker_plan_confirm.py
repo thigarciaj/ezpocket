@@ -56,7 +56,8 @@ class PlanConfirmWorker(ModuleWorker):
         
         # Conectar ao Redis
         redis_port = int(os.getenv('REDIS_PORT', 6493))
-        redis_client = redis.Redis(host='localhost', port=redis_port, decode_responses=True)
+        redis_host = os.getenv('REDIS_HOST', 'localhost')
+        redis_client = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
         
         # Chaves Redis
         pending_key = f"plan_confirm:pending:{username}:{projeto}"
