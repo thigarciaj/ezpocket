@@ -220,20 +220,30 @@ class GraphOrchestrator:
             'queue_jobs_removed': 0
         }
         
-        # 1. BUSCAR E DELETAR JOBS ATIVOS DO USUÁRIO
-        print(f"\n[CLEANUP] 🔍 Buscando jobs de {username}/{projeto}...")
+        # 1. BUSCAR E DELETAR **TODOS** OS JOBS DO USUÁRIO (qualquer status)
+        print(f"\n[CLEANUP] 🔍 Buscando TODOS os jobs de {username}/{projeto}...")
         
         job_pattern = "job:*"
+        deleted_job_ids = []  # Para deletar parent/child jobs depois
+        
         for job_key in self.redis_client.scan_iter(match=job_pattern):
             try:
-                job_data = json.loads(self.redis_client.get(job_key))
+                job_data_raw = self.redis_client.get(job_key)
+                if not job_data_raw:
+                    continue
+                    
+                job_data = json.loads(job_data_raw)
                 
-                # Verificar se o job pertence ao usuário/projeto
+                # Verificar se o job pertence ao usuário/projeto (QUALQUER STATUS)
                 if (job_data.get('username') == username and 
                     job_data.get('projeto') == projeto):
                     
                     job_id = job_data.get('job_id')
-                    print(f"[CLEANUP] 🗑️  Deletando job: {job_id}")
+                    status = job_data.get('status', 'unknown')
+                    print(f"[CLEANUP] 🗑️  Deletando job {status}: {job_id[:8]}...")
+                    
+                    # Guardar job_id para limpar relacionados depois
+                    deleted_job_ids.append(job_id)
                     
                     # Deletar o job
                     self.redis_client.delete(job_key)
@@ -246,8 +256,25 @@ class GraphOrchestrator:
                         stats['branches_deleted'] += 1
                         print(f"[CLEANUP] 🗑️  Deletando branch: {branch_key}")
             
-            except (json.JSONDecodeError, TypeError):
+            except (json.JSONDecodeError, TypeError) as e:
                 continue
+        
+        # Deletar jobs que tenham parent_job_id de algum job deletado
+        if deleted_job_ids:
+            print(f"\n[CLEANUP] 🧹 Limpando jobs filhos (parent_job_id)...")
+            for job_key in self.redis_client.scan_iter(match=job_pattern):
+                try:
+                    job_data_raw = self.redis_client.get(job_key)
+                    if not job_data_raw:
+                        continue
+                    job_data = json.loads(job_data_raw)
+                    parent_id = job_data.get('parent_job_id')
+                    if parent_id in deleted_job_ids:
+                        print(f"[CLEANUP] 🗑️  Deletando job filho: {job_data.get('job_id', '')[:8]}...")
+                        self.redis_client.delete(job_key)
+                        stats['jobs_deleted'] += 1
+                except:
+                    continue
         
         # 2. DELETAR CHAVES PENDENTES DE INPUT
         print(f"\n[CLEANUP] 🔑 Limpando chaves pendentes...")
@@ -337,7 +364,12 @@ class GraphOrchestrator:
                 for job_id in temp_jobs:
                     self.redis_client.rpush(queue_name, job_id)
         
-        # 5. RESUMO
+        # 5. LIMPEZA EXTRA: Remover jobs antigos completados/falhados
+        print(f"\n[CLEANUP] 🧹 Limpando jobs antigos completados/falhados...")
+        old_jobs_deleted = self.cleanup_old_jobs(max_age_minutes=5)
+        stats['old_jobs_deleted'] = old_jobs_deleted
+        
+        # 6. RESUMO
         print(f"\n{'='*80}")
         print(f"✅ LIMPEZA CONCLUÍDA - {username}/{projeto}")
         print(f"{'='*80}")
@@ -347,9 +379,54 @@ class GraphOrchestrator:
         print(f"   🗑️  Chaves pendentes deletadas: {stats['pending_keys_deleted']}")
         print(f"   🗑️  Memória/histórico deletado: {stats['memory_keys_deleted']}")
         print(f"   🗑️  Jobs removidos das filas: {stats['queue_jobs_removed']}")
+        print(f"   🗑️  Jobs antigos deletados: {stats['old_jobs_deleted']}")
         print(f"{'='*80}\n")
         
         return stats
+    
+    def cleanup_old_jobs(self, max_age_minutes: int = 10) -> int:
+        """
+        Remove jobs completados/falhados mais antigos que max_age_minutes.
+        Útil para evitar acúmulo de jobs antigos no Redis.
+        
+        Args:
+            max_age_minutes: Idade máxima dos jobs em minutos (padrão: 10)
+            
+        Returns:
+            Número de jobs deletados
+        """
+        from datetime import datetime, timedelta
+        
+        deleted_count = 0
+        cutoff_time = datetime.now() - timedelta(minutes=max_age_minutes)
+        
+        print(f"\n🧹 Limpando jobs mais antigos que {max_age_minutes} minutos...")
+        
+        job_pattern = "job:*"
+        for job_key in self.redis_client.scan_iter(match=job_pattern):
+            try:
+                job_data = json.loads(self.redis_client.get(job_key))
+                status = job_data.get('status')
+                
+                # Só deletar jobs completados ou falhados
+                if status in ['completed', 'failed', 'cancelled']:
+                    # Verificar timestamp
+                    completed_at = job_data.get('completed_at') or job_data.get('failed_at')
+                    if completed_at:
+                        job_time = datetime.fromisoformat(completed_at)
+                        if job_time < cutoff_time:
+                            self.redis_client.delete(job_key)
+                            deleted_count += 1
+                            
+            except (json.JSONDecodeError, TypeError, ValueError):
+                continue
+        
+        if deleted_count > 0:
+            print(f"✅ {deleted_count} jobs antigos deletados")
+        else:
+            print(f"✅ Nenhum job antigo para deletar")
+        
+        return deleted_count
     
     def visualize_graph(self):
         """Mostra estrutura do grafo"""
@@ -600,9 +677,10 @@ class ModuleWorker:
                     job_data['completed_at'] = datetime.now().isoformat()
                     job_data['note'] = f'Job split into {len(next_modules)} parallel branches'
                     
+                    # TTL de 5 minutos para jobs completados (evita acúmulo no Redis)
                     self.redis_client.setex(
                         f"job:{job_id}",
-                        3600,
+                        300,  # 5 minutos
                         json.dumps(job_data)
                     )
                     
@@ -628,9 +706,10 @@ class ModuleWorker:
                 job_data['status'] = 'completed'
                 job_data['completed_at'] = datetime.now().isoformat()
                 
+                # TTL de 5 minutos para jobs completados (evita acúmulo no Redis)
                 self.redis_client.setex(
                     f"job:{job_id}",
-                    3600,
+                    300,  # 5 minutos
                     json.dumps(job_data)
                 )
                 
@@ -648,9 +727,10 @@ class ModuleWorker:
             job_data['error'] = str(e)
             job_data['failed_at'] = datetime.now().isoformat()
             
+            # TTL de 5 minutos para jobs falhados (evita acúmulo no Redis)
             self.redis_client.setex(
                 f"job:{job_id}",
-                3600,
+                300,  # 5 minutos
                 json.dumps(job_data)
             )
     
