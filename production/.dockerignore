@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+ezinho_assistente/
+venv/
+env/
+ENV/
+lib64
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+log/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.tox/
+.nox/
+.hypothesis/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Docker
+docker-compose.yml
+Dockerfile*
+.dockerignore
+
+# Misc
+tmp/
+temp/
+*.bak
+*.swp
+.cache/

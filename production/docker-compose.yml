@@ -1,0 +1,421 @@
+version: "3.8"
+
+services:
+  # ===== INFRAESTRUTURA =====
+
+  redis:
+    image: redis:7-alpine
+    container_name: ezpocket-redis
+    ports:
+      - "${REDIS_PORT:-6493}:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: ezpocket-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ezpocket_logs}
+      POSTGRES_USER: ${POSTGRES_USER:-ezpocket_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ezpocket_pass_2025}
+    ports:
+      - "${POSTGRES_PORT:-5546}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ezpocket_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: ezpocket-keycloak
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${KEYCLOAK_DB:-keycloak}
+      KC_DB_USERNAME: ${POSTGRES_USER:-ezpocket_user}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-ezpocket_pass_2025}
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-localhost}
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY: edge
+    ports:
+      - "${KEYCLOAK_PORT:-8180}:8080"
+    command: start-dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ===== GRAPH ORCHESTRATOR + WEBSOCKET =====
+
+  orchestrator:
+    build:
+      context: ..
+      dockerfile: production/Dockerfile.orchestrator
+    container_name: ezpocket-orchestrator
+    env_file:
+      - ../.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-ezpocket_logs}
+      - POSTGRES_USER=${POSTGRES_USER:-ezpocket_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-ezpocket_pass_2025}
+      - KEYCLOAK_HOSTNAME=keycloak
+      - KEYCLOAK_PORT=8080
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-ezpocket}
+      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID:-ezpocket-client}
+      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+      - ATHENA_DATABASE=${ATHENA_DATABASE:-ezpocket_analytics}
+      - ATHENA_OUTPUT_LOCATION=${ATHENA_OUTPUT_LOCATION}
+      - FRONTEND_MODE=${FRONTEND_MODE:-production}
+    ports:
+      - "5555:5555"
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5555/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ===== WORKERS =====
+
+  worker-intent-validator:
+    build:
+      context: ..
+      dockerfile: production/Dockerfile.worker
+    container_name: ezpocket-worker-intent-validator
+    command: python agents/graph_orchestrator/worker_intent_validator.py
+    env_file:
+      - ../.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - redis
+      - orchestrator
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+
+  worker-plan-builder:
+    build:
+      context: ..
+      dockerfile: production/Dockerfile.worker
+    container_name: ezpocket-worker-plan-builder
+    command: python agents/graph_orchestrator/worker_plan_builder.py
+    env_file:
+      - ../.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - redis
+      - orchestrator
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+
+  worker-plan-confirm:
+    build:
+      context: ..
+      dockerfile: production/Dockerfile.worker
+    container_name: ezpocket-worker-plan-confirm
+    command: python agents/graph_orchestrator/worker_plan_confirm.py
+    env_file:
+      - ../.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
+      - orchestrator
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+
+  worker-analysis-orchestrator:
+    build:
+      context: ..
+      dockerfile: production/Dockerfile.worker
+    container_name: ezpocket-worker-analysis-orchestrator
+    command: python agents/graph_orchestrator/worker_analysis_orchestrator.py
+    env_file:
+      - ../.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - redis
+      - orchestrator
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+
+  worker-sql-validator:
+    build:
+      context: ..
+      dockerfile: production/Dockerfile.worker
+    container_name: ezpocket-worker-sql-validator
+    command: python agents/graph_orchestrator/worker_sql_validator.py
+    env_file:
+      - ../.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - redis
+      - orchestrator
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+
+  worker-athena-executor:
+    build:
+      context: ..
+      dockerfile: production/Dockerfile.worker
+    container_name: ezpocket-worker-athena-executor
+    command: python agents/graph_orchestrator/worker_athena_executor.py
+    env_file:
+      - ../.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+      - ATHENA_DATABASE=${ATHENA_DATABASE:-ezpocket_analytics}
+      - ATHENA_OUTPUT_LOCATION=${ATHENA_OUTPUT_LOCATION}
+    depends_on:
+      - redis
+      - orchestrator
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+
+  worker-auto-correction:
+    build:
+      context: ..
+      dockerfile: production/Dockerfile.worker
+    container_name: ezpocket-worker-auto-correction
+    command: python agents/graph_orchestrator/worker_auto_correction.py
+    env_file:
+      - ../.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - redis
+      - orchestrator
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+
+  worker-python-runtime:
+    build:
+      context: ..
+      dockerfile: production/Dockerfile.worker
+    container_name: ezpocket-worker-python-runtime
+    command: python agents/graph_orchestrator/worker_python_runtime.py
+    env_file:
+      - ../.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - redis
+      - orchestrator
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "1.5"
+
+  worker-response-composer:
+    build:
+      context: ..
+      dockerfile: production/Dockerfile.worker
+    container_name: ezpocket-worker-response-composer
+    command: python agents/graph_orchestrator/worker_response_composer.py
+    env_file:
+      - ../.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - redis
+      - orchestrator
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+
+  worker-history-preferences:
+    build:
+      context: ..
+      dockerfile: production/Dockerfile.worker
+    container_name: ezpocket-worker-history-preferences
+    command: python agents/graph_orchestrator/worker_history_preferences.py
+    env_file:
+      - ../.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-ezpocket_logs}
+      - POSTGRES_USER=${POSTGRES_USER:-ezpocket_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-ezpocket_pass_2025}
+    depends_on:
+      - redis
+      - postgres
+      - orchestrator
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+
+  worker-user-feedback:
+    build:
+      context: ..
+      dockerfile: production/Dockerfile.worker
+    container_name: ezpocket-worker-user-feedback
+    command: python agents/graph_orchestrator/worker_user_feedback.py
+    env_file:
+      - ../.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-ezpocket_logs}
+      - POSTGRES_USER=${POSTGRES_USER:-ezpocket_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-ezpocket_pass_2025}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - redis
+      - postgres
+      - orchestrator
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+
+  worker-user-proposed-plan:
+    build:
+      context: ..
+      dockerfile: production/Dockerfile.worker
+    container_name: ezpocket-worker-user-proposed-plan
+    command: python agents/graph_orchestrator/worker_user_proposed_plan.py
+    env_file:
+      - ../.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
+      - orchestrator
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+
+  worker-plan-refiner:
+    build:
+      context: ..
+      dockerfile: production/Dockerfile.worker
+    container_name: ezpocket-worker-plan-refiner
+    command: python agents/graph_orchestrator/worker_plan_refiner.py
+    env_file:
+      - ../.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - redis
+      - orchestrator
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+
+volumes:
+  redis_data:
+    driver: local
+  postgres_data:
+    driver: local
+
+networks:
+  default:
+    name: ezpocket-network
+    driver: bridge
