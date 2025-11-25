@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 import json
 import threading
 import time
+from datetime import datetime
 
 # Carrega variáveis de ambiente do .env
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'config', '.env')
@@ -105,51 +106,71 @@ def monitor_job(job_id: str, sid: str):
                 # Verificar plan_confirm (pode acontecer múltiplas vezes após refinamentos)
                 if not confirmation_checked:
                     pending_key = f"plan_confirm:pending:{username}:{projeto}"
-                    print(f"[MONITOR] 🔍 Verificando chave Redis: {pending_key} (existe: {orchestrator.redis_client.exists(pending_key)})")
-                    if orchestrator.redis_client.exists(pending_key):
+                    exists = orchestrator.redis_client.exists(pending_key)
+                    print(f"[MONITOR] 🔍 Verificando chave Redis: {pending_key} (existe: {exists})")
+                    
+                    if exists:
                         plan_data = orchestrator.redis_client.hgetall(pending_key)
                         print(f"[MONITOR] ✅ Plan confirm detectado via Redis: {pending_key}")
-                        print(f"[MONITOR] 📤 Emitindo need_input do tipo 'plan_confirmation' para sid {sid}")
+                        print(f"[MONITOR] 📤 Emitindo module_update de plan_confirm com show_buttons=true para sid {sid}")
                         print(f"[MONITOR] 📋 Plan data: {plan_data.get('plan', '')[:100]}...")
                         
-                        socketio.emit('need_input', {
-                            'type': 'plan_confirmation',
-                            'data': {
-                                'plan': plan_data.get('plan', ''),
-                                'plan_steps': json.loads(plan_data.get('plan_steps', '[]'))
-                            }
+                        # Montar mensagem formatada do plano
+                        plan_text = plan_data.get('plan', '')
+                        plan_steps_raw = plan_data.get('plan_steps', '[]')
+                        
+                        # Tentar parsear JSON se for string
+                        try:
+                            plan_steps = json.loads(plan_steps_raw) if isinstance(plan_steps_raw, str) else plan_steps_raw
+                        except:
+                            plan_steps = []
+                        
+                        plan_message = f"📋 **Plano de Análise**\n\n{plan_text}\n\n**Passos:**\n"
+                        for i, step in enumerate(plan_steps, 1):
+                            plan_message += f"{i}. {step}\n"
+                        
+                        socketio.emit('module_update', {
+                            'module': 'plan_confirm',
+                            'message': plan_message,
+                            'output': {
+                                'plan': plan_text,
+                                'plan_steps': plan_steps
+                            },
+                            'success': True,
+                            'timestamp': datetime.utcnow().isoformat(),
+                            'show_buttons': True  # Flag para mostrar botões de confirmação
                         }, room=sid)
                         pending_inputs[job_id] = 'plan_confirmation'
                         confirmation_checked = True
                         print(f"[MONITOR] ✅ confirmation_checked=True (aguardando resposta do usuário)")
                 
                 # Verificar user_feedback (só uma vez por job)
+                # Emitir evento para usuário digitar nota de 1 a 5
                 feedback_key = f"user_feedback:pending:{username}:{projeto}"
                 if not feedback_checked:
-                    if orchestrator.redis_client.exists(feedback_key):
+                    exists = orchestrator.redis_client.exists(feedback_key)
+                    if exists:
                         feedback_data = orchestrator.redis_client.hgetall(feedback_key)
                         print(f"\n{'='*80}")
                         print(f"[MONITOR] 📊 USER FEEDBACK DETECTADO!")
                         print(f"[MONITOR] Key: {feedback_key}")
                         print(f"[MONITOR] Pergunta: {feedback_data.get('pergunta', '')}")
-                        print(f"[MONITOR] Response text length: {len(feedback_data.get('response_text', ''))}")
-                        print(f"[MONITOR] Emitindo need_input tipo user_feedback para sid {sid}")
+                        print(f"[MONITOR] 📤 Emitindo module_update para pedir nota ao usuário")
                         print(f"{'='*80}\n")
                         
-                        socketio.emit('need_input', {
-                            'type': 'user_feedback',
-                            'data': {
-                                'pergunta': feedback_data.get('pergunta', ''),
-                                'response_text': feedback_data.get('response_text', '')
-                            }
+                        # Emitir evento pedindo nota
+                        socketio.emit('module_update', {
+                            'module': 'user_feedback',
+                            'message': 'Resposta gerada com sucesso!',
+                            'output': {},
+                            'success': True,
+                            'timestamp': datetime.utcnow().isoformat(),
+                            'show_rating': True  # Flag para pedir nota
                         }, room=sid)
+                        
                         pending_inputs[job_id] = 'user_feedback'
                         feedback_checked = True
-                        print(f"[MONITOR] ✅ feedback_checked=True (aguardando rating e comentário)")
-                else:
-                    # Debug: mostrar se a key ainda existe depois de checked
-                    if orchestrator.redis_client.exists(feedback_key):
-                        print(f"[MONITOR] ⚠️ user_feedback:pending ainda existe mas feedback_checked=True")
+                        print(f"[MONITOR] ✅ feedback_checked=True (aguardando nota do usuário)")
                 
                 # Verificar user_proposed_plan (quando usuário rejeita o plano)
                 # Pode acontecer múltiplas vezes (loop de refinamento)
@@ -515,6 +536,20 @@ def handle_send_input(data):
             emit('input_received', {
                 'message': 'Confirmação recebida',
                 'approved': input_value
+            })
+        
+        elif input_type == 'user_feedback':
+            # Receber rating completo (usado no dashboard WebSocket)
+            feedback_response_key = f"user_feedback:response:{username}:{projeto}"
+            orchestrator.redis_client.set(feedback_response_key, input_value, ex=60)
+            
+            print(f"[WS] ========== DEBUG USER FEEDBACK ==========")
+            print(f"[WS] input_value: {input_value}")
+            print(f"[WS] Chave Redis: {feedback_response_key}")
+            print(f"[WS] =============================================")
+            
+            emit('input_received', {
+                'message': 'Avaliação recebida'
             })
             
         elif input_type == 'user_feedback_rating':

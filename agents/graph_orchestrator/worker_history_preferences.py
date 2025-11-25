@@ -79,6 +79,11 @@ class HistoryPreferencesWorker(ModuleWorker):
             output['_next_modules'] = save_state['_next_modules']
             print(f"   🔀 Repassando _next_modules: {save_state['_next_modules']}")
         
+        # IMPORTANTE: Repassar response_text para user_feedback
+        if 'response_text' in save_state:
+            output['response_text'] = save_state['response_text']
+            print(f"   📝 Repassando response_text ({len(save_state['response_text'])} chars) para próximo módulo")
+        
         return output
 
 if __name__ == '__main__':
