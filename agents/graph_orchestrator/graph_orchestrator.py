@@ -277,6 +277,11 @@ class ModuleWorker:
             print(f"   ❌ Erro ao decodificar JSON: {e}")
             return
         
+        # VERIFICAR SE JOB FOI CANCELADO
+        if job_data.get('status') == 'cancelled':
+            print(f"   🚫 Job cancelado (motivo: {job_data.get('cancelled_reason', 'unknown')}) - pulando processamento")
+            return
+        
         try:
             start_time = time.time()
             

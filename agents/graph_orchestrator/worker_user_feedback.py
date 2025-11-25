@@ -130,6 +130,20 @@ class UserFeedbackWorker(ModuleWorker):
             # Aguardar resposta (timeout 5 minutos)
             comment = ''
             for _ in range(300):
+                # VERIFICAR SE A CHAVE PENDENTE AINDA EXISTE (pode ter sido apagada no disconnect)
+                if not r.exists(feedback_key):
+                    print(f"[USER_FEEDBACK] 🚫 Chave pendente foi removida (usuário desconectou) - cancelando espera")
+                    # Retornar resultado neutro sem criar próximos módulos
+                    return {
+                        'pergunta': pergunta,
+                        'username': username,
+                        'projeto': projeto,
+                        'previous_module': 'user_feedback',
+                        'cancelled': True,
+                        'cancel_reason': 'user_disconnected',
+                        '_next_modules': []
+                    }
+                
                 if r.exists(feedback_response_key):
                     feedback_response = json.loads(r.get(feedback_response_key))
                     rating = feedback_response.get('rating', 3)

@@ -64,6 +64,20 @@ class UserProposedPlanWorker(ModuleWorker):
         start = time.time()
         
         while (time.time() - start) < timeout:
+            # VERIFICAR SE A CHAVE PENDENTE AINDA EXISTE (pode ter sido apagada no disconnect)
+            if not redis_client.exists(pending_key):
+                print(f"[USER_PROPOSED_PLAN]    🚫 Chave pendente foi removida (usuário desconectou) - cancelando espera")
+                # Retornar resultado neutro sem criar próximos módulos
+                return {
+                    'pergunta': pergunta,
+                    'username': username,
+                    'projeto': projeto,
+                    'previous_module': 'user_proposed_plan',
+                    'cancelled': True,
+                    'cancel_reason': 'user_disconnected',
+                    '_next_modules': []
+                }
+            
             response = redis_client.get(response_key)
             if response:
                 user_suggestion = response

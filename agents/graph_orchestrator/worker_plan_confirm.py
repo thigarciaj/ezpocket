@@ -83,6 +83,21 @@ class PlanConfirmWorker(ModuleWorker):
         start = time.time()
         
         while (time.time() - start) < timeout:
+            # VERIFICAR SE A CHAVE PENDENTE AINDA EXISTE (pode ter sido apagada no disconnect)
+            if not redis_client.exists(pending_key):
+                print(f"[PLAN_CONFIRM]    🚫 Chave pendente foi removida (usuário desconectou) - cancelando espera")
+                # Retornar resultado neutro para não criar jobs subsequentes
+                return {
+                    'pergunta': pergunta,
+                    'username': username,
+                    'projeto': projeto,
+                    'previous_module': 'plan_confirm',
+                    'confirmed': False,
+                    'cancelled': True,
+                    'cancel_reason': 'user_disconnected',
+                    '_next_modules': []  # Não criar próximos módulos
+                }
+            
             response = redis_client.get(response_key)
             if response:
                 print(f"[PLAN_CONFIRM]    🔍 DEBUG - Resposta bruta do Redis: '{response}' (tipo: {type(response)})")

@@ -38,6 +38,10 @@ orchestrator = GraphOrchestrator()
 active_sessions = {}
 # Armazena inputs pendentes (job_id -> waiting_for)
 pending_inputs = {}
+# Mapeia sid -> (username, projeto) para fazer flush ao desconectar
+sid_user_mapping = {}
+# Flag para parar monitores quando usuário desconectar: {sid: should_stop}
+monitor_stop_flags = {}
 
 
 def monitor_job(job_id: str, sid: str):
@@ -54,8 +58,17 @@ def monitor_job(job_id: str, sid: str):
     username = None
     projeto = None
     
+    # Verificar se é um job novo após flush (forçar reset das flags)
+    # Isso garante que após F5, o novo job será monitorado corretamente
+    print(f"[MONITOR] 🔄 Flags resetadas para novo monitoramento")
+    
     while True:
         try:
+            # VERIFICAR SE DEVEMOS PARAR ESTE MONITOR
+            if monitor_stop_flags.get(sid, False):
+                print(f"[MONITOR] 🛑 Monitor parado para sid {sid} (usuário desconectou)")
+                break
+            
             # Buscar status do job com branches
             status = orchestrator.get_job_with_branches(job_id)
             
@@ -244,6 +257,131 @@ def monitor_job(job_id: str, sid: str):
         del active_sessions[job_id]
     if job_id in pending_inputs:
         del pending_inputs[job_id]
+
+
+def cancel_active_jobs(username: str, projeto: str, keep_pending_keys: bool = True):
+    """
+    Cancela jobs ATIVOS do usuário, mas pode preservar chaves de confirmação pendentes
+    
+    Args:
+        username: Nome do usuário
+        projeto: Nome do projeto
+        keep_pending_keys: Se True, NÃO apaga chaves pendentes (plan_confirm, user_feedback, etc)
+                          Usado no F5/refresh para permitir reconexão
+    """
+    print(f"\n[CANCEL] 🛑 Cancelando jobs ativos para {username}/{projeto} (keep_pending={keep_pending_keys})")
+    
+    # 1. CANCELAR JOBS ATIVOS (marcar como cancelled, não deletar ainda)
+    jobs_cancelled = 0
+    for key in list(orchestrator.redis_client.scan_iter(match="job:*")):
+        try:
+            job_data_str = orchestrator.redis_client.get(key)
+            if job_data_str:
+                job_data = json.loads(job_data_str)
+                if job_data.get('username') == username and job_data.get('projeto') == projeto:
+                    # Marcar como cancelado
+                    job_data['status'] = 'cancelled'
+                    job_data['cancelled_at'] = datetime.now().isoformat()
+                    job_data['cancelled_reason'] = 'disconnect' if keep_pending_keys else 'logout'
+                    orchestrator.redis_client.set(key, json.dumps(job_data), ex=3600)
+                    jobs_cancelled += 1
+        except Exception as e:
+            print(f"[CANCEL] ⚠️ Erro ao cancelar job {key}: {e}")
+    
+    print(f"[CANCEL] ❌ Marcou {jobs_cancelled} job(s) como cancelado")
+    print(f"[CANCEL] ℹ️  Jobs permanecem nas filas - workers vão pular quando processar")
+    
+    # 2. NÃO REMOVEMOS JOBS DAS FILAS!
+    # Os jobs ficam nas queues, mas estão marcados como 'cancelled'
+    # Quando worker pegar o job, ele verifica o status e pula se cancelled
+    # Isso garante que não perdemos jobs que já estão esperando na fila
+    
+    # 3. DELETAR CHAVES PENDENTES (só se keep_pending_keys=False)
+    if not keep_pending_keys:
+        keys_patterns = [
+            f"plan_confirm:*:{username}:{projeto}",
+            f"user_feedback:*:{username}:{projeto}",
+            f"user_proposed_plan:*:{username}:{projeto}",
+        ]
+        
+        keys_deleted = 0
+        for pattern in keys_patterns:
+            for key in orchestrator.redis_client.scan_iter(match=pattern):
+                orchestrator.redis_client.delete(key)
+                keys_deleted += 1
+        
+        print(f"[CANCEL] 🔑 Deletou {keys_deleted} chave(s) pendente(s)")
+    else:
+        print(f"[CANCEL] 🔐 Chaves pendentes preservadas (plan_confirm, user_feedback, etc)")
+    
+    print(f"[CANCEL] ✅ Cancelamento finalizado!")
+
+
+def flush_user_from_redis(username: str, projeto: str):
+    """
+    FLUSH COMPLETO: Remove TUDO relacionado a este usuário/projeto do Redis
+    Usado no LOGOUT explícito
+    """
+    print(f"\n[FLUSH] 🧹 Iniciando flush completo para {username}/{projeto}")
+    
+    # 1. Cancelar jobs (marca como cancelled, sem preservar chaves)
+    cancel_active_jobs(username, projeto, keep_pending_keys=False)
+    
+    # 2. REMOVER JOBS DAS FILAS (só no flush completo/logout)
+    jobs_removed_from_queues = 0
+    for module in orchestrator.connections.keys():
+        queue_name = f"queue:{module}"
+        queue_length = orchestrator.redis_client.llen(queue_name)
+        
+        if queue_length > 0:
+            jobs_in_queue = orchestrator.redis_client.lrange(queue_name, 0, -1)
+            jobs_to_keep = []
+            
+            for job_id_bytes in jobs_in_queue:
+                job_id = job_id_bytes.decode('utf-8') if isinstance(job_id_bytes, bytes) else job_id_bytes
+                
+                job_data_str = orchestrator.redis_client.get(f"job:{job_id}")
+                if job_data_str:
+                    try:
+                        job_data = json.loads(job_data_str)
+                        if not (job_data.get('username') == username and job_data.get('projeto') == projeto):
+                            jobs_to_keep.append(job_id)
+                        else:
+                            jobs_removed_from_queues += 1
+                    except:
+                        jobs_to_keep.append(job_id)
+            
+            if len(jobs_to_keep) < len(jobs_in_queue):
+                orchestrator.redis_client.delete(queue_name)
+                if jobs_to_keep:
+                    orchestrator.redis_client.rpush(queue_name, *jobs_to_keep)
+    
+    print(f"[FLUSH] 📥 Removeu {jobs_removed_from_queues} job(s) das filas")
+    
+    # 3. DELETAR TODOS OS JOBS
+    jobs_deleted = 0
+    for key in list(orchestrator.redis_client.scan_iter(match="job:*")):
+        try:
+            job_data_str = orchestrator.redis_client.get(key)
+            if job_data_str:
+                job_data = json.loads(job_data_str)
+                if job_data.get('username') == username and job_data.get('projeto') == projeto:
+                    orchestrator.redis_client.delete(key)
+                    jobs_deleted += 1
+        except:
+            pass
+    
+    print(f"[FLUSH] 🗑️  Deletou {jobs_deleted} job(s)")
+    
+    # 4. DELETAR HISTÓRICO E PREFERÊNCIAS
+    history_keys_deleted = 0
+    for pattern in [f"history:*:{username}:{projeto}", f"preferences:*:{username}:{projeto}"]:
+        for key in orchestrator.redis_client.scan_iter(match=pattern):
+            orchestrator.redis_client.delete(key)
+            history_keys_deleted += 1
+    
+    print(f"[FLUSH] 📚 Deletou {history_keys_deleted} chave(s) de histórico/preferências")
+    print(f"[FLUSH] ✅ Flush completo finalizado!")
 
 
 def format_module_output(module: str, output: dict, success: bool) -> str:
@@ -438,8 +576,50 @@ def handle_connect():
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    """Cliente desconectado"""
-    print(f"[WS] Cliente desconectado: {request.sid}")
+    """Cliente desconectado (F5/refresh) - Remove apenas chaves pendentes e para monitor"""
+    sid = request.sid
+    print(f"\n{'='*80}")
+    print(f"[WS] 🔌 Cliente desconectado: {sid}")
+    
+    # PARAR MONITOR DESTE SID
+    monitor_stop_flags[sid] = True
+    print(f"[WS] 🛑 Flag de parada setada para monitor do sid {sid}")
+    
+    # Buscar username e projeto deste sid
+    user_info = sid_user_mapping.get(sid)
+    if user_info:
+        username = user_info['username']
+        projeto = user_info['projeto']
+        print(f"[WS] 👤 Usuário: {username}")
+        print(f"[WS] 📊 Projeto: {projeto}")
+        print(f"[WS] 🔑 Limpando chaves pendentes antigas...")
+        print(f"{'='*80}")
+        
+        # APENAS REMOVER CHAVES PENDENTES (não cancelar jobs!)
+        # Os jobs vão continuar processando normalmente
+        # Mas as chaves pendentes antigas são removidas para não conflitar
+        # Quando novo job criar novas chaves, não haverá conflito
+        keys_patterns = [
+            f"plan_confirm:*:{username}:{projeto}",
+            f"user_feedback:*:{username}:{projeto}",
+            f"user_proposed_plan:*:{username}:{projeto}",
+        ]
+        
+        keys_deleted = 0
+        for pattern in keys_patterns:
+            for key in orchestrator.redis_client.scan_iter(match=pattern):
+                orchestrator.redis_client.delete(key)
+                keys_deleted += 1
+                print(f"[WS] 🗑️  Deletou chave: {key}")
+        
+        # Remover do mapeamento
+        del sid_user_mapping[sid]
+        print(f"\n[WS] ✅ Limpou {keys_deleted} chave(s) pendente(s) para {username}/{projeto}")
+        print(f"[WS] 🛑 Monitor será parado automaticamente")
+        print(f"[WS] 💡 Jobs continuam processando (outputs serão ignorados - socket desconectado)")
+    else:
+        print(f"[WS] ℹ️  Cliente não tinha sessão ativa")
+    print(f"{'='*80}\n")
 
 
 @socketio.on('start_job')
@@ -463,6 +643,16 @@ def handle_start_job(data):
         print(f"[WS] Projeto: {projeto}")
         print(f"[WS] SID: {request.sid}")
         print(f"{'='*80}\n")
+        
+        # Resetar flag de parada do monitor (permitir novo monitor)
+        monitor_stop_flags[request.sid] = False
+        print(f"[WS] ✅ Flag de parada resetada para sid {request.sid}")
+        
+        # Registrar username/projeto para este sid (para flush ao desconectar)
+        sid_user_mapping[request.sid] = {
+            'username': username,
+            'projeto': projeto
+        }
         
         # Submete o job
         job_id = orchestrator.submit_job(
@@ -631,6 +821,44 @@ def handle_send_input(data):
         emit('error', {
             'message': f'Erro ao processar input: {str(e)}',
             'type': type(e).__name__
+        })
+
+
+@socketio.on('user_logout')
+def handle_user_logout(data):
+    """
+    Evento explícito quando usuário clica em SAIR
+    Faz flush completo antes de desconectar
+    """
+    try:
+        username = data.get('username', 'test_user')
+        projeto = data.get('projeto', 'test_project')
+        
+        print(f"\n{'='*80}")
+        print(f"[WS] 👋 LOGOUT EXPLÍCITO")
+        print(f"[WS] Usuário: {username}")
+        print(f"[WS] Projeto: {projeto}")
+        print(f"{'='*80}")
+        
+        # Fazer flush completo
+        flush_user_from_redis(username, projeto)
+        
+        # Confirmar logout
+        emit('logout_confirmed', {
+            'message': 'Sessão encerrada com sucesso',
+            'username': username,
+            'projeto': projeto
+        })
+        
+        print(f"[WS] ✅ Logout confirmado para {username}/{projeto}")
+        print(f"{'='*80}\n")
+        
+    except Exception as e:
+        print(f"[WS] ❌ Erro no logout: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        emit('error', {
+            'message': f'Erro ao fazer logout: {str(e)}'
         })
 
 
