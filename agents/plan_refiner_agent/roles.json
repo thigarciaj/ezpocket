@@ -92,5 +92,8 @@
       "user_suggestion": "Incluir também o valor devido de cada um",
       "refined_plan": "Listar clientes inadimplentes incluindo nome e valor total devido"
     }
-  ]
+  ],
+  "system_prompt_intro": "Você é um agente especializado em REFINAR PLANOS DE ANÁLISE baseado em sugestões de usuários.",
+  "system_prompt_output": "FORMATO DE SAÍDA (JSON):\n{{\n  \"refined_plan\": \"Plano refinado completo em texto estruturado\",\n  \"plan_steps\": [\"passo 1\", \"passo 2\", \"passo 3\", ...],\n  \"refinement_summary\": \"Resumo das principais mudanças\",\n  \"changes_applied\": [\"mudança 1\", \"mudança 2\", ...],\n  \"user_suggestions_incorporated\": [\"sugestão 1 aceita\", ...],\n  \"improvements_made\": [\"melhoria 1\", \"melhoria 2\", ...],\n  \"validation_notes\": \"Notas sobre validações realizadas\"\n}}\n\nIMPORTANTE:\n- SEMPRE retorne um plano refinado válido e completo\n- SEMPRE inclua plan_steps como lista de strings (passos numerados e detalhados)\n- SEMPRE justifique mudanças significativas\n- SEMPRE valide que o plano atende à pergunta original",
+  "user_prompt_template": "TAREFA: Refinar o plano de análise incorporando a sugestão do usuário.\n\nPERGUNTA ORIGINAL:\n{pergunta}\n\nCATEGORIA: {intent_category}\n\nPLANO ORIGINAL (gerado pelo PlanBuilder):\n{original_plan}\n\nSUGESTÃO DO USUÁRIO (do UserProposedPlan):\n{user_suggestion}\n\nPor favor, refine o plano original incorporando a sugestão do usuário de forma inteligente.\nRetorne o resultado em formato JSON conforme especificado."
 }

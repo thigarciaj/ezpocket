@@ -96,22 +96,20 @@ class ResponderAgent:
         if ano_passado is None:
             ano_passado = ano_atual - 1
         
-        prompt_resposta = f"""Pergunta do usuário: {pergunta}
-{periodo}
-{datas_expl}
-Resultado da consulta:
-{resultado_str}
-
-Formule uma resposta clara, natural e amigável para o usuário, explicando o resultado de acordo com a pergunta. 
-Sempre mencione explicitamente o(s) período(s) de análise considerado(s), o ano atual ({ano_atual}) e o ano anterior ({ano_passado}) se a pergunta envolver comparação de anos, e quaisquer datas, meses ou anos citados na pergunta, em formato dd/mm/aaaa. 
-Use SEMPRE a data do sistema como referência para 'hoje'. 
-Não inclua código SQL, apenas a resposta final."""
+        prompt_resposta = self.roles['response_prompt_template'].format(
+            pergunta=pergunta,
+            periodo=periodo,
+            datas_expl=datas_expl,
+            resultado_str=resultado_str,
+            ano_atual=ano_atual,
+            ano_passado=ano_passado
+        )
         
         try:
             resposta_llm = self.client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": "Você é um assistente de dados que responde perguntas de forma clara, natural e amigável."},
+                    {"role": "system", "content": self.roles['system_prompt_responder']},
                     {"role": "user", "content": prompt_resposta}
                 ],
                 temperature=0.2,
@@ -127,7 +125,7 @@ Não inclua código SQL, apenas a resposta final."""
             format_resp = self.client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": "Você é um assistente que formata queries SQL."},
+                    {"role": "system", "content": self.roles['system_prompt_formatter']},
                     {"role": "user", "content": format_prompt}
                 ],
                 temperature=0,

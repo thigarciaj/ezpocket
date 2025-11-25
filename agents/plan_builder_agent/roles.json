@@ -53,10 +53,10 @@
   ],
   "output_structure": {
     "plan": "Plano completo em texto natural formatado",
-    "plan_steps": [
-      "Array de objetos JSON com step_number, description, action",
-      "Cada passo deve ter número sequencial e descrição clara",
-      "Exemplo: {'step_number': 1, 'description': 'Consultar tabela report_orders', 'action': 'query'}"
+    "steps": [
+      "Array de STRINGS simples descrevendo cada passo",
+      "Cada string deve ser uma descrição clara e direta do passo",
+      "Exemplo: ['Consultar tabela report_orders', 'Contar total de registros', 'Retornar quantidade']"
     ],
     "estimated_complexity": "Nível de complexidade: 'baixa', 'média' ou 'alta'",
     "data_sources": "Lista de fontes de dados utilizadas (geralmente ['report_orders'])",
@@ -113,5 +113,8 @@
     "model": "gpt-4o",
     "temperature": 0.3,
     "reasoning": "Temperatura baixa para consistência e precisão no planejamento"
-  }
+  },
+  "system_prompt_intro": "Você é um",
+  "user_prompt_with_suggestion": "Pergunta do usuário: \"{pergunta}\"\nCategoria: {intent_category}\nProjeto: {projeto}\n\n⚠️ IMPORTANTE: O usuário rejeitou o plano anterior e forneceu a seguinte sugestão:\n\"{user_proposed_plan}\"\n\nCrie um NOVO plano de execução que INCORPORE a sugestão do usuário e responda melhor à pergunta original.",
+  "user_prompt_normal": "Pergunta do usuário: \"{pergunta}\"\nCategoria: {intent_category}\nProjeto: {projeto}\n\nCrie um plano de execução para responder esta pergunta."
 }

@@ -243,34 +243,10 @@ class SQLValidatorAgent:
         """Validação com GPT-4o para sintaxe Athena"""
         print("   🤖 Validando com GPT-4o (sintaxe Athena)...")
         
-        prompt = f"""Você é um especialista em AWS Athena (Presto SQL).
-
-Analise a seguinte query SQL e valide:
-
-1. **Sintaxe SQL válida**: A query tem sintaxe correta?
-2. **Compatibilidade com Athena**: Usa funções/recursos suportados pelo Athena (Presto)?
-3. **Performance**: Identifique problemas de performance
-4. **Otimizações**: Sugira melhorias
-
-**Query SQL:**
-```sql
-{query_sql}
-```
-
-**Complexidade Estimada:** {estimated_complexity}
-
-**Responda APENAS em JSON válido:**
-```json
-{{
-    "valid": true/false,
-    "syntax_valid": true/false,
-    "athena_compatible": true/false,
-    "warnings": ["lista de avisos"],
-    "suggestions": ["lista de sugestões de otimização"],
-    "issues": ["lista de problemas encontrados"],
-    "explanation": "explicação resumida"
-}}
-```"""
+        prompt = self.roles['gpt_validation_prompt'].format(
+            query_sql=query_sql,
+            estimated_complexity=estimated_complexity
+        )
         
         try:
             response = self.client.chat.completions.create(

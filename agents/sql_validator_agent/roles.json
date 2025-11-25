@@ -215,5 +215,6 @@
     "suggestions": "array - sugestões de otimização",
     "issues": "array - problemas encontrados (sintaxe, segurança, compatibilidade)",
     "explanation": "string - explicação resumida do resultado da validação"
-  }
+  },
+  "gpt_validation_prompt": "Você é um especialista em AWS Athena (Presto SQL).\n\nAnalise a seguinte query SQL e valide:\n\n1. **Sintaxe SQL válida**: A query tem sintaxe correta?\n2. **Compatibilidade com Athena**: Usa funções/recursos suportados pelo Athena (Presto)?\n3. **Performance**: Identifique problemas de performance\n4. **Otimizações**: Sugira melhorias"
 }

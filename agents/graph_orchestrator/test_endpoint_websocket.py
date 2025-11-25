@@ -140,15 +140,22 @@ def monitor_job(job_id: str, sid: str):
                         plan_text = plan_data.get('plan', '')
                         plan_steps_raw = plan_data.get('plan_steps', '[]')
                         
+                        print(f"[MONITOR] 🔍 DEBUG plan_steps_raw: {plan_steps_raw} (tipo: {type(plan_steps_raw)})")
+                        
                         # Tentar parsear JSON se for string
                         try:
                             plan_steps = json.loads(plan_steps_raw) if isinstance(plan_steps_raw, str) else plan_steps_raw
-                        except:
+                            print(f"[MONITOR] 🔍 DEBUG plan_steps parseado: {plan_steps} (len: {len(plan_steps)})")
+                        except Exception as e:
+                            print(f"[MONITOR] ⚠️ Erro ao parsear plan_steps: {e}")
                             plan_steps = []
                         
-                        plan_message = f"📋 **Plano de Análise**\n\n{plan_text}\n\n**Passos:**\n"
-                        for i, step in enumerate(plan_steps, 1):
-                            plan_message += f"{i}. {step}\n"
+                        plan_message = f"📋 Plano criado:\n{plan_text}\n\n📊 Passos:\n"
+                        if plan_steps:
+                            for i, step in enumerate(plan_steps, 1):
+                                plan_message += f"{i}. {step}\n"
+                        else:
+                            plan_message += "(Sem passos detalhados)\n"
                         
                         socketio.emit('module_update', {
                             'module': 'plan_confirm',
@@ -662,23 +669,51 @@ def login():
 
 @app.route('/api/logout', methods=['POST'])
 def logout():
-    """Endpoint de logout"""
+    """Endpoint de logout - LIMPA TUDO DO REDIS"""
     try:
+        # Obter dados do usuário antes de invalidar o token
+        access_token = request.cookies.get('access_token')
         refresh_token = request.cookies.get('refresh_token')
         
+        username = None
+        projeto = 'test_project'  # default
+        
+        # Tentar pegar username do token antes de invalidar
+        if access_token:
+            try:
+                user_info = get_user_info(access_token)
+                username = user_info.get('preferred_username', 'unknown')
+            except:
+                # Se token já expirou, tentar do request body
+                data = request.get_json() if request.is_json else {}
+                username = data.get('username')
+        
+        # LIMPEZA COMPLETA DO REDIS ANTES DE INVALIDAR TOKEN
+        if username:
+            print(f"\n{'='*80}")
+            print(f"[LOGOUT] 🧹 Limpando sessão Redis de {username}/{projeto}")
+            print(f"{'='*80}")
+            stats = orchestrator.cleanup_user_session(username, projeto)
+            print(f"[LOGOUT] ✅ Limpeza concluída: {stats}")
+        
+        # Invalidar tokens no Keycloak
         if refresh_token:
             logout_user(refresh_token)
         
         # Criar resposta removendo cookies
-        response = make_response(jsonify({'message': 'Logout realizado com sucesso'}))
+        response = make_response(jsonify({
+            'message': 'Logout realizado com sucesso',
+            'cleanup_stats': stats if username else None
+        }))
         response.delete_cookie('access_token')
         response.delete_cookie('refresh_token')
         
         return response
         
     except Exception as e:
+        print(f"[LOGOUT] ⚠️ Erro no logout: {e}")
         # Mesmo com erro, remover cookies
-        response = make_response(jsonify({'message': 'Logout realizado'}))
+        response = make_response(jsonify({'message': 'Logout realizado com erro', 'error': str(e)}))
         response.delete_cookie('access_token')
         response.delete_cookie('refresh_token')
         return response
@@ -791,6 +826,42 @@ def get_current_user():
         return jsonify({'error': str(e)}), 401
 
 
+@app.route('/api/reset-session', methods=['POST'])
+@token_required
+def reset_session():
+    """
+    Reset manual da sessão do usuário
+    Limpa TUDO: jobs, filas, memória, histórico
+    Útil para botão "Resetar Chat" ou "Nova Conversa"
+    """
+    try:
+        # Obter dados do usuário
+        data = request.get_json()
+        username = data.get('username')
+        projeto = data.get('projeto', 'test_project')
+        
+        if not username:
+            # Tentar pegar do token
+            token = request.cookies.get('access_token')
+            user_info = get_user_info(token)
+            username = user_info.get('preferred_username', 'unknown')
+        
+        # Executar limpeza completa
+        stats = orchestrator.cleanup_user_session(username, projeto)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Sessão resetada com sucesso para {username}/{projeto}',
+            'stats': stats
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 # ============================================================================
 # ROTAS EXISTENTES
 # ============================================================================
@@ -831,7 +902,7 @@ def handle_connect():
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    """Cliente desconectado (F5/refresh) - Remove apenas chaves pendentes e para monitor"""
+    """Cliente desconectado (F5/refresh/logout) - LIMPEZA COMPLETA DA SESSÃO"""
     sid = request.sid
     print(f"\n{'='*80}")
     print(f"[WS] 🔌 Cliente desconectado: {sid}")
@@ -847,31 +918,30 @@ def handle_disconnect():
         projeto = user_info['projeto']
         print(f"[WS] 👤 Usuário: {username}")
         print(f"[WS] 📊 Projeto: {projeto}")
-        print(f"[WS] 🔑 Limpando chaves pendentes antigas...")
-        print(f"{'='*80}")
         
-        # APENAS REMOVER CHAVES PENDENTES (não cancelar jobs!)
-        # Os jobs vão continuar processando normalmente
-        # Mas as chaves pendentes antigas são removidas para não conflitar
-        # Quando novo job criar novas chaves, não haverá conflito
-        keys_patterns = [
-            f"plan_confirm:*:{username}:{projeto}",
-            f"user_feedback:*:{username}:{projeto}",
-            f"user_proposed_plan:*:{username}:{projeto}",
-        ]
-        
-        keys_deleted = 0
-        for pattern in keys_patterns:
-            for key in orchestrator.redis_client.scan_iter(match=pattern):
-                orchestrator.redis_client.delete(key)
-                keys_deleted += 1
-                print(f"[WS] 🗑️  Deletou chave: {key}")
+        # LIMPEZA COMPLETA DA SESSÃO
+        print(f"[WS] 🧹 Iniciando limpeza completa da sessão...")
+        stats = orchestrator.cleanup_user_session(username, projeto)
         
         # Remover do mapeamento
-        del sid_user_mapping[sid]
-        print(f"\n[WS] ✅ Limpou {keys_deleted} chave(s) pendente(s) para {username}/{projeto}")
-        print(f"[WS] 🛑 Monitor será parado automaticamente")
-        print(f"[WS] 💡 Jobs continuam processando (outputs serão ignorados - socket desconectado)")
+        if sid in sid_user_mapping:
+            del sid_user_mapping[sid]
+        
+        # Limpar flag de monitor
+        if sid in monitor_stop_flags:
+            del monitor_stop_flags[sid]
+        
+        # Limpar sessões ativas
+        jobs_to_remove = [job_id for job_id, stored_sid in active_sessions.items() if stored_sid == sid]
+        for job_id in jobs_to_remove:
+            if job_id in active_sessions:
+                del active_sessions[job_id]
+            if job_id in pending_inputs:
+                del pending_inputs[job_id]
+        
+        print(f"\n[WS] ✅ Limpeza completa concluída para {username}/{projeto}")
+        print(f"[WS] 📊 Total: {stats['jobs_deleted']} jobs + {stats['branches_deleted']} branches + {stats['pending_keys_deleted']} chaves pendentes + {stats['memory_keys_deleted']} memória + {stats['queue_jobs_removed']} jobs em fila")
+        print(f"[WS] 💡 Usuário pode reconectar com sessão limpa")
     else:
         print(f"[WS] ℹ️  Cliente não tinha sessão ativa")
     print(f"{'='*80}\n")
@@ -888,6 +958,29 @@ def handle_start_job(data):
         
         if not pergunta:
             emit('error', {'message': 'Campo "pergunta" é obrigatório'})
+            return
+        
+        # VERIFICAR COMANDO #resetar
+        if pergunta.strip().lower() == '#resetar':
+            print(f"\n{'='*80}")
+            print(f"[WS] 🔄 Comando #resetar detectado")
+            print(f"[WS] Username: {username}")
+            print(f"[WS] Projeto: {projeto}")
+            print(f"{'='*80}\n")
+            
+            # Executar limpeza completa
+            stats = orchestrator.cleanup_user_session(username, projeto)
+            
+            # Enviar mensagem de confirmação
+            emit('job_complete', {
+                'status': 'completed',
+                'result': {
+                    'resposta_final': '🔄 Memória do assistente foi resetada com sucesso!',
+                    'query': None,
+                    'source': 'RESET'
+                },
+                'stats': stats
+            })
             return
         
         print(f"\n{'='*80}")

@@ -126,7 +126,7 @@ class PlanRefinerAgent:
     
     def _build_system_prompt(self) -> str:
         """Constrói prompt de sistema"""
-        return f"""Você é um agente especializado em REFINAR PLANOS DE ANÁLISE baseado em sugestões de usuários.
+        return f"""{self.roles['system_prompt_intro']}
 
 ROLE: {self.roles['role']}
 DESCRIÇÃO: {self.roles['description']}
@@ -142,23 +142,7 @@ PROCESSO DE REFINAMENTO:
 VERIFICAÇÕES DE QUALIDADE:
 {chr(10).join(f"- {check}" for check in self.roles['quality_checks'])}
 
-FORMATO DE SAÍDA (JSON):
-{{
-  "refined_plan": "Plano refinado completo em texto estruturado",
-  "plan_steps": ["passo 1", "passo 2", "passo 3", ...],
-  "refinement_summary": "Resumo das principais mudanças",
-  "changes_applied": ["mudança 1", "mudança 2", ...],
-  "user_suggestions_incorporated": ["sugestão 1 aceita", ...],
-  "improvements_made": ["melhoria 1", "melhoria 2", ...],
-  "validation_notes": "Notas sobre validações realizadas"
-}}
-
-IMPORTANTE:
-- SEMPRE retorne um plano refinado válido e completo
-- SEMPRE inclua plan_steps como lista de strings (passos numerados e detalhados)
-- SEMPRE justifique mudanças significativas
-- SEMPRE valide que o plano atende à pergunta original
-- Mantenha a estrutura clara e os passos bem definidos
+{self.roles['system_prompt_output']}
 """
     
     def _build_user_prompt(
@@ -169,22 +153,12 @@ IMPORTANTE:
         intent_category: str
     ) -> str:
         """Constrói prompt do usuário"""
-        return f"""TAREFA: Refinar o plano de análise incorporando a sugestão do usuário.
-
-PERGUNTA ORIGINAL:
-{pergunta}
-
-CATEGORIA: {intent_category}
-
-PLANO ORIGINAL (gerado pelo PlanBuilder):
-{original_plan}
-
-SUGESTÃO DO USUÁRIO (do UserProposedPlan):
-{user_suggestion}
-
-Por favor, refine o plano original incorporando a sugestão do usuário de forma inteligente.
-Retorne o resultado em formato JSON conforme especificado.
-"""
+        return self.roles['user_prompt_template'].format(
+            pergunta=pergunta,
+            intent_category=intent_category,
+            original_plan=original_plan,
+            user_suggestion=user_suggestion
+        )
 
 
 if __name__ == "__main__":

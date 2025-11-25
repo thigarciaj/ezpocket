@@ -74,7 +74,7 @@ class PlanBuilderAgent:
         try:
             # Construir prompt para o GPT usando roles.json
             import json
-            system_prompt = f"""Você é um {self.roles['description']}
+            system_prompt = f"""{self.roles['system_prompt_intro']} {self.roles['description']}
 
 🎯 OBJETIVO:
 {self.roles['objective']}
@@ -105,20 +105,18 @@ RETORNE APENAS JSON válido no formato:
             
             if user_proposed_plan:
                 print(f"[PLAN_BUILDER]    💡 Sugestão do usuário detectada: {user_proposed_plan[:100]}...")
-                user_prompt = f"""Pergunta do usuário: "{pergunta}"
-Categoria: {intent_category}
-Projeto: {projeto}
-
-⚠️ IMPORTANTE: O usuário rejeitou o plano anterior e forneceu a seguinte sugestão:
-"{user_proposed_plan}"
-
-Crie um NOVO plano de execução que INCORPORE a sugestão do usuário e responda melhor à pergunta original."""
+                user_prompt = self.roles['user_prompt_with_suggestion'].format(
+                    pergunta=pergunta,
+                    intent_category=intent_category,
+                    projeto=projeto,
+                    user_proposed_plan=user_proposed_plan
+                )
             else:
-                user_prompt = f"""Pergunta do usuário: "{pergunta}"
-Categoria: {intent_category}
-Projeto: {projeto}
-
-Crie um plano de execução para responder esta pergunta."""
+                user_prompt = self.roles['user_prompt_normal'].format(
+                    pergunta=pergunta,
+                    intent_category=intent_category,
+                    projeto=projeto
+                )
 
             print(f"[PLAN_BUILDER]    🤖 Chamando {self.model} para gerar plano...")
             

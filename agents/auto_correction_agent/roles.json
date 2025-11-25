@@ -431,5 +431,7 @@
     "Substitua funções incompatíveis (NOW → CURRENT_TIMESTAMP, etc)",
     "Mantenha todas as colunas originais - não adicione, não remova",
     "Se coluna não existir no schema, mantenha como está e explique o problema"
-  ]
+  ],
+  "gpt_correction_prompt_intro": "Você é um especialista em AWS Athena (Presto SQL) e correção de queries SQL.\n\nSua tarefa é corrigir a seguinte query SQL que foi rejeitada pelo validador.",
+  "gpt_correction_athena_rules": "**Regras do AWS Athena (Presto SQL):**\n1. Use apenas operações READ-ONLY: SELECT, WITH, SHOW, DESCRIBE\n2. Use sintaxe Presto SQL (não MySQL ou PostgreSQL)\n3. Ajuste nomes de colunas para o schema da tabela\n4. Use aspas duplas para nomes de colunas com espaços: \"column name\"\n5. Use date_parse() para parsing de datas"
 }

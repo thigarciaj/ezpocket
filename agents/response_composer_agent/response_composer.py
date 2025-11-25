@@ -41,7 +41,7 @@ class ResponseComposerAgent:
         # Limitar dados brutos para evitar tokens excessivos (max 50 registros)
         results_sample = results[:50] if isinstance(results, list) else []
         
-        prompt = f"""Você é um assistente especializado em criar respostas elegantes e amigáveis para usuários de negócios.
+        prompt = f"""{self.roles['prompt_intro']}
 
 **PERGUNTA ORIGINAL DO USUÁRIO:**
 {pergunta}

@@ -149,24 +149,12 @@ class AnalysisOrchestratorAgent:
     def _build_system_prompt(self) -> str:
         """Constrói o prompt do sistema com todas as regras e contexto"""
         
-        return f"""Você é o Analysis Orchestrator Agent, motor principal de geração de queries SQL para AWS Athena.
-
-🎯 OBJETIVO:
-Transformar um plano de análise em uma query SQL OTIMIZADA, SEGURA e VÁLIDA para AWS Athena.
+        return f"""{self.roles['system_prompt_template']}
 
 {json.dumps(self.roles['security_rules'], indent=2, ensure_ascii=False)}
 
 📐 REGRAS COMPLETAS (DATABASE SCHEMA + INSTRUÇÕES + FUNÇÕES PROIBIDAS):
 {json.dumps(self.roles, indent=2, ensure_ascii=False)}
-
-🎯 FORMATO DE SAÍDA (JSON):
-{{
-  "query_sql": "Query SQL completa e otimizada",
-  "query_explanation": "Explicação clara do que a query faz",
-  "columns_used": ["lista", "de", "colunas"],
-  "filters_applied": ["lista", "de", "filtros"],
-  "optimization_notes": "Notas sobre otimizações aplicadas"
-}}
 
 ✅ CHECKLIST DE VALIDAÇÃO:
 Antes de retornar, verifique:
@@ -187,19 +175,11 @@ Antes de retornar, verifique:
     def _build_user_prompt(self, plan: str, pergunta: str, intent_category: str) -> str:
         """Constrói o prompt do usuário com o plano e contexto"""
         
-        return f"""Transforme este plano em uma query SQL otimizada:
-
-📝 PERGUNTA DO USUÁRIO:
-{pergunta}
-
-📋 PLANO DE ANÁLISE:
-{plan}
-
-📂 CATEGORIA: {intent_category}
-
-Gere a query SQL seguindo TODAS as regras de segurança, semântica e sintaxe do Athena.
-Retorne no formato JSON especificado.
-"""
+        return self.roles['user_prompt_template'].format(
+            pergunta=pergunta,
+            plan=plan,
+            intent_category=intent_category
+        )
     
     def _validate_security(self, query: str) -> Dict[str, Any]:
         """Valida se a query respeita as regras de segurança"""

@@ -182,5 +182,11 @@
     "context_awareness": "Considerar contexto de negócio ao interpretar números",
     "avoid_overanalysis": "Não forçar insights quando dados são simples/diretos",
     "transparency": "Ser claro sobre limitações e suposições da análise"
-  }
+  },
+  "system_prompt_initial": "Você é um especialista em análise de dados e negócios. Retorne SEMPRE um JSON válido.",
+  "analysis_prompt_intro": "Você é um {agent_role}.\n\n**PERGUNTA ORIGINAL DO USUÁRIO:**\n{pergunta}\n\n**QUERY SQL EXECUTADA:**\n{query_executed}\n\n**DADOS RETORNADOS:**\n- Total de linhas: {row_count}\n- Colunas: {columns}\n- Amostra dos dados (formato JSON):\n```json\n{results_sample}\n```",
+  "analysis_responsibilities": "**SUAS RESPONSABILIDADES:**\n{responsibilities}",
+  "analysis_types_section": "**TIPOS DE ANÁLISE DISPONÍVEIS:**\n{analysis_types}",
+  "insight_guidelines_section": "**DIRETRIZES PARA INSIGHTS:**\n{insight_guidelines}",
+  "analysis_task": "**TAREFA:**\nAnalise os dados retornados pela query e gere:\n\n1. **Análise Estatística Completa**: Use Python (pandas, numpy, scipy) mentalmente para calcular:\n   - Estatísticas descritivas (média, mediana, desvio padrão, quartis)\n   - Tendências (crescimento, sazonalidade)\n   - Comparações entre categorias\n   - Detecção de anomalias (outliers)\n\n2. **Insights de Negócio**: Identifique 3-5 insights acionáveis que respondam à pergunta original e revelem oportunidades ou riscos\n\n3. **Visualizações Recomendadas**: Sugira 2-3 tipos de gráficos ideais para visualizar esses dados\n\n4. **Recomendações Estratégicas**: Forneça 2-4 recomendações práticas baseadas na análise"
 }

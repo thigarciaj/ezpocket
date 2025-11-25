@@ -41,83 +41,77 @@ class PythonRuntimeAgent:
         # Usar results_full se disponível, senão results_preview
         results_to_analyze = results_full if results_full else results_preview
         
-        prompt = f"""Você é um {self.roles['agent_role']}.
-
-**PERGUNTA ORIGINAL DO USUÁRIO:**
-{pergunta}
-
-**QUERY SQL EXECUTADA:**
-{query_executed}
-
-**DADOS RETORNADOS:**
-- Total de linhas: {row_count}
-- Colunas: {', '.join(columns)}
-- Amostra dos dados (formato JSON):
-```json
-{json.dumps(results_to_analyze[:100], indent=2, ensure_ascii=False)}
-```
-
-**SUAS RESPONSABILIDADES:**
-{chr(10).join('- ' + r for r in self.roles['responsibilities'])}
-
-**TIPOS DE ANÁLISE DISPONÍVEIS:**
-{json.dumps(self.roles['analysis_types'], indent=2, ensure_ascii=False)}
-
-**DIRETRIZES PARA INSIGHTS:**
-{json.dumps(self.roles['insight_guidelines'], indent=2, ensure_ascii=False)}
-
-**TAREFA:**
-Analise os dados retornados pela query e gere:
-
-1. **Análise Estatística Completa**: Use Python (pandas, numpy, scipy) mentalmente para calcular:
-   - Estatísticas descritivas (média, mediana, desvio padrão, quartis)
-   - Tendências (crescimento, sazonalidade)
-   - Comparações entre categorias
-   - Detecção de anomalias (outliers)
-
-2. **Insights de Negócio**: Identifique 3-5 insights acionáveis que respondam à pergunta original e revelem oportunidades ou riscos
-
-3. **Visualizações Recomendadas**: Sugira 2-3 tipos de gráficos ideais para visualizar esses dados
-
-4. **Recomendações Estratégicas**: Forneça 2-4 recomendações práticas baseadas na análise
-
+        # Construir prompt a partir do roles.json
+        results_sample = json.dumps(results_to_analyze[:100], indent=2, ensure_ascii=False)
+        columns_str = ', '.join(columns)
+        responsibilities_str = chr(10).join('- ' + r for r in self.roles['responsibilities'])
+        analysis_types_str = json.dumps(self.roles['analysis_types'], indent=2, ensure_ascii=False)
+        insight_guidelines_str = json.dumps(self.roles['insight_guidelines'], indent=2, ensure_ascii=False)
+        
+        prompt_intro = self.roles['analysis_prompt_intro'].format(
+            agent_role=self.roles['agent_role'],
+            pergunta=pergunta,
+            query_executed=query_executed,
+            row_count=row_count,
+            columns=columns_str,
+            results_sample=results_sample
+        )
+        
+        prompt_responsibilities = self.roles['analysis_responsibilities'].format(
+            responsibilities=responsibilities_str
+        )
+        
+        prompt_types = self.roles['analysis_types_section'].format(
+            analysis_types=analysis_types_str
+        )
+        
+        prompt_guidelines = self.roles['insight_guidelines_section'].format(
+            insight_guidelines=insight_guidelines_str
+        )
+        
+        prompt_task = self.roles['analysis_task']
+        
+        # JSON format template (mantido hardcoded por ser estrutural)
+        json_format = f"""
 **FORMATO DE RESPOSTA (JSON):**
-{{
+{{{{
   "analysis_summary": "Resumo executivo da análise em 2-3 frases",
-  "statistics": {{
+  "statistics": {{{{
     "total_records": {row_count},
     "key_metrics": {{}},
     "trends": {{}},
     "comparisons": {{}}
-  }},
+  }}}},
   "insights": [
-    {{
+    {{{{
       "title": "Título do insight",
       "description": "Descrição detalhada do insight",
       "impact": "alto|médio|baixo",
       "business_value": "Como isso impacta o negócio"
-    }}
+    }}}}
   ],
   "visualizations": [
-    {{
+    {{{{
       "type": "line_chart|bar_chart|pie_chart|scatter_plot",
       "title": "Título do gráfico",
       "x_axis": "nome_coluna_x",
       "y_axis": "nome_coluna_y",
       "reason": "Por que esse gráfico é relevante"
-    }}
+    }}}}
   ],
   "recommendations": [
-    {{
+    {{{{
       "action": "Ação recomendada",
       "priority": "alta|média|baixa",
       "expected_impact": "Impacto esperado"
-    }}
+    }}}}
   ],
   "analysis_type": "descriptive_statistics|trend_analysis|comparative_analysis|anomaly_detection"
-}}
+}}}}
 
 Responda APENAS com o JSON, sem texto adicional."""
+        
+        prompt = f"{prompt_intro}\n\n{prompt_responsibilities}\n\n{prompt_types}\n\n{prompt_guidelines}\n\n{prompt_task}\n{json_format}"
         
         return prompt
     
@@ -151,7 +145,7 @@ Responda APENAS com o JSON, sem texto adicional."""
                 messages=[
                     {
                         "role": "system",
-                        "content": "Você é um especialista em análise de dados e negócios. Retorne SEMPRE um JSON válido."
+                        "content": self.roles['system_prompt_initial']
                     },
                     {
                         "role": "user",

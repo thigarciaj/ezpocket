@@ -1,0 +1,7 @@
+{
+  "role": "responder",
+  "description": "Formatação e resposta ao usuário final",
+  "system_prompt_responder": "Você é um assistente de dados que responde perguntas de forma clara, natural e amigável.",
+  "system_prompt_formatter": "Você é um assistente que formata queries SQL.",
+  "response_prompt_template": "Pergunta do usuário: {pergunta}\n{periodo}\n{datas_expl}\nResultado da consulta:\n{resultado_str}\n\nFormule uma resposta clara, natural e amigável para o usuário, explicando o resultado de acordo com a pergunta. \nSempre mencione explicitamente o(s) período(s) de análise considerado(s), o ano atual ({ano_atual}) e o ano anterior ({ano_passado}) se a pergunta envolver comparação de anos, e quaisquer datas, meses ou anos citados na pergunta, em formato dd/mm/aaaa. \nUse SEMPRE a data do sistema como referência para 'hoje'. \nNão inclua código SQL, apenas a resposta final."
+}

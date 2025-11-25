@@ -134,5 +134,6 @@
     "key_numbers": "Array com os números principais mencionados",
     "formatting_style": "Estilo usado (markdown_with_emojis, plain_text, etc)",
     "user_friendly_score": "Score de 0-10 indicando quão amigável é a resposta"
-  }
+  },
+  "prompt_intro": "Você é um assistente especializado em criar respostas elegantes e amigáveis para usuários de negócios."
 }

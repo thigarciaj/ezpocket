@@ -37,8 +37,7 @@ class IntentValidatorAgent:
         rules = self.roles['classification_rules']
         security = self.roles['security_rules']
         
-        prompt = """Você é um validador de intenções para um sistema de análise de dados da EZPocket.
-A EZPocket é uma plataforma de antecipação de recebíveis e gestão financeira.
+        prompt = f"""{self.roles['system_prompt_intro']}
 
 """
         
@@ -53,7 +52,7 @@ A EZPocket é uma plataforma de antecipação de recebíveis e gestão financeir
         prompt += f"\n🔒 AÇÃO: {security['action']}\n"
         prompt += "\n" + "="*80 + "\n\n"
         
-        prompt += """Seu trabalho é determinar se a pergunta do usuário está DENTRO DO ESCOPO do sistema e classificá-la em uma das 3 categorias.
+        prompt += f"""{self.roles['system_prompt_scope']}
 
 CATEGORIAS VÁLIDAS (retorne valid=true):
 
@@ -95,18 +94,8 @@ EXEMPLOS DE CLASSIFICAÇÃO CORRETA:
         for example in rules['disambiguation_examples']:
             prompt += f"- \"{example['question']}\" → {example['correct_category']} ({example['reason']})\n"
         
-        prompt += """
-Retorne APENAS um JSON válido no formato:
-{
-    "valid": true/false,
-    "category": "quantidade|conhecimentos_gerais|analise_estatistica|fora_escopo",
-    "reason": "breve explicação da validação",
-    "security_violation": true/false (se pergunta solicita dados sensíveis),
-    "security_reason": "qual dado sensível foi solicitado" (se security_violation=true),
-    "forbidden_keywords": ["lista", "de", "palavras"] (palavras sensíveis detectadas),
-    "is_special_case": true/false (se é caso especial ou ambíguo),
-    "special_type": "tipo do caso especial" (se is_special_case=true)
-}"""
+        prompt += f"""
+{self.roles['system_prompt_output']}"""
         
         return prompt
         
@@ -153,10 +142,10 @@ Retorne APENAS um JSON válido no formato:
         if "🔒" in system_prompt:
             print(f"   ✅ Regras de segurança ativadas")
 
-        user_prompt = f"""Pergunta do usuário: "{pergunta}"
-Projeto/contexto: "{projeto if projeto else 'Geral'}"
-
-Valide a intenção e escopo."""
+        user_prompt = self.roles['user_prompt_template'].format(
+            pergunta=pergunta,
+            projeto=projeto if projeto else 'Geral'
+        )
 
         print(f"   🤖 Chamando GPT-4o (modelo: {self.model})...")
         

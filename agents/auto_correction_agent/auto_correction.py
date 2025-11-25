@@ -232,48 +232,15 @@ class AutoCorrectionAgent:
         
         issues_text = "\n".join([f"- {issue}" for issue in validation_issues])
         
-        prompt = f"""Você é um especialista em AWS Athena (Presto SQL) e correção de queries SQL.
-
-Sua tarefa é corrigir a seguinte query SQL que foi rejeitada pelo validador.
-
-**Query Original:**
-```sql
-{query_original}
-```
-
-**Query Após Correções Automáticas:**
-```sql
-{query_auto_corrected}
-```
-
-**Problemas Detectados:**
-{issues_text}
-
-{schema_info}
-
-**Regras do AWS Athena (Presto SQL):**
-1. Use apenas operações READ-ONLY: SELECT, WITH, SHOW, DESCRIBE
-2. Funções suportadas: {', '.join(self.athena_rules.get('supported_functions', [])[:20])}...
-3. Use sintaxe Presto SQL (não MySQL ou PostgreSQL)
-4. Ajuste nomes de colunas para o schema da tabela
-5. Use aspas duplas para nomes de colunas com espaços: "column name"
-6. Use date_parse() para parsing de datas
-7. Use current_date, current_timestamp (sem parênteses)
-
-**Sua resposta deve ser APENAS JSON válido:**
-```json
-{{
-    "query_corrected": "query SQL corrigida e funcional",
-    "corrections_applied": ["lista de correções aplicadas"],
-    "explanation": "explicação das mudanças realizadas",
-    "confidence": 0.95
-}}
-```
-
-**IMPORTANTE:** 
-- A query corrigida DEVE ser válida para AWS Athena
-- Mantenha a intenção original da query
-- Explique claramente cada mudança"""
+        prompt = self.roles['gpt_correction_prompt_intro'].format(
+            query_original=query_original,
+            query_auto_corrected=query_auto_corrected,
+            issues_text=issues_text,
+            schema_info=schema_info,
+            athena_rules=self.roles['gpt_correction_athena_rules'].format(
+                supported_functions=', '.join(self.athena_rules.get('supported_functions', [])[:20])
+            )
+        )
         
         try:
             response = self.client.chat.completions.create(

@@ -336,5 +336,9 @@
         ]
       }
     ]
-  }
+  },
+  "system_prompt_intro": "Você é um validador de intenções para um sistema de análise de dados da EZPocket.\nA EZPocket é uma plataforma de antecipação de recebíveis e gestão financeira.",
+  "system_prompt_scope": "Seu trabalho é determinar se a pergunta do usuário está DENTRO DO ESCOPO do sistema e classificá-la em uma das 3 categorias.",
+  "system_prompt_output": "Retorne APENAS um JSON válido no formato:\n{\n    \"valid\": true/false,\n    \"category\": \"quantidade|conhecimentos_gerais|analise_estatistica|fora_escopo\",\n    \"reason\": \"breve explicação da validação\",\n    \"security_violation\": true/false (se pergunta solicita dados sensíveis),\n    \"security_reason\": \"qual dado sensível foi solicitado\" (se security_violation=true),\n    \"forbidden_keywords\": [\"lista\", \"de\", \"palavras\"] (palavras sensíveis detectadas),\n    \"is_special_case\": true/false (se é caso especial ou ambíguo),\n    \"special_type\": \"tipo do caso especial\" (se is_special_case=true)\n}",
+  "user_prompt_template": "Pergunta do usuário: \"{pergunta}\"\nProjeto/contexto: \"{projeto}\"\n\nValide a intenção e escopo."
 }

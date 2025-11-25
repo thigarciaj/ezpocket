@@ -191,6 +191,166 @@ class GraphOrchestrator:
             queues[module] = size
         return queues
     
+    def cleanup_user_session(self, username: str, projeto: str) -> Dict[str, Any]:
+        """
+        Limpa TUDO relacionado a um usuário/projeto quando ele faz logout/F5/reset
+        
+        Remove:
+        - Jobs ativos e suas branches
+        - Chaves pendentes (plan_confirm, user_feedback, user_proposed_plan)
+        - Histórico/memória no Redis
+        - Jobs das filas (previne processamento de jobs antigos)
+        
+        Args:
+            username: Nome do usuário
+            projeto: Nome do projeto
+            
+        Returns:
+            Dict com estatísticas da limpeza
+        """
+        print(f"\n{'='*80}")
+        print(f"🧹 LIMPEZA DE SESSÃO - {username}/{projeto}")
+        print(f"{'='*80}")
+        
+        stats = {
+            'jobs_deleted': 0,
+            'branches_deleted': 0,
+            'pending_keys_deleted': 0,
+            'memory_keys_deleted': 0,
+            'queue_jobs_removed': 0
+        }
+        
+        # 1. BUSCAR E DELETAR JOBS ATIVOS DO USUÁRIO
+        print(f"\n[CLEANUP] 🔍 Buscando jobs de {username}/{projeto}...")
+        
+        job_pattern = "job:*"
+        for job_key in self.redis_client.scan_iter(match=job_pattern):
+            try:
+                job_data = json.loads(self.redis_client.get(job_key))
+                
+                # Verificar se o job pertence ao usuário/projeto
+                if (job_data.get('username') == username and 
+                    job_data.get('projeto') == projeto):
+                    
+                    job_id = job_data.get('job_id')
+                    print(f"[CLEANUP] 🗑️  Deletando job: {job_id}")
+                    
+                    # Deletar o job
+                    self.redis_client.delete(job_key)
+                    stats['jobs_deleted'] += 1
+                    
+                    # Deletar branches deste job
+                    branch_pattern = f"job:{job_id}:branch:*"
+                    for branch_key in self.redis_client.scan_iter(match=branch_pattern):
+                        self.redis_client.delete(branch_key)
+                        stats['branches_deleted'] += 1
+                        print(f"[CLEANUP] 🗑️  Deletando branch: {branch_key}")
+            
+            except (json.JSONDecodeError, TypeError):
+                continue
+        
+        # 2. DELETAR CHAVES PENDENTES DE INPUT
+        print(f"\n[CLEANUP] 🔑 Limpando chaves pendentes...")
+        pending_patterns = [
+            f"plan_confirm:*:{username}:{projeto}",
+            f"user_feedback:*:{username}:{projeto}",
+            f"user_proposed_plan:*:{username}:{projeto}",
+        ]
+        
+        for pattern in pending_patterns:
+            for key in self.redis_client.scan_iter(match=pattern):
+                self.redis_client.delete(key)
+                stats['pending_keys_deleted'] += 1
+                print(f"[CLEANUP] 🗑️  Deletando chave: {key}")
+        
+        # 3. DELETAR HISTÓRICO/MEMÓRIA NO REDIS
+        print(f"\n[CLEANUP] 💾 Limpando histórico/memória...")
+        memory_patterns = [
+            f"history:{username}:{projeto}",
+            f"memory:{username}:{projeto}",
+            f"context:{username}:{projeto}",
+            f"chat_history:{username}:{projeto}",
+        ]
+        
+        for pattern in memory_patterns:
+            for key in self.redis_client.scan_iter(match=pattern):
+                self.redis_client.delete(key)
+                stats['memory_keys_deleted'] += 1
+                print(f"[CLEANUP] 🗑️  Deletando memória: {key}")
+        
+        # 4. MARCAR JOBS PARA CANCELAMENTO (jobs em processamento)
+        print(f"\n[CLEANUP] 🚫 Marcando jobs em processamento para cancelamento...")
+        # Criar chave de cancelamento que os workers irão verificar
+        cancel_key = f"cancelled_jobs:{username}:{projeto}"
+        
+        # Buscar todos os jobs do usuário e adicionar seus IDs à lista de cancelamento
+        job_pattern = "job:*"
+        cancelled_job_ids = []
+        for job_key in self.redis_client.scan_iter(match=job_pattern):
+            try:
+                job_data = json.loads(self.redis_client.get(job_key))
+                if (job_data.get('username') == username and 
+                    job_data.get('projeto') == projeto and
+                    job_data.get('status') in ['pending', 'processing']):
+                    job_id = job_data.get('job_id')
+                    cancelled_job_ids.append(job_id)
+                    print(f"[CLEANUP] 🚫 Marcando job para cancelamento: {job_id}")
+            except:
+                continue
+        
+        # Salvar lista de jobs cancelados no Redis (expira em 60s)
+        if cancelled_job_ids:
+            self.redis_client.sadd(cancel_key, *cancelled_job_ids)
+            self.redis_client.expire(cancel_key, 60)
+            print(f"[CLEANUP] 🚫 {len(cancelled_job_ids)} jobs marcados para cancelamento")
+        
+        # 5. REMOVER JOBS DAS FILAS (previne processamento de jobs antigos)
+        print(f"\n[CLEANUP] 📮 Limpando filas...")
+        for module in self.connections.keys():
+            queue_name = f"queue:{module}"
+            queue_length = self.redis_client.llen(queue_name)
+            
+            if queue_length > 0:
+                # Processar cada job na fila
+                temp_jobs = []
+                for _ in range(queue_length):
+                    job_id = self.redis_client.lpop(queue_name)
+                    if job_id:
+                        # Verificar se o job pertence ao usuário
+                        job_key = f"job:{job_id}"
+                        job_data_raw = self.redis_client.get(job_key)
+                        
+                        if job_data_raw:
+                            try:
+                                job_data = json.loads(job_data_raw)
+                                if (job_data.get('username') != username or 
+                                    job_data.get('projeto') != projeto):
+                                    # Manter jobs de outros usuários
+                                    temp_jobs.append(job_id)
+                                else:
+                                    stats['queue_jobs_removed'] += 1
+                                    print(f"[CLEANUP] 🗑️  Removendo job da fila {queue_name}: {job_id}")
+                            except json.JSONDecodeError:
+                                temp_jobs.append(job_id)
+                
+                # Re-adicionar jobs que não são do usuário
+                for job_id in temp_jobs:
+                    self.redis_client.rpush(queue_name, job_id)
+        
+        # 5. RESUMO
+        print(f"\n{'='*80}")
+        print(f"✅ LIMPEZA CONCLUÍDA - {username}/{projeto}")
+        print(f"{'='*80}")
+        print(f"📊 Estatísticas:")
+        print(f"   🗑️  Jobs deletados: {stats['jobs_deleted']}")
+        print(f"   🗑️  Branches deletadas: {stats['branches_deleted']}")
+        print(f"   🗑️  Chaves pendentes deletadas: {stats['pending_keys_deleted']}")
+        print(f"   🗑️  Memória/histórico deletado: {stats['memory_keys_deleted']}")
+        print(f"   🗑️  Jobs removidos das filas: {stats['queue_jobs_removed']}")
+        print(f"{'='*80}\n")
+        
+        return stats
+    
     def visualize_graph(self):
         """Mostra estrutura do grafo"""
         print("\n" + "="*80)
@@ -234,6 +394,31 @@ class ModuleWorker:
         self.queue_name = f"queue:{module_name}"
         self.connections = GRAPH_CONNECTIONS
         self.running = False
+    
+    def is_job_cancelled(self, job_id: str, username: str, projeto: str) -> bool:
+        """
+        Verifica se o job foi cancelado (F5/logout do usuário)
+        Workers devem chamar isso ANTES de processar
+        """
+        cancel_key = f"cancelled_jobs:{username}:{projeto}"
+        is_cancelled = self.redis_client.sismember(cancel_key, job_id)
+        
+        if is_cancelled:
+            print(f"[{self.module_name}] 🚫 Job {job_id[:8]}... foi CANCELADO - Pulando processamento")
+            # Atualizar status do job para cancelled
+            job_key = f"job:{job_id}"
+            job_data_raw = self.redis_client.get(job_key)
+            if job_data_raw:
+                try:
+                    job_data = json.loads(job_data_raw)
+                    job_data['status'] = 'cancelled'
+                    job_data['cancelled_at'] = datetime.now().isoformat()
+                    job_data['cancelled_reason'] = 'User logout/refresh'
+                    self.redis_client.setex(job_key, 60, json.dumps(job_data))
+                except:
+                    pass
+        
+        return is_cancelled
         
     def start(self):
         """Inicia o worker (loop infinito processando fila)"""
@@ -277,9 +462,16 @@ class ModuleWorker:
             print(f"   ❌ Erro ao decodificar JSON: {e}")
             return
         
-        # VERIFICAR SE JOB FOI CANCELADO
+        # VERIFICAR SE JOB FOI CANCELADO (status direto)
         if job_data.get('status') == 'cancelled':
             print(f"   🚫 Job cancelado (motivo: {job_data.get('cancelled_reason', 'unknown')}) - pulando processamento")
+            return
+        
+        # VERIFICAR SE JOB ESTÁ NA LISTA DE CANCELAMENTO (F5/logout)
+        username = job_data.get('username', 'unknown')
+        projeto = job_data.get('projeto', 'default')
+        if self.is_job_cancelled(job_id, username, projeto):
+            print(f"   🚫 Job {job_id[:8]}... está na lista de cancelamento - pulando")
             return
         
         try:

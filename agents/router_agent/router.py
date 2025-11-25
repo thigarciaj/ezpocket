@@ -6,6 +6,7 @@ Responsável por:
 - Decidir se usa FAQ ou gera nova query
 """
 import os
+import json
 from openai import OpenAI
 from dotenv import load_dotenv
 import sys
@@ -24,6 +25,11 @@ class RouterAgent:
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.client = OpenAI(api_key=self.openai_api_key)
         self.enable_faq_matching = os.getenv("ENABLE_FAQ_MATCHING", "true").lower() in ("true", "1", "yes")
+        
+        # Carrega roles.json
+        roles_path = os.path.join(os.path.dirname(__file__), "roles.json")
+        with open(roles_path, 'r', encoding='utf-8') as f:
+            self.roles = json.load(f)
         
         # Inicializa FAQ Matcher
         self.faq_matcher = FAQMatcher() if self.enable_faq_matching else None
@@ -113,19 +119,12 @@ class RouterAgent:
         if tipo == "despedida":
             print(f"[ROUTER] 👋 Gerando despedida")
             
-            prompt = (
-                "O usuário está se despedindo, agradecendo ou encerrando a conversa. "
-                "Responda de forma simpática, natural, breve e personalizada, agradecendo o contato, "
-                "desejando algo positivo e se colocando à disposição para futuras dúvidas. "
-                "Inclua obrigatoriamente na resposta algum trocadilho, menção criativa ou referência "
-                "divertida a iPhones, iPads ou Apple Watches, que são os produtos vendidos pela EZPAG. "
-                "Seja criativo, use emojis e varie as respostas."
-            )
+            prompt = self.roles['goodbye_prompt']
             
             resposta_llm = self.client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": "Você é um assistente de dados simpático, educado e amigável."},
+                    {"role": "system", "content": self.roles['system_prompt']},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.9,
