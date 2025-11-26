@@ -44,7 +44,7 @@ services:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/${KEYCLOAK_DB:-keycloak}
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${KEYCLOAK_DB:-keycloak_db}
       KC_DB_USERNAME: ${POSTGRES_USER:-ezpocket_user}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-ezpocket_pass_2025}
       KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-localhost}
@@ -52,11 +52,11 @@ services:
       KC_PROXY: edge
     ports:
       - "${KEYCLOAK_PORT:-8180}:8080"
-    command: start-dev
+    command: sh -c "sleep 10 && /opt/keycloak/bin/kc.sh start-dev"
     depends_on:
       postgres:
         condition: service_healthy
-    restart: unless-stopped
+    restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
