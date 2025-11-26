@@ -287,7 +287,7 @@ services:
       resources:
         limits:
           memory: 2G
-          cpus: "1.5"
+          cpus: "1.0"
 
   worker-response-composer:
     build:
