@@ -76,21 +76,8 @@ services:
       - REDIS_PORT=6379
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
-      - POSTGRES_DB=${POSTGRES_DB:-ezpocket_logs}
-      - POSTGRES_USER=${POSTGRES_USER:-ezpocket_user}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-ezpocket_pass_2025}
       - KEYCLOAK_HOSTNAME=keycloak
       - KEYCLOAK_PORT=8080
-      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-ezpocket}
-      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID:-ezpocket-client}
-      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
-      - AWS_SECRET_KEY=${AWS_SECRET_KEY}
-      - AWS_REGION=${AWS_REGION:-us-east-1}
-      - ATHENA_OUTPUT_S3=${ATHENA_OUTPUT_S3}
-      - DATABASE=${DATABASE:-receivables_db}
-      - FRONTEND_MODE=${FRONTEND_MODE:-production}
     ports:
       - "5555:5555"
     depends_on:
@@ -120,7 +107,6 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
       - redis
       - orchestrator
@@ -142,7 +128,6 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
       - redis
       - orchestrator
@@ -185,7 +170,6 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
       - redis
       - orchestrator
@@ -207,7 +191,6 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
       - redis
       - orchestrator
@@ -229,11 +212,6 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
-      - AWS_SECRET_KEY=${AWS_SECRET_KEY}
-      - AWS_REGION=${AWS_REGION:-us-east-1}
-      - ATHENA_OUTPUT_S3=${ATHENA_OUTPUT_S3}
-      - DATABASE=${DATABASE:-receivables_db}
     depends_on:
       - redis
       - orchestrator
@@ -255,7 +233,6 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
       - redis
       - orchestrator
@@ -277,7 +254,6 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
       - redis
       - orchestrator
@@ -299,7 +275,6 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
       - redis
       - orchestrator
@@ -323,9 +298,6 @@ services:
       - REDIS_PORT=6379
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
-      - POSTGRES_DB=${POSTGRES_DB:-ezpocket_logs}
-      - POSTGRES_USER=${POSTGRES_USER:-ezpocket_user}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-ezpocket_pass_2025}
     depends_on:
       - redis
       - postgres
@@ -350,10 +322,6 @@ services:
       - REDIS_PORT=6379
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
-      - POSTGRES_DB=${POSTGRES_DB:-ezpocket_logs}
-      - POSTGRES_USER=${POSTGRES_USER:-ezpocket_user}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-ezpocket_pass_2025}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
       - redis
       - postgres
@@ -397,7 +365,6 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
       - redis
       - orchestrator
