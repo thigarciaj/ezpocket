@@ -2597,6 +2597,9 @@
                 
                 // Só reseta o jobId se não estiver aguardando nenhum input do usuário
                 if (!waitingForConfirmation && !waitingForRating && !waitingForComment && !waitingForPlanSuggestion) {
+                    // Mostrar mensagem de continuação
+                    addMessageToChat('EZPocket', '💬 **Tem mais alguma pergunta?**\n\nEstou aqui para ajudar! Digite sua próxima pergunta.', 'bot');
+                    
                     // Limpar jobs e workers após o job estar completamente finalizado
                     console.log('🧹 Job finalizado - limpando Redis...');
                     setTimeout(() => {
@@ -3311,68 +3314,54 @@
             
             selectedRating = 0; // Reset
             
-            // Adicionar event listeners para as estrelas
+            // Adicionar event listeners para as estrelas DESTA caixa específica
             const stars = ratingDiv.querySelectorAll('.star');
+            const confirmBtn = ratingDiv.querySelector('.rating-confirm-btn');
+            
             stars.forEach((star, index) => {
                 star.addEventListener('click', function() {
-                    selectStar(index + 1);
+                    selectedRating = index + 1;
+                    console.log('⭐ Estrela selecionada:', selectedRating);
+                    
+                    // Atualizar visual das estrelas DESTA caixa
+                    stars.forEach((s, i) => {
+                        if (i <= index) {
+                            s.classList.add('active');
+                        } else {
+                            s.classList.remove('active');
+                        }
+                    });
+                    
+                    // Habilitar botão de confirmação
+                    if (confirmBtn) {
+                        confirmBtn.disabled = false;
+                    }
                 });
             });
             
             // Adicionar event listener para o botão de confirmação
-            const confirmBtn = ratingDiv.querySelector('.rating-confirm-btn');
             if (confirmBtn) {
-                confirmBtn.addEventListener('click', confirmRating);
+                confirmBtn.addEventListener('click', function() {
+                    if (selectedRating === 0) return;
+                    
+                    console.log('✅ Confirmando avaliação:', selectedRating);
+                    
+                    // Desabilitar botões e estrelas DESTA caixa
+                    stars.forEach(star => star.style.pointerEvents = 'none');
+                    confirmBtn.disabled = true;
+                    
+                    // Salvar nota e mostrar mensagem de sucesso
+                    userRating = selectedRating;
+                    waitingForRating = false;
+                    waitingForComment = true;
+                    
+                    // Mostrar mensagem pedindo comentário
+                    addMessageToChat('EZPocket', `✅ Nota ${selectedRating} registrada!\n\n**Deixe um comentário (opcional)**\nDigite seu comentário no campo abaixo ou pressione Enter para pular`, 'bot');
+                    
+                    // Desbloqueia input para comentário
+                    unblockInputArea();
+                });
             }
-        }
-
-        // Selecionar estrela
-        function selectStar(rating) {
-            selectedRating = rating;
-            console.log('⭐ Estrela selecionada:', rating);
-            
-            // Atualizar visual das estrelas
-            const stars = document.querySelectorAll('.star');
-            stars.forEach((star, index) => {
-                if (index < rating) {
-                    star.classList.add('active');
-                } else {
-                    star.classList.remove('active');
-                }
-            });
-            
-            // Habilitar botão de confirmação
-            const confirmBtn = document.querySelector('.rating-confirm-btn');
-            if (confirmBtn) {
-                confirmBtn.disabled = false;
-            }
-        }
-
-        // Confirmar avaliação
-        function confirmRating() {
-            if (selectedRating === 0) return;
-            
-            console.log('✅ Confirmando avaliação:', selectedRating);
-            
-            // Desabilitar botões e estrelas
-            const stars = document.querySelectorAll('.star');
-            stars.forEach(star => star.style.pointerEvents = 'none');
-            
-            const confirmBtn = document.querySelector('.rating-confirm-btn');
-            if (confirmBtn) {
-                confirmBtn.disabled = true;
-            }
-            
-            // Salvar nota e mostrar mensagem de sucesso
-            userRating = selectedRating;
-            waitingForRating = false;
-            waitingForComment = true;
-            
-            // Mostrar mensagem pedindo comentário
-            addMessageToChat('EZPocket', `✅ Nota ${selectedRating} registrada!\n\n**Deixe um comentário (opcional)**\nDigite seu comentário no campo abaixo ou pressione Enter para pular`, 'bot');
-            
-            // Desbloqueia input para comentário
-            unblockInputArea();
         }
 
         function addMessageToChat(sender, message, type) {
