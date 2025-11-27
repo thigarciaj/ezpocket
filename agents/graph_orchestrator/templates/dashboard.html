@@ -336,6 +336,27 @@
             transform: scale(1.05);
         }
 
+        .send-button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        .send-button:disabled:hover {
+            background: #666;
+            transform: none;
+        }
+
+        .chat-input:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .chat-input-wrapper.processing {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
         /* Painel Direito - Informações Rápidas */
         .right-panel {
             width: 320px;
@@ -1017,6 +1038,36 @@
             }
         }
 
+        /* Responsividade para botões de confirmação e estrelas */
+        @media (max-width: 768px) {
+            .confirmation-buttons {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .btn-confirm, .btn-reject {
+                width: 100%;
+                padding: 14px 20px;
+            }
+            
+            .star {
+                font-size: 35px;
+            }
+            
+            .stars-container {
+                gap: 8px;
+            }
+            
+            .rating-box h3 {
+                font-size: 16px;
+            }
+            
+            .rating-confirm-btn {
+                width: 100%;
+                padding: 14px 20px;
+            }
+        }
+
         /* Modal Criar Projeto - Responsivo */
         @media (max-width: 768px) {
             #criarProjetoModal .modal-content {
@@ -1179,14 +1230,15 @@
         }
 
         .btn-confirm, .btn-reject {
-            padding: 12px 30px;
+            padding: 10px 25px;
             border: none;
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            min-width: 100px;
         }
 
         .btn-confirm {
@@ -1212,6 +1264,70 @@
         }
 
         .btn-confirm:disabled, .btn-reject:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Sistema de avaliação com estrelas */
+        .rating-box {
+            background: rgba(40, 40, 40, 0.95);
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin: 10px 0;
+            text-align: center;
+        }
+
+        .rating-box h3 {
+            margin: 0 0 10px 0;
+            color: #00ff88;
+            font-size: 16px;
+        }
+
+        .stars-container {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 10px 0;
+        }
+
+        .star {
+            font-size: 40px;
+            cursor: pointer;
+            color: #666;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .star:hover {
+            transform: scale(1.2);
+        }
+
+        .star.active {
+            color: #FFD700;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        .rating-confirm-btn {
+            padding: 10px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            background: #10b981;
+            color: white;
+            margin-top: 10px;
+        }
+
+        .rating-confirm-btn:hover:not(:disabled) {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+        }
+
+        .rating-confirm-btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
@@ -2230,6 +2346,21 @@
             hideModal();
             
             try {
+                // Limpar jobs e workers antes de fazer logout
+                const username = await getLoggedUsername();
+                const projeto = projetoAtivo?.nome || 'default';
+                
+                if (socket && socket.connected) {
+                    socket.emit('user_logout', {
+                        username: username,
+                        projeto: projeto
+                    });
+                    console.log('🧹 Limpeza de logout enviada');
+                }
+                
+                // Aguardar um pouco para a limpeza ser processada
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
                 // Chamar API de logout
                 const response = await fetch('/api/logout', {
                     method: 'POST',
@@ -2367,6 +2498,8 @@
 
             socket.on('disconnect', () => {
                 console.log('WebSocket desconectado');
+                removeTypingIndicator();
+                unblockInputArea(); // Desbloqueia se desconectar
             });
 
             socket.on('job_started', (data) => {
@@ -2388,13 +2521,14 @@
                     return;
                 }
                 
-                // Se for plan_confirm, mostrar mensagem pedindo confirmação DEPOIS do plano
+                // Se for plan_confirm, mostrar botões de confirmação DEPOIS do plano
                 if (data.module === 'plan_confirm' && data.show_buttons) {
                     console.log('✅ plan_confirm detectado - aguardando resposta do usuário');
                     removeTypingIndicator();
-                    // Adicionar a pergunta de confirmação logo após o plano
-                    addMessageToChat('EZPocket', '**Deseja continuar com este plano?**\nDigite "sim" para confirmar ou "não" para recusar', 'bot');
+                    // Adicionar botões de confirmação no chat
+                    addConfirmationButtons();
                     waitingForConfirmation = true;
+                    // Input permanece bloqueado, resposta via botões
                     return;
                 }
                 
@@ -2404,12 +2538,13 @@
                     return;
                 }
                 
-                // Se for user_feedback, pedir nota ao usuário
+                // Se for user_feedback, mostrar estrelas de avaliação
                 if (data.module === 'user_feedback' && data.show_rating) {
                     console.log('⭐ user_feedback detectado - aguardando nota do usuário');
                     removeTypingIndicator();
-                    addMessageToChat('EZPocket', '**Avalie a resposta**\nDigite uma nota de 1 a 5 (1=péssimo, 5=excelente)', 'bot');
+                    addRatingStars();
                     waitingForRating = true;
+                    // Input permanece bloqueado, resposta via estrelas
                     return;
                 }
                 
@@ -2429,6 +2564,11 @@
                 if (data.message) {
                     removeTypingIndicator();
                     addMessageToChat('EZPocket', data.message, 'bot');
+                    
+                    // Se for response_composer (resposta final), desbloqueia o input
+                    if (data.module === 'response_composer') {
+                        unblockInputArea();
+                    }
                 }
             });
 
@@ -2441,29 +2581,78 @@
                     if (data.data && data.data.response_text) {
                         addMessageToChat('EZPocket', data.data.response_text, 'bot');
                     }
+                    unblockInputArea(); // Desbloqueia para permitir feedback
                 } else if (data.type === 'user_proposed_plan') {
                     // Usuário rejeitou o plano - pedir sugestões
                     addMessageToChat('EZPocket', '💡 **Como você gostaria que o plano fosse modificado?**\n\nDescreva suas sugestões ou uma nova abordagem para a análise.', 'bot');
                     waitingForPlanSuggestion = true;
+                    unblockInputArea(); // Desbloqueia para permitir sugestão
                 }
             });
 
             socket.on('job_completed', (data) => {
                 console.log('Job completado:', data);
                 removeTypingIndicator();
-                currentJobId = null;
+                unblockInputArea(); // Desbloqueia quando o job termina
+                
+                // Só reseta o jobId se não estiver aguardando nenhum input do usuário
+                if (!waitingForConfirmation && !waitingForRating && !waitingForComment && !waitingForPlanSuggestion) {
+                    // Limpar jobs e workers após o job estar completamente finalizado
+                    console.log('🧹 Job finalizado - limpando Redis...');
+                    setTimeout(() => {
+                        cleanupJobsAndWorkers();
+                        currentJobId = null;
+                    }, 2000); // Aguarda 2 segundos para garantir que tudo foi processado
+                }
             });
 
             socket.on('error', (data) => {
                 console.error('Erro do servidor:', data);
                 removeTypingIndicator();
+                unblockInputArea(); // Desbloqueia em caso de erro
                 addMessageToChat('EZPocket', `Erro: ${data.message}`, 'bot');
             });
+
+            socket.on('redis_flushed', (data) => {
+                console.log('✅ Redis limpo:', data);
+            });
+
+            socket.on('logout_confirmed', (data) => {
+                console.log('✅ Logout confirmado:', data);
+            });
+        }
+
+        // Função para limpar jobs e workers (flush Redis)
+        async function cleanupJobsAndWorkers() {
+            console.log('🧹 Limpando jobs e workers do Redis...');
+            
+            try {
+                const username = await getLoggedUsername();
+                const projeto = projetoAtivo?.nome || 'default';
+                
+                // Emitir evento para fazer flush do Redis
+                if (socket && socket.connected) {
+                    socket.emit('flush_redis', {
+                        username: username,
+                        projeto: projeto
+                    });
+                    console.log('✅ Flush Redis solicitado para:', username, projeto);
+                }
+            } catch (error) {
+                console.error('❌ Erro ao limpar jobs:', error);
+            }
         }
 
         // Inicializar WebSocket quando a página carregar
         document.addEventListener('DOMContentLoaded', function() {
             initWebSocket();
+        });
+        
+        // Limpar jobs ao sair da página
+        window.addEventListener('beforeunload', function() {
+            if (currentJobId) {
+                cleanupJobsAndWorkers();
+            }
         });
 
         function showMensagemModal(titulo, mensagem, tipo = 'info') {
@@ -2836,22 +3025,49 @@
         // Flag para evitar processamento duplicado
         let isProcessingMessage = false;
         
+        function blockInputArea() {
+            const input = document.getElementById('chatInput');
+            const sendButton = document.getElementById('send-button');
+            const wrapper = document.querySelector('.chat-input-wrapper');
+            
+            if (input) input.disabled = true;
+            if (sendButton) sendButton.disabled = true;
+            if (wrapper) wrapper.classList.add('processing');
+            
+            console.log('🔒 Input bloqueado');
+        }
+        
+        function unblockInputArea() {
+            const input = document.getElementById('chatInput');
+            const sendButton = document.getElementById('send-button');
+            const wrapper = document.querySelector('.chat-input-wrapper');
+            
+            if (input) input.disabled = false;
+            if (sendButton) sendButton.disabled = false;
+            if (wrapper) wrapper.classList.remove('processing');
+            
+            console.log('🔓 Input desbloqueado');
+        }
+        
         async function sendMessage() {
             console.log('🚀 [SEND] sendMessage chamada');
             
+            const input = document.getElementById('chatInput');
+            const sendButton = document.getElementById('send-button');
+            
             // PROTEÇÃO: Evitar processamento duplicado
-            if (isProcessingMessage) {
-                console.log('⚠️ [SEND] Mensagem já está sendo processada - ignorando duplicata');
+            if (isProcessingMessage || input.disabled || sendButton.disabled) {
+                console.log('⚠️ [SEND] Input bloqueado ou mensagem já está sendo processada - ignorando');
                 return;
             }
             
-            const input = document.getElementById('chatInput');
             const message = input.value.trim();
             console.log('📝 [SEND] Mensagem:', message);
             
             if (message && socket) {
-                // Marcar como processando
+                // Marcar como processando e bloquear input
                 isProcessingMessage = true;
+                blockInputArea();
                 // RENOVAR TOKEN ANTES DE ENVIAR MENSAGEM
                 console.log('🔄 [REFRESH] INICIANDO REFRESH TOKEN...');
                 try {
@@ -2880,8 +3096,6 @@
                 }
                 
                 // IMPORTANTE: Capturar flags ANTES de adicionar mensagem no chat
-                const isWaitingConfirmation = waitingForConfirmation;
-                const isWaitingRating = waitingForRating;
                 const isWaitingComment = waitingForComment;
                 const isWaitingPlanSuggestion = waitingForPlanSuggestion;
                 
@@ -2889,64 +3103,24 @@
                 addMessageToChat('Você', message, 'user');
                 input.value = '';
                 
-                // Se estiver aguardando confirmação do plano
-                if (isWaitingConfirmation) {
-                    console.log('📤 Enviando confirmação de plano:', message);
-                    const confirmed = ['sim', 's', 'yes', 'y', '1'].includes(message.toLowerCase());
+                // Se estiver aguardando comentário (após avaliação com estrelas)
+                if (isWaitingComment) {
+                    console.log('💬 Enviando feedback completo');
+                    console.log('📋 Job ID atual:', currentJobId);
                     
-                    // Mostrar feedback visual
-                    if (confirmed) {
-                        addMessageToChat('EZPocket', '✅ Plano aprovado! Executando análise...', 'bot');
-                    } else {
-                        addMessageToChat('EZPocket', '❌ Plano rejeitado. Você pode sugerir modificações ou fazer uma nova pergunta.', 'bot');
-                    }
-                    
-                    socket.emit('send_input', {
-                        job_id: currentJobId,
-                        input_type: 'plan_confirmation',
-                        input_value: confirmed ? 'true' : 'false'
-                    });
-                    
-                    waitingForConfirmation = false;
-                    input.disabled = true;
-                    addTypingIndicator();
-                    
-                    setTimeout(() => {
-                        input.disabled = false;
-                    }, 2000);
-                    
-                    isProcessingMessage = false;
-                    return;
-                }
-                
-                // Se estiver aguardando nota do usuário
-                if (isWaitingRating) {
-                    console.log('⭐ Enviando nota:', message);
-                    const rating = parseInt(message);
-                    
-                    if (isNaN(rating) || rating < 1 || rating > 5) {
-                        addMessageToChat('EZPocket', '❌ Por favor, digite um número de 1 a 5', 'bot');
+                    // Verificar se temos um job ID válido
+                    if (!currentJobId) {
+                        console.error('❌ Job ID não encontrado ao enviar feedback');
+                        addMessageToChat('EZPocket', '❌ Erro: Sessão expirada. Por favor, faça uma nova pergunta.', 'bot');
+                        waitingForComment = false;
+                        userRating = 0;
                         isProcessingMessage = false;
+                        unblockInputArea();
                         return;
                     }
                     
-                    // Salvar nota e pedir comentário
-                    userRating = rating;
-                    waitingForRating = false;
-                    waitingForComment = true;
-                    
-                    addMessageToChat('EZPocket', `✅ Nota ${rating} registrada!\n\n**Deixe um comentário (opcional)**\nDigite seu comentário ou pressione Enter`, 'bot');
-                    
-                    isProcessingMessage = false;
-                    return;
-                }
-                
-                // Se estiver aguardando comentário
-                if (isWaitingComment) {
-                    console.log('💬 Enviando feedback completo');
                     // IMPORTANTE: Se mensagem vazia, considerar como "pular"
                     const comment = (message === '' || message.toLowerCase() === 'pular') ? '' : message;
-                    
                     
                     socket.emit('send_input', {
                         job_id: currentJobId,
@@ -2956,14 +3130,11 @@
                     
                     waitingForComment = false;
                     userRating = 0;
-                    input.disabled = true;
+                    // NÃO reseta currentJobId aqui - precisa dele para receber a resposta final
                     addTypingIndicator();
                     
-                    setTimeout(() => {
-                        input.disabled = false;
-                    }, 2000);
-                    
                     isProcessingMessage = false;
+                    // Input permanece bloqueado até resposta chegar
                     return;
                 }
                 
@@ -2980,19 +3151,14 @@
                     });
                     
                     waitingForPlanSuggestion = false;
-                    input.disabled = true;
                     addTypingIndicator();
                     
-                    setTimeout(() => {
-                        input.disabled = false;
-                    }, 2000);
-                    
                     isProcessingMessage = false;
+                    // Input permanece bloqueado até resposta chegar
                     return;
                 }
                 
-                // Desabilitar input e mostrar que está processando
-                input.disabled = true;
+                // Mostrar indicador de digitação
                 addTypingIndicator();
                 
                 console.log('Enviando via WebSocket - Projeto:', projetoAtivo?.nome || 'Nenhum');
@@ -3009,13 +3175,9 @@
                     module: 'intent_validator'
                 });
                 
-                // Habilitar input depois de 2 segundos
-                setTimeout(() => {
-                    input.disabled = false;
-                }, 2000);
-                
                 // Reset flag após enviar job normal
                 isProcessingMessage = false;
+                // Input permanece bloqueado até a resposta final chegar
             }
         }
 
@@ -3047,20 +3209,9 @@
             return html;
         }
 
-        // Mostrar plano com botões de confirmação
-        function showPlanWithButtons(planMessage, planData) {
-            console.log('🎯 showPlanWithButtons CHAMADO!');
-            console.log('   - planMessage:', planMessage?.substring(0, 100));
-            console.log('   - planData:', planData);
-            
+        // Adicionar botões de confirmação Sim/Não no chat
+        function addConfirmationButtons() {
             const chatContent = document.querySelector('.chat-content');
-            console.log('   - chatContent encontrado:', !!chatContent);
-            
-            // Remover mensagem de boas-vindas se existir
-            const welcomeMsg = chatContent?.querySelector('.welcome-message');
-            if (welcomeMsg) {
-                welcomeMsg.style.display = 'none';
-            }
             
             const messageContainer = document.createElement('div');
             messageContainer.style.cssText = `
@@ -3071,46 +3222,157 @@
             `;
             
             const messageDiv = document.createElement('div');
-            messageDiv.className = 'plan-confirmation-box';
             messageDiv.style.cssText = `
+                padding: 15px 20px;
+                border-radius: 18px;
+                background: #333;
+                color: #fff;
                 max-width: 95%;
-                width: auto;
             `;
             
-            let html = '<h3>📋 Plano de Execução</h3>';
-            html += `<div class="plan-content">${planMessage}</div>`;
-            html += '<div class="confirmation-buttons">';
-            html += '<button class="btn-confirm" onclick="confirmPlan(true)">✅ Confirmar</button>';
-            html += '<button class="btn-reject" onclick="confirmPlan(false)">❌ Recusar</button>';
-            html += '</div>';
+            messageDiv.innerHTML = `
+                <div style="margin-bottom: 15px; font-size: 16px; font-weight: 600; color: #fff;">
+                    <span style="color: #ff6b6b;">⛔</span> Deseja continuar com este plano?
+                </div>
+                <div class="confirmation-buttons">
+                    <button class="btn-confirm" onclick="confirmPlanAction(true)">✅ Sim</button>
+                    <button class="btn-reject" onclick="confirmPlanAction(false)">❌ Não</button>
+                </div>
+            `;
             
-            messageDiv.innerHTML = html;
             messageContainer.appendChild(messageDiv);
             chatContent.appendChild(messageContainer);
             chatContent.scrollTop = chatContent.scrollHeight;
-            
-            console.log('✅ Plano com botões adicionado ao chat!');
-            
-            // Armazenar dados do plano para enviar depois
-            window.currentPlanData = planData;
         }
 
-        // Confirmar ou recusar plano
-        function confirmPlan(confirmed) {
-            console.log('confirmPlan() chamado com:', confirmed);
+        // Confirmar ou recusar plano (chamado pelos botões)
+        function confirmPlanAction(confirmed) {
+            console.log('confirmPlanAction() chamado com:', confirmed);
             
             // Desabilitar botões para evitar clique duplo
             const buttons = document.querySelectorAll('.btn-confirm, .btn-reject');
             buttons.forEach(btn => btn.disabled = true);
             
+            // Mostrar feedback visual
+            if (confirmed) {
+                addMessageToChat('EZPocket', '✅ Plano aprovado! Executando análise...', 'bot');
+            } else {
+                addMessageToChat('EZPocket', '❌ Plano rejeitado. Você pode sugerir modificações ou fazer uma nova pergunta.', 'bot');
+            }
+            
             // Enviar confirmação via WebSocket
             socket.emit('send_input', {
                 job_id: currentJobId,
                 input_type: 'plan_confirmation',
-                input_value: confirmed
+                input_value: confirmed ? 'true' : 'false'
             });
             
+            waitingForConfirmation = false;
+            addTypingIndicator();
+            
             console.log('Confirmação enviada:', confirmed ? 'APROVADO' : 'REJEITADO');
+        }
+
+        // Variável global para armazenar a nota selecionada
+        let selectedRating = 0;
+
+        // Adicionar sistema de estrelas no chat
+        function addRatingStars() {
+            const chatContent = document.querySelector('.chat-content');
+            
+            const messageContainer = document.createElement('div');
+            messageContainer.style.cssText = `
+                display: flex;
+                width: 100%;
+                margin-bottom: 25px;
+                justify-content: flex-start;
+            `;
+            
+            const ratingDiv = document.createElement('div');
+            ratingDiv.className = 'rating-box';
+            ratingDiv.style.cssText = `
+                max-width: 95%;
+                width: auto;
+            `;
+            
+            let html = '<h3>⭐ Avalie a Resposta</h3>';
+            html += '<p style="color: #ccc; margin-bottom: 10px;">Clique nas estrelas para avaliar</p>';
+            html += '<div class="stars-container">';
+            for (let i = 1; i <= 5; i++) {
+                html += `<span class="star" data-rating="${i}">★</span>`;
+            }
+            html += '</div>';
+            html += '<button class="rating-confirm-btn" disabled>Confirmar Avaliação</button>';
+            
+            ratingDiv.innerHTML = html;
+            messageContainer.appendChild(ratingDiv);
+            chatContent.appendChild(messageContainer);
+            chatContent.scrollTop = chatContent.scrollHeight;
+            
+            selectedRating = 0; // Reset
+            
+            // Adicionar event listeners para as estrelas
+            const stars = ratingDiv.querySelectorAll('.star');
+            stars.forEach((star, index) => {
+                star.addEventListener('click', function() {
+                    selectStar(index + 1);
+                });
+            });
+            
+            // Adicionar event listener para o botão de confirmação
+            const confirmBtn = ratingDiv.querySelector('.rating-confirm-btn');
+            if (confirmBtn) {
+                confirmBtn.addEventListener('click', confirmRating);
+            }
+        }
+
+        // Selecionar estrela
+        function selectStar(rating) {
+            selectedRating = rating;
+            console.log('⭐ Estrela selecionada:', rating);
+            
+            // Atualizar visual das estrelas
+            const stars = document.querySelectorAll('.star');
+            stars.forEach((star, index) => {
+                if (index < rating) {
+                    star.classList.add('active');
+                } else {
+                    star.classList.remove('active');
+                }
+            });
+            
+            // Habilitar botão de confirmação
+            const confirmBtn = document.querySelector('.rating-confirm-btn');
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+            }
+        }
+
+        // Confirmar avaliação
+        function confirmRating() {
+            if (selectedRating === 0) return;
+            
+            console.log('✅ Confirmando avaliação:', selectedRating);
+            
+            // Desabilitar botões e estrelas
+            const stars = document.querySelectorAll('.star');
+            stars.forEach(star => star.style.pointerEvents = 'none');
+            
+            const confirmBtn = document.querySelector('.rating-confirm-btn');
+            if (confirmBtn) {
+                confirmBtn.disabled = true;
+            }
+            
+            // Salvar nota e mostrar mensagem de sucesso
+            userRating = selectedRating;
+            waitingForRating = false;
+            waitingForComment = true;
+            
+            // Mostrar mensagem pedindo comentário
+            addMessageToChat('EZPocket', `✅ Nota ${selectedRating} registrada!\n\n**Deixe um comentário (opcional)**\nDigite seu comentário no campo abaixo ou pressione Enter para pular`, 'bot');
+            
+            // Desbloqueia input para comentário
+            unblockInputArea();
         }
 
         function addMessageToChat(sender, message, type) {
@@ -3281,8 +3543,12 @@
             
             if (chatInput) {
                 chatInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
+                    if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
+                        // Se estiver aguardando comentário e campo vazio, considera como "pular"
+                        if (waitingForComment && chatInput.value.trim() === '') {
+                            chatInput.value = 'pular';
+                        }
                         sendMessage();
                     }
                 });
