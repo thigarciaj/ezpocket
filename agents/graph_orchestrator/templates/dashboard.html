@@ -349,12 +349,42 @@
         }
 
         .chat-input:disabled {
-            opacity: 0.5;
+            opacity: 1 !important;
             cursor: not-allowed;
         }
 
+        .chat-input:disabled.processing {
+            opacity: 1 !important;
+        }
+        
+        /* Quando bloqueado mas SEM processing (texto padrão), opacidade 0.6 */
+        .chat-input:disabled:not(.processing) {
+            opacity: 0.6 !important;
+        }
+
+        .chat-input:disabled.processing::placeholder {
+            color: #00ff88 !important;
+            font-weight: 500 !important;
+            opacity: 1 !important;
+            overflow: hidden;
+            white-space: nowrap;
+            animation: typewriter 2s steps(30) infinite;
+        }
+
+        @keyframes typewriter {
+            0% {
+                width: 0;
+            }
+            50% {
+                width: 100%;
+            }
+            100% {
+                width: 0;
+            }
+        }
+
         .chat-input-wrapper.processing {
-            opacity: 0.6;
+            opacity: 1;
             pointer-events: none;
         }
 
@@ -2611,10 +2641,302 @@
         let waitingForConfirmation = false;
         let waitingForRating = false;
         let waitingForComment = false;
+        let lastActivityTime = Date.now();
+        let sessionTimeoutId = null;
+        let isSessionExpired = false;
+        let SESSION_TIMEOUT_MS = 5 * 60 * 1000; // Default: 5 minutos
+
+        // Controle do placeholder para indicar nós
+        const originalPlaceholder = 'Digite a sua pergunta...';
+        let currentTypingTimeout = null; // Controla o timeout atual da animação
+        let isTyping = false; // Flag para saber se está digitando
+        let currentModule = null; // Armazena o módulo atual para evitar animações desnecessárias
+        
+        const moduleConfig = {
+            'intent_validator': { name: 'Validando intent', icon: '🔍' },
+            'plan_builder': { name: 'Criando plano', icon: '📋' },
+            'plan_confirm': { name: 'Confirmando plano', icon: '✅' },
+            'plan_refiner': { name: 'Refinando plano', icon: '🔄' },
+            'history_preferences': { name: 'Buscando histórico', icon: '📚' },
+            'analysis_orchestrator': { name: 'Analisando consulta', icon: '⚙️' },
+            'sql_validator': { name: 'Validando SQL', icon: '🔍' },
+            'athena_executor': { name: 'Executando query', icon: '⚡' },
+            'python_runtime': { name: 'Executando código', icon: '🐍' },
+            'auto_correction': { name: 'Corrigindo erros', icon: '🔧' },
+            'response_composer': { name: 'Gerando resposta', icon: '💬' },
+            'user_feedback': { name: 'Processando feedback', icon: '⭐' },
+            'user_proposed_plan': { name: 'Processando sugestão', icon: '💡' }
+        };
+
+        async function updatePlaceholder(module) {
+            const chatInput = document.getElementById('chatInput');
+            if (chatInput && module) {
+                // Não mostrar alguns módulos que rodam em paralelo ou são para usuário
+                if (module === 'user_feedback' || module === 'history_preferences') {
+                    return; // Manter placeholder atual
+                }
+                
+                const config = moduleConfig[module] || { name: module, icon: '⚙️' };
+                const fullText = `${config.icon} ${config.name}...`;
+                
+                // Se o texto é igual ao que já está sendo mostrado, não fazer nada
+                if (chatInput.placeholder === fullText) {
+                    return;
+                }
+                
+                // Cancela animação anterior se existir
+                cancelCurrentTyping();
+                
+                // Se já está digitando, aguarda um pouco e cancela
+                if (isTyping) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    cancelCurrentTyping();
+                }
+                
+                // Limpar placeholder e adicionar classe de processamento
+                chatInput.placeholder = '';
+                chatInput.classList.add('processing');
+                chatInput.style.opacity = '1';
+                
+                // Efeito de digitação com Promise para garantir conclusão
+                try {
+                    await typeTextAsync(chatInput, fullText);
+                } catch (error) {
+                    console.log('Animação de placeholder cancelada/interrompida');
+                }
+            }
+        }
+
+        function waitForTypingToComplete() {
+            return new Promise((resolve) => {
+                const checkTyping = () => {
+                    if (!isTyping) {
+                        resolve();
+                    } else {
+                        setTimeout(checkTyping, 50);
+                    }
+                };
+                checkTyping();
+            });
+        }
+
+        function cancelCurrentTyping() {
+            const chatInput = document.getElementById('chatInput');
+            
+            // Cancela via função específica se disponível
+            if (chatInput && chatInput._cancelTyping) {
+                chatInput._cancelTyping();
+                chatInput._cancelTyping = null;
+            }
+            
+            // Força cancelamento por timeout também
+            if (currentTypingTimeout) {
+                clearTimeout(currentTypingTimeout);
+                currentTypingTimeout = null;
+            }
+            
+            isTyping = false;
+        }
+
+        // ===== CONTROLE DE SESSÃO E TIMEOUT =====
+        function updateLastActivity() {
+            lastActivityTime = Date.now();
+            resetSessionTimeout();
+        }
+
+        function resetSessionTimeout() {
+            if (sessionTimeoutId) {
+                clearTimeout(sessionTimeoutId);
+            }
+            sessionTimeoutId = setTimeout(() => {
+                handleSessionTimeout();
+            }, SESSION_TIMEOUT_MS);
+        }
+
+        function handleSessionTimeout() {
+            console.log('🕒 Sessão expirou por inatividade');
+            isSessionExpired = true;
+            showSessionExpiredMessage();
+        }
+
+        function showSessionExpiredMessage() {
+            addMessageToChat('Sistema', '⏰ Sua sessão expirou por inatividade. A conversa será renovada automaticamente.', 'bot');
+            setTimeout(() => {
+                refreshConversation();
+            }, 2000);
+        }
+
+        function refreshConversation() {
+            console.log('🔄 Renovando conversa...');
+            
+            // Limpar estados
+            currentJobId = null;
+            waitingForComment = false;
+            waitingForRating = false;
+            waitingForConfirmation = false;
+            isSessionExpired = false;
+            
+            // Limpar chat
+            limparChat();
+            
+            // Reconectar WebSocket
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+            
+            // Reiniciar conexão
+            setTimeout(() => {
+                initializeWebSocket();
+                updateLastActivity();
+                addMessageToChat('Sistema', '✅ Conversa renovada! Você pode fazer uma nova pergunta.', 'bot');
+                unblockInputArea();
+            }, 1000);
+        }
+
+        function detectJobNotFoundError(message) {
+            const errorPatterns = [
+                /job.*not.*found/i,
+                /job.*não.*encontrado/i,
+                /sessão.*expirada/i,
+                /session.*expired/i,
+                /invalid.*job/i,
+                /job.*inválido/i
+            ];
+            
+            return errorPatterns.some(pattern => pattern.test(message));
+        }
+
+        function initActivityListeners() {
+            // Eventos de atividade do usuário
+            const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+            
+            events.forEach(event => {
+                document.addEventListener(event, () => {
+                    if (!isSessionExpired) {
+                        updateLastActivity();
+                    }
+                }, true);
+            });
+            
+            // Listener específico para o chat input
+            const chatInput = document.getElementById('chatInput');
+            if (chatInput) {
+                chatInput.addEventListener('input', updateLastActivity);
+                chatInput.addEventListener('focus', updateLastActivity);
+            }
+        }
+
+        function typeTextAsync(element, text) {
+            return new Promise((resolve, reject) => {
+                // Marca como começando a digitar
+                isTyping = true;
+                
+                // Cancela animação anterior se existir
+                if (currentTypingTimeout) {
+                    clearTimeout(currentTypingTimeout);
+                    currentTypingTimeout = null;
+                }
+                
+                let index = 0;
+                element.placeholder = '';
+                let cancelled = false;
+                
+                const typeChar = () => {
+                    // Verifica se foi cancelado
+                    if (cancelled || !isTyping) {
+                        isTyping = false;
+                        currentTypingTimeout = null;
+                        reject('Animation cancelled');
+                        return;
+                    }
+                    
+                    if (index < text.length) {
+                        element.placeholder += text.charAt(index);
+                        index++;
+                        currentTypingTimeout = setTimeout(typeChar, 80);
+                    } else {
+                        // Animação completa
+                        isTyping = false;
+                        currentTypingTimeout = null;
+                        resolve();
+                    }
+                };
+                
+                // Função para cancelar esta animação específica
+                const cancel = () => {
+                    cancelled = true;
+                    if (currentTypingTimeout) {
+                        clearTimeout(currentTypingTimeout);
+                        currentTypingTimeout = null;
+                    }
+                    isTyping = false;
+                };
+                
+                // Armazena referência para cancelamento
+                element._cancelTyping = cancel;
+                
+                typeChar();
+            });
+        }
+
+        function typeText(element, text, index) {
+            if (index < text.length) {
+                element.placeholder += text.charAt(index);
+                setTimeout(() => typeText(element, text, index + 1), 80); // 80ms entre cada letra
+            }
+        }
+
+        function resetPlaceholder() {
+            const chatInput = document.getElementById('chatInput');
+            if (chatInput) {
+                // Cancela qualquer animação em andamento imediatamente
+                cancelCurrentTyping();
+                
+                // Só restaurar se não estiver bloqueado ou se for desbloquear
+                if (!chatInput.disabled) {
+                    chatInput.placeholder = originalPlaceholder;
+                } else {
+                    chatInput.placeholder = ''; // Limpar quando bloqueado
+                }
+                chatInput.classList.remove('processing');
+                // Limpar estilos forçados
+                chatInput.style.removeProperty('--placeholder-color');
+                chatInput.style.removeProperty('--placeholder-opacity');
+            }
+        }
+
+        async function resetPlaceholderAsync() {
+            const chatInput = document.getElementById('chatInput');
+            if (chatInput) {
+                // Se está digitando, aguarda terminar antes de resetar
+                if (isTyping) {
+                    await waitForTypingToComplete();
+                }
+                
+                // Cancela qualquer timeout pendente
+                cancelCurrentTyping();
+                
+                // Só restaurar se não estiver bloqueado ou se for desbloquear
+                if (!chatInput.disabled) {
+                    chatInput.placeholder = originalPlaceholder;
+                } else {
+                    chatInput.placeholder = ''; // Limpar quando bloqueado
+                }
+                chatInput.classList.remove('processing');
+                // Limpar estilos forçados
+                chatInput.style.removeProperty('--placeholder-color');
+                chatInput.style.removeProperty('--placeholder-opacity');
+            }
+        }
         let waitingForPlanSuggestion = false;
         let userRating = 0;
 
         // Inicializar WebSocket
+        function initializeWebSocket() {
+            initWebSocket();
+        }
+
         function initWebSocket() {
             console.log('Conectando ao WebSocket:', WEBSOCKET_URL);
             socket = io(WEBSOCKET_URL, {
@@ -2628,6 +2950,7 @@
             socket.on('disconnect', () => {
                 console.log('WebSocket desconectado');
                 removeTypingIndicator();
+                resetPlaceholder(); // Voltar placeholder original
                 unblockInputArea(); // Desbloqueia se desconectar
             });
 
@@ -2640,6 +2963,21 @@
                 console.log('📦 module_update recebido:', data);
                 console.log('   - module:', data.module);
                 console.log('   - message length:', data.message?.length);
+                
+                // Verificar se há mensagem de erro relacionada a job
+                if (data.message && detectJobNotFoundError(data.message)) {
+                    console.log('🔍 Detectado erro de job no module_update - iniciando refresh');
+                    addMessageToChat('Sistema', `❌ ${data.message}`, 'bot');
+                    setTimeout(() => {
+                        refreshConversation();
+                    }, 2000);
+                    return;
+                }
+                
+                // Atualizar placeholder com o módulo atual (exceto user_feedback)
+                if (data.module !== 'user_feedback' || !data.show_rating) {
+                    updatePlaceholder(data.module);
+                }
                 
                 // Se for plan_builder, mostrar o plano normalmente
                 if (data.module === 'plan_builder') {
@@ -2671,9 +3009,23 @@
                 if (data.module === 'user_feedback' && data.show_rating) {
                     console.log('⭐ user_feedback detectado - aguardando nota do usuário');
                     removeTypingIndicator();
+                    // NÃO resetar placeholder - manter o último nó processado visível
+                    // O placeholder deve continuar mostrando o último módulo (ex: "💬 Gerando resposta...")
                     addRatingStars();
                     waitingForRating = true;
-                    // Input permanece bloqueado, resposta via estrelas
+                    blockInputArea(true); // Garantir que está bloqueado, manter processing
+                    
+                    // Quando clicar numa estrela, resetar placeholder para comentar
+                    setTimeout(() => {
+                        const stars = document.querySelectorAll('.star');
+                        stars.forEach(star => {
+                            star.addEventListener('click', () => {
+                                resetPlaceholder(); // Voltar para "Digite a sua pergunta..."
+                            });
+                        });
+                    }, 100);
+                    
+                    // Input permanece bloqueado até avaliar
                     return;
                 }
                 
@@ -2705,6 +3057,16 @@
                 console.log('need_input recebido:', data);
                 removeTypingIndicator();
                 
+                // Verificar se há mensagem de erro relacionada a job
+                if (data.message && detectJobNotFoundError(data.message)) {
+                    console.log('🔍 Detectado erro de job no need_input - iniciando refresh');
+                    addMessageToChat('Sistema', `❌ ${data.message}`, 'bot');
+                    setTimeout(() => {
+                        refreshConversation();
+                    }, 2000);
+                    return;
+                }
+                
                 if (data.type === 'user_feedback') {
                     // Mostrar resposta formatada e pedir feedback
                     if (data.data && data.data.response_text) {
@@ -2722,6 +3084,18 @@
             socket.on('job_completed', (data) => {
                 console.log('Job completado:', data);
                 removeTypingIndicator();
+                
+                // Verificar se há mensagem de erro relacionada a job
+                if (data.message && detectJobNotFoundError(data.message)) {
+                    console.log('🔍 Detectado erro de job no job_completed - iniciando refresh');
+                    addMessageToChat('Sistema', `❌ ${data.message}`, 'bot');
+                    setTimeout(() => {
+                        refreshConversation();
+                    }, 2000);
+                    return;
+                }
+                
+                resetPlaceholderAsync(); // Voltar placeholder original de forma assíncrona
                 unblockInputArea(); // Desbloqueia quando o job termina
                 
                 // Só reseta o jobId se não estiver aguardando nenhum input do usuário
@@ -2741,8 +3115,20 @@
             socket.on('error', (data) => {
                 console.error('Erro do servidor:', data);
                 removeTypingIndicator();
-                unblockInputArea(); // Desbloqueia em caso de erro
-                addMessageToChat('EZPocket', `Erro: ${data.message}`, 'bot');
+                
+                const errorMessage = data.message || 'Erro desconhecido';
+                
+                // Detectar se é erro de job não encontrado
+                if (detectJobNotFoundError(errorMessage)) {
+                    console.log('🔍 Detectado erro de job não encontrado - iniciando refresh');
+                    addMessageToChat('Sistema', `❌ ${errorMessage}`, 'bot');
+                    setTimeout(() => {
+                        refreshConversation();
+                    }, 2000);
+                } else {
+                    unblockInputArea(); // Desbloqueia em caso de erro normal
+                    addMessageToChat('EZPocket', `Erro: ${errorMessage}`, 'bot');
+                }
             });
 
             socket.on('redis_flushed', (data) => {
@@ -2775,9 +3161,29 @@
             }
         }
 
+        // Buscar configuração de timeout do servidor
+        async function loadSessionTimeout() {
+            try {
+                const response = await fetch('/api/config/timeout');
+                if (response.ok) {
+                    const config = await response.json();
+                    // Converter segundos para milissegundos
+                    SESSION_TIMEOUT_MS = (config.timeout || 300) * 1000;
+                    console.log('⏱️ Timeout configurado:', SESSION_TIMEOUT_MS / 1000, 'segundos');
+                } else {
+                    console.log('⚠️ Usando timeout padrão:', SESSION_TIMEOUT_MS / 1000, 'segundos');
+                }
+            } catch (error) {
+                console.log('⚠️ Erro ao buscar timeout, usando padrão:', SESSION_TIMEOUT_MS / 1000, 'segundos');
+            }
+        }
+
         // Inicializar WebSocket quando a página carregar
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadSessionTimeout();
             initWebSocket();
+            initActivityListeners();
+            updateLastActivity(); // Inicia o timeout
         });
         
         // Limpar jobs ao sair da página
@@ -3157,12 +3563,31 @@
         // Flag para evitar processamento duplicado
         let isProcessingMessage = false;
         
-        function blockInputArea() {
+        function blockInputArea(keepProcessing = false) {
             const input = document.getElementById('chatInput');
             const sendButton = document.getElementById('send-button');
             const wrapper = document.querySelector('.chat-input-wrapper');
             
-            if (input) input.disabled = true;
+            if (input) {
+                input.disabled = true;
+                
+                // Se não está processando, limpar placeholder
+                if (!keepProcessing && !input.classList.contains('processing')) {
+                    input.placeholder = '';
+                }
+                
+                // Forçar placeholder visível via JavaScript
+                const style = document.createElement('style');
+                style.id = 'force-placeholder-visible';
+                style.textContent = `
+                    #chatInput:disabled::placeholder {
+                        color: #00ff88 !important;
+                        opacity: 1 !important;
+                        font-weight: 600 !important;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
             if (sendButton) sendButton.disabled = true;
             if (wrapper) wrapper.classList.add('processing');
             
@@ -3174,7 +3599,20 @@
             const sendButton = document.getElementById('send-button');
             const wrapper = document.querySelector('.chat-input-wrapper');
             
-            if (input) input.disabled = false;
+            if (input) {
+                input.disabled = false;
+                
+                // Restaurar placeholder original
+                if (input.placeholder === '') {
+                    input.placeholder = 'Digite a sua pergunta...';
+                }
+                
+                // Remover estilo forçado do placeholder
+                const forcedStyle = document.getElementById('force-placeholder-visible');
+                if (forcedStyle) {
+                    forcedStyle.remove();
+                }
+            }
             if (sendButton) sendButton.disabled = false;
             if (wrapper) wrapper.classList.remove('processing');
             
@@ -3184,8 +3622,17 @@
         async function sendMessage() {
             console.log('🚀 [SEND] sendMessage chamada');
             
+            // Atualizar atividade
+            updateLastActivity();
+            
             const input = document.getElementById('chatInput');
             const sendButton = document.getElementById('send-button');
+            
+            // PROTEÇÃO: Verificar se sessão expirou
+            if (isSessionExpired) {
+                console.log('⚠️ [SEND] Sessão expirada - bloqueando envio');
+                return;
+            }
             
             // PROTEÇÃO: Evitar processamento duplicado
             if (isProcessingMessage || input.disabled || sendButton.disabled) {
@@ -3243,11 +3690,10 @@
                     // Verificar se temos um job ID válido
                     if (!currentJobId) {
                         console.error('❌ Job ID não encontrado ao enviar feedback');
-                        addMessageToChat('EZPocket', '❌ Erro: Sessão expirada. Por favor, faça uma nova pergunta.', 'bot');
-                        waitingForComment = false;
-                        userRating = 0;
-                        isProcessingMessage = false;
-                        unblockInputArea();
+                        addMessageToChat('Sistema', '❌ Sessão expirada. A conversa será renovada automaticamente.', 'bot');
+                        setTimeout(() => {
+                            refreshConversation();
+                        }, 2000);
                         return;
                     }
                     
@@ -3487,7 +3933,8 @@
                     // Mostrar mensagem pedindo comentário
                     addMessageToChat('EZPocket', `✅ Nota ${selectedRating} registrada!\n\n**Deixe um comentário (opcional)**\nDigite seu comentário no campo abaixo ou pressione Enter para pular`, 'bot');
                     
-                    // Desbloqueia input para comentário
+                    // Desbloqueia input e volta placeholder padrão para comentário
+                    resetPlaceholder();
                     unblockInputArea();
                 });
             }

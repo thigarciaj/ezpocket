@@ -890,6 +890,23 @@ def get_current_user():
         return jsonify({'error': str(e)}), 401
 
 
+@app.route('/api/config/timeout', methods=['GET'])
+def get_timeout_config():
+    """
+    Retorna configuração de timeout do servidor
+    """
+    try:
+        timeout_seconds = int(os.getenv('JOB_CLEANUP_TIMEOUT', 300))
+        return jsonify({
+            'timeout': timeout_seconds,
+            'message': f'Timeout configurado para {timeout_seconds} segundos'
+        })
+    except Exception as e:
+        return jsonify({
+            'timeout': 300,  # Default 5 minutos
+            'message': f'Usando timeout padrão: {str(e)}'
+        }), 200
+
 @app.route('/api/reset-session', methods=['POST'])
 @token_required
 def reset_session():
