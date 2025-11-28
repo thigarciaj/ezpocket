@@ -31,8 +31,8 @@ services:
       - ezpocket_network
     environment:
       ADMINER_DEFAULT_SERVER: postgres
-    volumes:
-      - ./production/theme/adminer.css:/var/www/html/adminer.css:ro
+    # volumes:
+    #   - ./production/theme/adminer.css:/var/www/html/adminer.css:ro
     depends_on:
       - postgres
 

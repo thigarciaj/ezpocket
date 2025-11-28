@@ -1226,6 +1226,7 @@ class HistoryPreferencesAgent:
                 
                 # Buscar todos os parent IDs do banco
                 parent_response_composer_id = None
+                response_text_from_db = ''
                 parent_python_runtime_id = None
                 parent_athena_executor_id = None
                 parent_auto_correction_id = None
@@ -1236,16 +1237,18 @@ class HistoryPreferencesAgent:
                 parent_intent_validator_id = None
                 
                 try:
-                    # Buscar response_composer_id
+                    # Buscar response_composer_id E response_text na mesma query
                     cursor.execute("""
-                        SELECT id FROM response_composer_logs
+                        SELECT id, response_text FROM response_composer_logs
                         WHERE username = %s AND projeto = %s AND pergunta = %s
                         ORDER BY horario DESC LIMIT 1
                     """, (username, projeto, pergunta))
                     result = cursor.fetchone()
                     if result:
                         parent_response_composer_id = result[0]
+                        response_text_from_db = result[1] or ''
                         print(f"  ✅ parent_response_composer_id: {parent_response_composer_id}")
+                        print(f"  📝 response_text: {len(response_text_from_db)} chars")
                     
                     # Buscar python_runtime_id
                     cursor.execute("""
@@ -1395,7 +1398,7 @@ class HistoryPreferencesAgent:
                     username,
                     projeto,
                     pergunta,
-                    state.get('response_text', ''),
+                    response_text_from_db,  # Usar o valor buscado do banco
                     not bool(state.get('error')),
                     state.get('rating', 0),
                     state.get('comment', ''),
