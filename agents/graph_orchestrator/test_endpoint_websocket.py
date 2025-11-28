@@ -465,7 +465,7 @@ def format_module_output(module: str, output: dict, success: bool) -> str:
         steps = output.get('plan_steps', [])
         steps_text = '\n'.join([f"  {i+1}. {step}" for i, step in enumerate(steps)])
         
-        return f"📋 Plano criado:\n{plan}\n\n📊 Passos:\n{steps_text}"
+        return f"📋 Plano criado:\n{steps_text}"
     
     elif module == 'plan_refiner':
         # Mostrar plano refinado da mesma forma que plan_builder
@@ -473,7 +473,7 @@ def format_module_output(module: str, output: dict, success: bool) -> str:
         refined_steps = output.get('refined_plan_steps', output.get('plan_steps', []))
         steps_text = '\n'.join([f"  {i+1}. {step}" for i, step in enumerate(refined_steps)])
         
-        return f"🔄 **Plano Refinado:**\n{refined_plan}\n\n📊 Passos:\n{steps_text}"
+        return f"🔄 **Plano Refinado:**\n{steps_text}"
     
     elif module == 'plan_confirm':
         # O worker retorna 'confirmed' e 'plan_accepted'
