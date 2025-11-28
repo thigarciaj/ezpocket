@@ -48,8 +48,21 @@ services:
       timeout: 5s
       retries: 5
 
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: ezpocket_redis_commander
+    restart: always
+    environment:
+      - REDIS_HOSTS=local:ezpocket_redis:6379
+    ports:
+      - "8081:8081"
+    networks:
+      - ezpocket_network
+    depends_on:
+      - redis
+
   keycloak:
-    image: quay.io/keycloak/keycloak:latest
+    image: quay.io/keycloak/keycloak:20.0.5
     container_name: ezpocket_keycloak
     restart: always
     environment:
@@ -59,29 +72,28 @@ services:
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak_db
       KC_DB_USERNAME: ${POSTGRES_USER}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
-      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME}
-      KC_HOSTNAME_STRICT: false
-      KC_HTTP_PORT: 8080
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
       KC_PROXY: edge
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
     command:
-      - start-dev
+      - start
+      - --auto-build
+      - --db=postgres
+      - --db-url=jdbc:postgresql://postgres:5432/keycloak_db
+      - --db-username=${POSTGRES_USER}
+      - --db-password=${POSTGRES_PASSWORD}
+      - --http-enabled=true
+      - --hostname-strict=false
+      - --proxy=edge
     ports:
-      - "${KEYCLOAK_PORT}:8080"
+      - "${KEYCLOAK_PORT:-8080}:8080"
     networks:
       - ezpocket_network
     depends_on:
       postgres:
         condition: service_healthy
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\\nHost: localhost\\n' >&3 && cat <&3 | grep -q '200 OK'",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
 
 volumes:
   postgres_data:

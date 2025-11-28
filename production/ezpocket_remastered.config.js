@@ -1,5 +1,5 @@
 // Caminho base do projeto - altere apenas esta linha se mudar de localização
-const BASE_PATH = "/home/servidores/ezpocket_remastered/ezpocket";
+const BASE_PATH = "/home/servidores/ezpocket";
 const PYTHON_PATH = `${BASE_PATH}/ezinho_assistente/bin/python`;
 
 module.exports = {
