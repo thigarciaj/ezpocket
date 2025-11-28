@@ -54,6 +54,8 @@ services:
     restart: always
     environment:
       - REDIS_HOSTS=local:ezpocket_redis:6379
+      - HTTP_USER=${REDIS_COMMANDER_USER:-admin}
+      - HTTP_PASSWORD=${REDIS_COMMANDER_PASSWORD:-redis_admin_2025}
     ports:
       - "8081:8081"
     networks:
