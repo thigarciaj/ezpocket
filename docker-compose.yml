@@ -65,6 +65,30 @@ services:
     depends_on:
       - redis
 
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: ezpocket_qdrant
+    restart: always
+    ports:
+      - "6334:6334"
+      - "6335:6333"  # Expor para acesso público
+    expose:
+      - "6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - ezpocket_network
+    environment:
+      QDRANT__SERVICE__HTTP_PORT: 6333
+      QDRANT__SERVICE__GRPC_PORT: 6334
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:-qdrant_admin_2025}
+      QDRANT__SERVICE__ENABLE_CORS: true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   keycloak:
     image: quay.io/keycloak/keycloak:20.0.5
     container_name: ezpocket_keycloak
@@ -101,6 +125,7 @@ services:
 
 volumes:
   postgres_data:
+  qdrant_data:
 
 networks:
   ezpocket_network:

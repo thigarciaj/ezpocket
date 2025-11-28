@@ -1977,7 +1977,7 @@
             relatorios: "📋"
         };
 
-        function loadMenuItems() {
+        async function loadMenuItems() {
             const menuContainer = document.getElementById('menuItems');
             
             if (!permissions.menu_hamburguer.enabled) {
@@ -2008,6 +2008,45 @@
                     
                     menuContainer.appendChild(menuItem);
                 });
+                
+            // Adicionar item do Qdrant se usuário tiver a role
+            await addQdrantMenuItem(menuContainer);
+        }
+        
+        // Função para adicionar item do Qdrant baseado na role
+        async function addQdrantMenuItem(menuContainer) {
+            try {
+                // Buscar configuração de role e roles do usuário
+                const [userRoles, config] = await Promise.all([
+                    getUserRoles(),
+                    getQdrantConfig()
+                ]);
+                
+                const qdrantRole = config.qdrant_admin_role || 'qdrant_admin';
+                
+                console.log('🔍 DEBUG Qdrant Menu:');
+                console.log('- Roles do usuário:', userRoles);
+                console.log('- Role necessária (do .env):', qdrantRole);
+                console.log('- Tem role?', userRoles.includes(qdrantRole));
+                
+                if (userRoles.includes(qdrantRole)) {
+                    const qdrantItem = document.createElement('div');
+                    qdrantItem.className = 'menu-item';
+                    qdrantItem.innerHTML = `
+                        <span class="menu-icon">🔍</span>
+                        <span>Qdrant DB</span>
+                    `;
+                    qdrantItem.onclick = () => openQdrantDashboard();
+                    
+                    menuContainer.appendChild(qdrantItem);
+                    console.log('✅ Item Qdrant adicionado ao menu');
+                } else {
+                    console.log(`🚫 Usuário não possui role '${qdrantRole}' para acessar Qdrant`);
+                    console.log('🚫 Roles disponíveis:', userRoles.join(', '));
+                }
+            } catch (error) {
+                console.error('❌ Erro ao verificar role do Qdrant:', error);
+            }
         }
 
         function selectMenuItem(itemName) {
@@ -2039,6 +2078,95 @@
             updateAtalhosRapidosVisibility(itemName);
             
             // Aqui você pode adicionar a lógica para navegar para a seção correspondente
+        }
+        
+        // Função para obter roles do usuário
+        async function getUserRoles() {
+            try {
+                console.log('🔍 Buscando roles do usuário...');
+                const response = await fetch('/api/user/roles', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                console.log('📡 Status da resposta:', response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('📋 Dados recebidos:', data);
+                    console.log('🎭 Roles do usuário:', data.roles);
+                    return data.roles || [];
+                } else {
+                    console.warn('⚠️ Erro ao buscar roles do usuário - Status:', response.status);
+                    return [];
+                }
+            } catch (error) {
+                console.error('❌ Erro ao buscar roles:', error);
+                return [];
+            }
+        }
+        
+        async function getQdrantConfig() {
+            try {
+                const response = await fetch('/api/config/roles', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('⚙️ Configuração Qdrant:', data);
+                    return data;
+                } else {
+                    console.warn('⚠️ Erro ao buscar configuração Qdrant');
+                    return { qdrant_admin_role: 'qdrant_admin' };
+                }
+            } catch (error) {
+                console.error('❌ Erro ao buscar configuração:', error);
+                return { qdrant_admin_role: 'qdrant_admin' };
+            }
+        }
+        
+        // Função para abrir Qdrant Dashboard
+        function openQdrantDashboard() {
+            // Abrir Qdrant em nova aba
+            window.open('https://qdrant.ezpocket.com.br/dashboard', '_blank');
+        }
+        
+        // Função para mostrar Qdrant embedado em modal
+        function showQdrantEmbedded() {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay show';
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 95%; max-height: 95%; width: 1200px; height: 800px;">
+                    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #1a2332; border-radius: 8px 8px 0 0;">
+                        <div style="display: flex; align-items: center;">
+                            <div class="logo-container" style="width: 24px; height: 24px; margin-right: 8px;"></div>
+                            <div class="brand-text">
+                                <span class="ez" style="font-size: 14px;">EZPocket</span> 
+                                <span class="pocket" style="font-size: 14px;">Qdrant Database</span>
+                            </div>
+                        </div>
+                        <button onclick="this.closest('.modal-overlay').remove()" style="background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 0; width: 30px; height: 30px;">×</button>
+                    </div>
+                    <div style="height: calc(100% - 60px); padding: 0;">
+                        <iframe 
+                            src="/qdrant/dashboard" 
+                            style="width: 100%; height: 100%; border: none; border-radius: 0 0 8px 8px;"
+                            frameborder="0">
+                        </iframe>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Remover modal quando clicar fora (mas não no iframe)
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            });
         }
 
         function updateAtalhosRapidosVisibility(selectedItem) {
@@ -3704,7 +3832,9 @@
             loadPermissionsFromDB();
             
             // Inicializar funcionalidades após carregar permissões
-            loadMenuItems();
+            (async () => {
+                await loadMenuItems();
+            })();
             checkViewPermissions();
             
             // Inicializar com chat selecionado (ou primeiro item disponível)
