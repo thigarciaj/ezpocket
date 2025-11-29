@@ -942,69 +942,6 @@ def reset_session():
             'error': str(e)
         }), 500
 
-
-# ============================================================================
-# ROTAS DO QDRANT
-# ============================================================================
-
-@app.route('/api/user/roles', methods=['GET'])
-@token_required
-def get_user_roles():
-    """Retorna as roles do usuário extraídas do JWT"""
-    try:
-        token = request.cookies.get('access_token')
-        if not token:
-            return jsonify({'error': 'Token não encontrado'}), 401
-            
-        payload = verify_token(token)
-        
-        # Extrair roles do token JWT (Keycloak format)
-        roles = []
-        
-        # Tentar diferentes campos onde as roles podem estar
-        if 'realm_access' in payload and 'roles' in payload['realm_access']:
-            roles.extend(payload['realm_access']['roles'])
-        
-        if 'resource_access' in payload:
-            for client, access in payload['resource_access'].items():
-                if 'roles' in access:
-                    roles.extend(access['roles'])
-        
-        # Roles diretas no payload
-        if 'roles' in payload:
-            roles.extend(payload['roles'])
-        
-        # Remover duplicatas
-        roles = list(set(roles))
-        
-        return jsonify({
-            'roles': roles,
-            'username': payload.get('preferred_username', 'unknown')
-        })
-        
-    except Exception as e:
-        print(f"[API/ROLES] Erro ao extrair roles: {str(e)}")
-        return jsonify({'error': 'Erro ao extrair roles do token'}), 500
-
-
-@app.route('/api/config/roles', methods=['GET'])
-def get_qdrant_config():
-    """Retorna configuração de roles do Qdrant do .env"""
-    try:
-        return jsonify({
-            'qdrant_admin_role': os.getenv('QDRANT_ADMIN_ROLE', 'qdrant_admin'),
-            'qdrant_host': os.getenv('QDRANT_HOST', 'localhost'),
-            'qdrant_port': int(os.getenv('QDRANT_PORT', 6333))
-        })
-    except Exception as e:
-        print(f"[API/CONFIG] Erro ao buscar configuração: {str(e)}")
-        return jsonify({'error': 'Erro ao buscar configuração'}), 500
-
-
-# ============================================================================
-# ROTAS EXISTENTES
-# ============================================================================
-
 @app.route('/api/database-info', methods=['GET'])
 def get_database_info():
     """Informações sobre a base de dados e última sincronização"""
