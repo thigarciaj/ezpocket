@@ -45,11 +45,43 @@
     "Incorporar sugestões específicas do usuário de forma clara",
     "Validar que as sugestões do usuário são tecnicamente viáveis",
     "🔴 IMPORTANTE: Garantir que plano refinado menciona uso de aspas duplas em colunas",
+    "🔴 CRÍTICO: Sempre usar valores REAIS de Status conforme semantic_rules.status_mapping",
+    "Exemplo: 'aguardando assinatura' → 'Status = WAITING SIGN' no plano refinado",
+    "Exemplo: 'vendas ativas' → 'Status IN (IN TRANSIT, WAITING SHIPMENT, DELIVERED)' no plano refinado",
     "Manter ou melhorar a clareza e assertividade do plano",
     "Preservar informações de segurança e validações necessárias",
     "Adicionar justificativas para mudanças significativas",
     "Garantir que o plano refinado ainda atende à pergunta original"
   ],
+  "semantic_rules": {
+    "IMPORTANT_NOTE": "🔴 Ao descrever filtros no plano refinado, SEMPRE mencione os valores REAIS do banco (em inglês maiúsculo)",
+    "status_mapping": {
+      "finalizados": "Status = 'FINISHED'",
+      "cancelados": "Status = 'CANCELED'",
+      "entregues": "Status = 'DELIVERED'",
+      "fechados": "Status = 'CLOSED'",
+      "negados": "Status = 'DENIED'",
+      "em_transito": "Status = 'IN TRANSIT'",
+      "aguardando_assinatura": "Status = 'WAITING SIGN'",
+      "aguardando_analise": "Status = 'WAITING ANALISYS'",
+      "aguardando_envio": "Status = 'WAITING SHIPMENT'",
+      "pdd": "Status = 'PDD'",
+      "fraude": "Status = 'FRAUD'",
+      "fechados_fraude": "Status = 'CLOSED BY FRAUD'",
+      "aprovados": "Status = 'APPROVED'",
+      "abertos": "Status = 'OPEN'",
+      "pagamento_pendente": "Status = 'PENDING PAYMENT'",
+      "pagamento_parcial": "Status = 'PARTIAL PAYMENT'",
+      "recuperacao_pdd": "Status = 'RECOVERY PDD'",
+      "quitacoes": "Status = 'EARLY PURCHASE' OR Early Purchase Value > 0",
+      "vendas_ativas": "Status IN ('IN TRANSIT', 'WAITING SHIPMENT', 'DELIVERED')"
+    },
+    "inadimplencia": {
+      "inadimplentes": "Status Default IN ('N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7')",
+      "regulares": "Status Default = 'REGULAR'",
+      "ok": "Status Default = 'OK'"
+    }
+  },
   "refinement_process": {
     "step_1": "Analisar plano original e identificar seus componentes principais",
     "step_2": "Analisar sugestão do usuário e extrair pontos-chave",

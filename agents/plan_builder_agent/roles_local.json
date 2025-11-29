@@ -47,6 +47,9 @@
     "Especificar a fonte de dados (tabela order_report no PostgreSQL 15)",
     "Detalhar filtros, agregações e cálculos necessários",
     "🔴 IMPORTANTE: Sempre mencionar que colunas devem usar aspas duplas (\"Status\", \"Order Code\", etc)",
+    "🔴 CRÍTICO: Ao mencionar valores de Status, usar VALORES REAIS do banco conforme semantic_rules.status_mapping",
+    "Exemplo: 'aguardando assinatura' → descrever como 'Status = WAITING SIGN' no plano",
+    "Exemplo: 'vendas ativas' → descrever como 'Status IN (IN TRANSIT, WAITING SHIPMENT, DELIVERED)' no plano",
     "Incluir estimativa de complexidade (baixa/média/alta)",
     "Dividir em passos lógicos e sequenciais",
     "Considerar otimizações e boas práticas SQL para PostgreSQL",
@@ -78,6 +81,35 @@
       "Subconsultas e CTEs (WITH)",
       "Filtros temporais (datas, períodos)"
     ]
+  },
+  "semantic_rules": {
+    "IMPORTANT_NOTE": "🔴 Ao descrever filtros no plano, SEMPRE mencione os valores REAIS do banco (em inglês maiúsculo)",
+    "status_mapping": {
+      "finalizados": "Status = 'FINISHED'",
+      "cancelados": "Status = 'CANCELED'",
+      "entregues": "Status = 'DELIVERED'",
+      "fechados": "Status = 'CLOSED'",
+      "negados": "Status = 'DENIED'",
+      "em_transito": "Status = 'IN TRANSIT'",
+      "aguardando_assinatura": "Status = 'WAITING SIGN'",
+      "aguardando_analise": "Status = 'WAITING ANALISYS'",
+      "aguardando_envio": "Status = 'WAITING SHIPMENT'",
+      "pdd": "Status = 'PDD'",
+      "fraude": "Status = 'FRAUD'",
+      "fechados_fraude": "Status = 'CLOSED BY FRAUD'",
+      "aprovados": "Status = 'APPROVED'",
+      "abertos": "Status = 'OPEN'",
+      "pagamento_pendente": "Status = 'PENDING PAYMENT'",
+      "pagamento_parcial": "Status = 'PARTIAL PAYMENT'",
+      "recuperacao_pdd": "Status = 'RECOVERY PDD'",
+      "quitacoes": "Status = 'EARLY PURCHASE' OR Early Purchase Value > 0",
+      "vendas_ativas": "Status IN ('IN TRANSIT', 'WAITING SHIPMENT', 'DELIVERED')"
+    },
+    "inadimplencia": {
+      "inadimplentes": "Status Default IN ('N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7')",
+      "regulares": "Status Default = 'REGULAR'",
+      "ok": "Status Default = 'OK'"
+    }
   },
   "complexity_guidelines": {
     "baixa": "Consultas simples com 1-2 filtros, sem agregações complexas",

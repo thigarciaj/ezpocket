@@ -2451,6 +2451,14 @@
 
         // Funções do Modal de Consultas Rápidas
         function showConsultasModal() {
+            const consultasBtn = document.querySelector('[onclick="showConsultasModal()"]');
+            
+            // Verificar se o botão está bloqueado
+            if (consultasBtn && consultasBtn.disabled) {
+                console.log('⚠️ Consultas Rápidas bloqueadas durante processamento');
+                return;
+            }
+            
             const modal = document.getElementById('consultasModal');
             modal.classList.add('show');
         }
@@ -2956,10 +2964,7 @@
                     removeTypingIndicator();
                     addMessageToChat('EZPocket', data.message, 'bot');
                     
-                    // Se for response_composer (resposta final), desbloqueia o input
-                    if (data.module === 'response_composer') {
-                        unblockInputArea();
-                    }
+                    // NÃO desbloqueia aqui - apenas quando job_completed (após feedback do usuário)
                 }
             });
 
@@ -2982,12 +2987,12 @@
                     if (data.data && data.data.response_text) {
                         addMessageToChat('EZPocket', data.data.response_text, 'bot');
                     }
-                    unblockInputArea(); // Desbloqueia para permitir feedback
+                    // NÃO desbloquear aqui - mantém bloqueado até job_completed
                 } else if (data.type === 'user_proposed_plan') {
                     // Usuário rejeitou o plano - pedir sugestões
                     addMessageToChat('EZPocket', '💡 **Como você gostaria que o plano fosse modificado?**\n\nDescreva suas sugestões ou uma nova abordagem para a análise.', 'bot');
                     waitingForPlanSuggestion = true;
-                    unblockInputArea(); // Desbloqueia para permitir sugestão
+                    // NÃO desbloquear aqui - mantém bloqueado até job_completed
                 }
             });
 
@@ -3520,6 +3525,7 @@
             const input = document.getElementById('chatInput');
             const sendButton = document.getElementById('send-button');
             const wrapper = document.querySelector('.chat-input-wrapper');
+            const consultasBtn = document.querySelector('[onclick="showConsultasModal()"]');
             
             if (input) {
                 input.disabled = true;
@@ -3544,6 +3550,14 @@
             if (sendButton) sendButton.disabled = true;
             if (wrapper) wrapper.classList.add('processing');
             
+            // Bloquear botão de Consultas Rápidas
+            if (consultasBtn) {
+                consultasBtn.disabled = true;
+                consultasBtn.classList.add('disabled');
+                consultasBtn.style.opacity = '0.5';
+                consultasBtn.style.cursor = 'not-allowed';
+            }
+            
             console.log('🔒 Input bloqueado');
         }
         
@@ -3551,6 +3565,7 @@
             const input = document.getElementById('chatInput');
             const sendButton = document.getElementById('send-button');
             const wrapper = document.querySelector('.chat-input-wrapper');
+            const consultasBtn = document.querySelector('[onclick="showConsultasModal()"]');
             
             if (input) {
                 input.disabled = false;
@@ -3568,6 +3583,14 @@
             }
             if (sendButton) sendButton.disabled = false;
             if (wrapper) wrapper.classList.remove('processing');
+            
+            // Desbloquear botão de Consultas Rápidas
+            if (consultasBtn) {
+                consultasBtn.disabled = false;
+                consultasBtn.classList.remove('disabled');
+                consultasBtn.style.opacity = '';
+                consultasBtn.style.cursor = '';
+            }
             
             console.log('🔓 Input desbloqueado');
         }
@@ -3886,9 +3909,19 @@
                     // Mostrar mensagem pedindo comentário
                     addMessageToChat('EZPocket', `✅ Nota ${selectedRating} registrada!\n\n**Deixe um comentário (opcional)**\nDigite seu comentário no campo abaixo ou pressione Enter para pular`, 'bot');
                     
-                    // Desbloqueia input e volta placeholder padrão para comentário
-                    resetPlaceholder();
-                    unblockInputArea();
+                    // Habilita input apenas para comentário (mantém botão Consultas Rápidas bloqueado)
+                    const input = document.getElementById('chatInput');
+                    const sendButton = document.getElementById('send-button');
+                    const wrapper = document.querySelector('.chat-input-wrapper');
+                    
+                    if (input) {
+                        input.disabled = false;
+                        input.placeholder = 'Digite seu comentário ou pressione Enter para pular...';
+                    }
+                    if (sendButton) sendButton.disabled = false;
+                    if (wrapper) wrapper.classList.remove('processing');
+                    
+                    // Consultas Rápidas PERMANECE bloqueado (só desbloqueia no job_completed)
                 });
             }
         }
