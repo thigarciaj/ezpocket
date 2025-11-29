@@ -29,8 +29,24 @@ class PlanRefinerAgent:
         print()
         self.temperature = 0.3  # Mais determinístico para refinar planos
         
+        # Carregar .env para verificar BD_REFERENCE
+        from dotenv import load_dotenv
+        from pathlib import Path
+        project_env = Path(__file__).parent.parent.parent / ".env"
+        load_dotenv(project_env)
+        
+        # Verificar qual roles usar baseado em BD_REFERENCE
+        bd_reference = os.getenv("BD_REFERENCE", "Athena")
+        
+        if bd_reference == "Local":
+            roles_file = "roles_local.json"
+            print(f"   🔧 Plan Refiner usando roles_local.json (PostgreSQL 15)")
+        else:
+            roles_file = "roles.json"
+            print(f"   🔧 Plan Refiner usando roles.json (AWS Athena)")
+        
         # Carrega roles
-        roles_path = os.path.join(os.path.dirname(__file__), 'roles.json')
+        roles_path = os.path.join(os.path.dirname(__file__), roles_file)
         with open(roles_path, 'r', encoding='utf-8') as f:
             self.roles = json.load(f)
         

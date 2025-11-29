@@ -10,6 +10,7 @@ import time
 from openai import OpenAI
 from typing import Dict, Any, List
 from pathlib import Path
+from dotenv import load_dotenv
 
 class AnalysisOrchestratorAgent:
     """
@@ -28,8 +29,22 @@ class AnalysisOrchestratorAgent:
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = "gpt-4o"
         
+        # Carregar .env para verificar BD_REFERENCE
+        project_env = Path(__file__).parent.parent.parent / ".env"
+        load_dotenv(project_env)
+        
+        # Verificar qual roles usar baseado em BD_REFERENCE
+        bd_reference = os.getenv("BD_REFERENCE", "Athena")
+        
+        if bd_reference == "Local":
+            roles_file = "roles_local.json"
+            print(f"   🔧 Usando roles_local.json (PostgreSQL 15)")
+        else:
+            roles_file = "roles.json"
+            print(f"   🔧 Usando roles.json (AWS Athena)")
+        
         # Carregar roles (contém TUDO: schemas, instruções e funções proibidas)
-        roles_path = Path(__file__).parent / "roles.json"
+        roles_path = Path(__file__).parent / roles_file
         with open(roles_path, 'r', encoding='utf-8') as f:
             self.roles = json.load(f)
     

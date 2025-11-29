@@ -11,13 +11,16 @@ import jwt
 from jwt import PyJWKClient
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+from pathlib import Path
 
-# Carrega variáveis de ambiente
-load_dotenv()
+# Carrega variáveis de ambiente do .env na raiz do projeto
+env_file = Path(__file__).parent.parent.parent / ".env"
+load_dotenv(env_file)
 
 # Configurações do Keycloak
-KEYCLOAK_SERVER_URL = f"https://{os.getenv('KEYCLOAK_HOSTNAME')}"
-KEYCLOAK_REALM = os.getenv('KEYCLOAK_REALM', 'ezpocket')
+KEYCLOAK_PORT = os.getenv('KEYCLOAK_PORT', '8090')
+KEYCLOAK_SERVER_URL = f"http://127.0.0.1:{KEYCLOAK_PORT}"
+KEYCLOAK_REALM = os.getenv('KEYCLOAK_REALM', 'ezpocket-realm')
 KEYCLOAK_CLIENT_ID = os.getenv('KEYCLOAK_CLIENT_ID', 'ezpocket-client')
 KEYCLOAK_CLIENT_SECRET = os.getenv('KEYCLOAK_CLIENT_SECRET')
 

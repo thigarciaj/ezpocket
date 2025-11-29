@@ -54,8 +54,23 @@ class SQLValidatorAgent:
         self.forbidden_columns = self.security_rules.get('forbidden_columns', [])
     
     def _load_roles(self) -> Dict:
-        """Carrega regras e roles do roles.json"""
-        roles_path = Path(__file__).parent / "roles.json"
+        """Carrega regras e roles do roles.json ou roles_local.json"""
+        # Carregar .env para verificar BD_REFERENCE
+        from dotenv import load_dotenv
+        project_env = Path(__file__).parent.parent.parent / ".env"
+        load_dotenv(project_env)
+        
+        # Verificar qual roles usar baseado em BD_REFERENCE
+        bd_reference = os.getenv("BD_REFERENCE", "Athena")
+        
+        if bd_reference == "Local":
+            roles_file = "roles_local.json"
+            print(f"   🔧 SQL Validator usando roles_local.json (PostgreSQL 15)")
+        else:
+            roles_file = "roles.json"
+            print(f"   🔧 SQL Validator usando roles.json (AWS Athena)")
+        
+        roles_path = Path(__file__).parent / roles_file
         with open(roles_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     

@@ -10,6 +10,7 @@ import sys
 import psycopg2
 import pandas as pd
 from datetime import datetime
+from pytz import timezone
 import boto3
 import time
 import logging
@@ -169,26 +170,51 @@ class DataSyncAgent:
         }
     
     def get_athena_results(self, execution_id: str) -> Optional[pd.DataFrame]:
-        """Obter resultados da query do Athena"""
+        """Obter resultados da query do Athena com paginação"""
         try:
-            # Obter resultados
-            response = self.athena_client.get_query_results(
-                QueryExecutionId=execution_id
-            )
+            all_rows = []
+            next_token = None
+            page = 1
             
-            # Processar resultados
-            rows = response['ResultSet']['Rows']
+            # Loop de paginação
+            while True:
+                # Obter resultados (com ou sem token de paginação)
+                if next_token:
+                    response = self.athena_client.get_query_results(
+                        QueryExecutionId=execution_id,
+                        NextToken=next_token
+                    )
+                else:
+                    response = self.athena_client.get_query_results(
+                        QueryExecutionId=execution_id
+                    )
+                
+                rows = response['ResultSet']['Rows']
+                
+                # Na primeira página, pegar headers e pular primeira linha
+                if page == 1:
+                    if not rows:
+                        logger.warning("⚠️ Nenhum resultado encontrado")
+                        return pd.DataFrame()
+                    
+                    # Primeira linha são os headers
+                    headers = [col['VarCharValue'] for col in rows[0]['Data']]
+                    rows = rows[1:]  # Pular headers
+                
+                # Adicionar linhas desta página
+                all_rows.extend(rows)
+                logger.info(f"📄 Página {page}: {len(rows)} registros obtidos (total acumulado: {len(all_rows)})")
+                
+                # Verificar se há mais páginas
+                next_token = response.get('NextToken')
+                if not next_token:
+                    break
+                
+                page += 1
             
-            if not rows:
-                logger.warning("⚠️ Nenhum resultado encontrado")
-                return pd.DataFrame()
-            
-            # Primeira linha são os headers
-            headers = [col['VarCharValue'] for col in rows[0]['Data']]
-            
-            # Dados (pular primeira linha que são headers)
+            # Processar todas as linhas
             data = []
-            for row in rows[1:]:
+            for row in all_rows:
                 row_data = []
                 for col in row['Data']:
                     value = col.get('VarCharValue', '')
@@ -201,7 +227,7 @@ class DataSyncAgent:
             
             # Criar DataFrame
             df = pd.DataFrame(data, columns=headers)
-            logger.info(f"📊 Dados obtidos: {len(df)} registros")
+            logger.info(f"📊 Total de dados obtidos: {len(df)} registros de {page} páginas")
             
             return df
             
@@ -420,6 +446,10 @@ class DataSyncAgent:
                 'max_retries': self.sync_config['max_retries']
             }
             
+            # Obter horário atual em Miami (naive datetime para PostgreSQL TIMESTAMP)
+            miami_tz = timezone('America/New_York')
+            now_miami = datetime.now(miami_tz).replace(tzinfo=None)
+            
             cursor.execute("""
                 INSERT INTO data_sync_control 
                 (sync_type, source_system, target_table, sync_started_at, batch_size, sync_config, sync_status)
@@ -429,7 +459,7 @@ class DataSyncAgent:
                 'order_report',
                 'athena',
                 self.sync_config['postgres_table'],
-                datetime.now(),
+                now_miami,
                 self.sync_config['batch_size'],
                 json.dumps(sync_config),
                 'running'
@@ -452,9 +482,13 @@ class DataSyncAgent:
             conn = self.get_postgres_connection()
             cursor = conn.cursor()
             
+            # Obter horário atual em Miami (naive datetime para PostgreSQL TIMESTAMP)
+            miami_tz = timezone('America/New_York')
+            now_miami = datetime.now(miami_tz).replace(tzinfo=None)
+            
             update_data = {
                 'sync_status': status,
-                'sync_completed_at': datetime.now(),
+                'sync_completed_at': now_miami,
                 'records_processed': stats.get('processed', 0),
                 'records_inserted': stats.get('inserted', 0),
                 'records_updated': stats.get('updated', 0),

@@ -3098,25 +3098,31 @@
                 if (!statusElement) return;
                 
                 if (data.bd_reference === 'Local' && data.last_sync) {
-                    const lastSync = new Date(data.last_sync);
-                    const formattedDate = lastSync.toLocaleDateString('pt-BR', {
+                    // A data vem do backend já em horário de Miami (naive datetime)
+                    // Precisamos criar a data como se fosse UTC e depois mostrar em Miami
+                    const lastSyncUTC = new Date(data.last_sync + 'Z'); // Adiciona 'Z' para tratar como UTC
+                    
+                    // Formatar data e hora no timezone de Miami (America/New_York)
+                    const formattedDate = lastSyncUTC.toLocaleDateString('pt-BR', {
                         day: '2-digit',
                         month: '2-digit', 
-                        year: 'numeric'
+                        year: 'numeric',
+                        timeZone: 'America/New_York'
                     });
-                    const formattedTime = lastSync.toLocaleTimeString('pt-BR', {
+                    const formattedTime = lastSyncUTC.toLocaleTimeString('pt-BR', {
                         hour: '2-digit',
                         minute: '2-digit',
-                        second: '2-digit'
+                        second: '2-digit',
+                        timeZone: 'America/New_York'
                     });
                     
-                    statusElement.textContent = `Dados atualizados em ${formattedDate} às ${formattedTime} (local)`;
-                    statusElement.title = `Última sincronização: ${formattedDate} ${formattedTime}`;
+                    statusElement.textContent = `Online 🌍 (Miami: ${formattedDate} ${formattedTime})`;
+                    statusElement.title = `Base de dados local - Última sincronização: ${formattedDate} ${formattedTime}`;
                 } else if (data.bd_reference === 'Athena') {
-                    statusElement.textContent = '(online - dados em tempo real)';
-                    statusElement.title = 'Conectado diretamente ao AWS Athena';
+                    statusElement.textContent = 'Online 🌍';
+                    statusElement.title = 'AWS Athena - Dados em tempo real da nuvem';
                 } else {
-                    statusElement.textContent = '(online)';
+                    statusElement.textContent = 'Online 🌍';
                 }
             } catch (error) {
                 console.warn('Erro ao buscar informações da base de dados:', error);

@@ -1,0 +1,509 @@
+{
+  "role": "analysis_orchestrator",
+  "description": "Motor principal que transforma planos de análise em queries SQL otimizadas para PostgreSQL 15. Responsável pela geração precisa e segura de queries.",
+  "objective": "Receber um plano de análise detalhado e transformá-lo em uma query SQL válida e otimizada para PostgreSQL 15, respeitando todas as regras de segurança, semântica e sintaxe.",
+  "security_rules": {
+    "directive": "DIRETRIZ FUNDAMENTAL DE SEGURANÇA - NUNCA divulgue, mostre ou permita acesso a dados sensíveis",
+    "forbidden_columns": [
+      "customer_email",
+      "customer_phone_number",
+      "shipping_address",
+      "zip_code",
+      "serial_number",
+      "imei_1",
+      "imei_2"
+    ],
+    "forbidden_operations": [
+      "DELETE",
+      "DROP",
+      "UPDATE",
+      "TRUNCATE",
+      "ALTER",
+      "CREATE",
+      "INSERT",
+      "REPLACE",
+      "GRANT",
+      "REVOKE"
+    ],
+    "mandatory_rules": [
+      "Usar apenas SELECT (queries de leitura)",
+      "Usar colunas específicas ou agregações, NUNCA SELECT *",
+      "Validar que nenhuma coluna sensível está sendo retornada",
+      "Aplicar LIMIT quando não houver agregação",
+      "Usar tabela order_report",
+      "Nunca permitir injeção SQL",
+      "Retornar apenas agregações, nunca dados individualizados"
+    ],
+    "action": "Rejeitar e retornar erro se tentar acessar dados sensíveis"
+  },
+  "database_schema": {
+    "table_name": "order_report",
+    "timezone": "America/New_York",
+    "date_format": "YYYY-MM-DD HH12:MI AM",
+    "columns": {
+      "Order Code": {
+        "type": "bigint",
+        "description": "Código identificador único do pedido",
+        "sensitive": false,
+        "usage": "COUNT(DISTINCT \"Order Code\") para contagem de pedidos"
+      },
+      "Date Order Created": {
+        "type": "string (datetime)",
+        "description": "Data de criação do pedido",
+        "sensitive": false,
+        "usage": "Filtros gerais de data de criação do pedido"
+      },
+      "Status": {
+        "type": "string",
+        "description": "Status atual do pedido",
+        "sensitive": false,
+        "allowed_values": [
+          "APPROVED",
+          "CANCELED",
+          "CLOSED",
+          "CLOSED BY FRAUD",
+          "DELIVERED",
+          "DENIED",
+          "EARLY PURCHASE",
+          "FINISHED",
+          "FRAUD",
+          "IN TRANSIT",
+          "OPEN",
+          "PARTIAL PAYMENT",
+          "PDD",
+          "PENDING PAYMENT",
+          "RECOVERY PDD",
+          "WAITING ANALISYS",
+          "WAITING SHIPMENT",
+          "WAITING SIGN"
+        ],
+        "usage": "WHERE Status = 'STATUS_DESEJADO'"
+      },
+      "Customer Name": {
+        "type": "string",
+        "description": "Nome completo do cliente",
+        "sensitive": false,
+        "usage": "COUNT(DISTINCT \"Customer Name\") para contagem de clientes únicos (apenas agregações)",
+        "note": "Não retornar nomes individuais, apenas agregações"
+      },
+      "Customer Email": {
+        "type": "string",
+        "description": "E-mail do cliente",
+        "sensitive": true,
+        "security": "DADOS SENSÍVEIS - NUNCA RETORNAR"
+      },
+      "Shipping Address": {
+        "type": "string",
+        "description": "Endereço de entrega completo",
+        "sensitive": true,
+        "security": "DADOS SENSÍVEIS - NUNCA RETORNAR"
+      },
+      "Zip Code": {
+        "type": "string",
+        "description": "CEP do endereço de entrega",
+        "sensitive": true,
+        "security": "DADOS SENSÍVEIS - NUNCA RETORNAR"
+      },
+      "item_name": {
+        "type": "string",
+        "description": "Nome do produto vendido",
+        "sensitive": false,
+        "usage": "GROUP BY item_name para análise por produto"
+      },
+      "TAC Expected": {
+        "type": "double",
+        "description": "Valor total esperado do contrato (TAC)",
+        "sensitive": false,
+        "usage": "SUM(COALESCE(\"TAC Expected\", 0))"
+      },
+      "TAC Paid": {
+        "type": "double",
+        "description": "Valor TAC já pago",
+        "sensitive": false,
+        "usage": "SUM(COALESCE(\"TAC Paid\", 0))"
+      },
+      "Downpayment Paid": {
+        "type": "double",
+        "description": "Valor de entrada já pago",
+        "sensitive": false,
+        "usage": "SUM(COALESCE(\"Downpayment Paid\", 0))"
+      },
+      "Taxes Percent": {
+        "type": "double",
+        "description": "Percentual de impostos aplicados",
+        "sensitive": false,
+        "usage": "AVG(\"Taxes Percent\") para média de impostos"
+      },
+      "Installments Value": {
+        "type": "double",
+        "description": "Valor total das parcelas",
+        "sensitive": false,
+        "usage": "SUM(COALESCE(\"Installments Value\", 0))"
+      },
+      "Taxes Value Installments": {
+        "type": "double",
+        "description": "Valor dos impostos embutidos nas parcelas",
+        "sensitive": false,
+        "usage": "SUM(COALESCE(\"Taxes Value Installments\", 0))"
+      },
+      "Taxes Value Initial Payment": {
+        "type": "double",
+        "description": "Impostos embutidos no pagamento inicial",
+        "sensitive": false,
+        "usage": "SUM(COALESCE(\"Taxes Value Initial Payment\", 0))"
+      },
+      "Shipment Value": {
+        "type": "double",
+        "description": "Valor do frete",
+        "sensitive": false,
+        "usage": "SUM(COALESCE(\"Shipment Value\", 0))"
+      },
+      "Discount Value": {
+        "type": "double",
+        "description": "Valor total dos descontos aplicados",
+        "sensitive": false,
+        "usage": "SUM(COALESCE(\"Discount Value\", 0))"
+      },
+      "Total Installments": {
+        "type": "double",
+        "description": "Número total de parcelas",
+        "sensitive": false,
+        "usage": "AVG(\"Total Installments\") para média de parcelas"
+      },
+      "Dealer": {
+        "type": "string",
+        "description": "Revendedor associado ao pedido",
+        "sensitive": false,
+        "usage": "GROUP BY Dealer para análise por revendedor"
+      },
+      "Sellers": {
+        "type": "string",
+        "description": "Nome(s) dos vendedores que realizaram a venda",
+        "sensitive": false,
+        "usage": "GROUP BY Sellers para análise por vendedor"
+      },
+      "Coupons": {
+        "type": "string",
+        "description": "Cupons aplicados no pedido",
+        "sensitive": false,
+        "usage": "WHERE Coupons IS NOT NULL para pedidos com cupons"
+      },
+      "Delivery Date": {
+        "type": "string (datetime)",
+        "description": "Data de entrega do produto",
+        "sensitive": false,
+        "usage": "Filtros de data de entrega"
+      },
+      "Contract Start Date": {
+        "type": "string (datetime)",
+        "description": "Data de início do contrato",
+        "sensitive": false,
+        "usage": "PRINCIPAL para contabilizar vendas - usar em filtros temporais de vendas",
+        "note": "Esta é a coluna mais importante para análises de vendas"
+      },
+      "Status Default": {
+        "type": "string",
+        "description": "Status de inadimplência do cliente",
+        "sensitive": false,
+        "allowed_values": [
+          "OK",
+          "REGULAR",
+          "N1",
+          "N2",
+          "N3",
+          "N4",
+          "N5",
+          "N6",
+          "N7"
+        ],
+        "usage": "WHERE \"Status Default\" IN ('N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7') para inadimplentes"
+      },
+      "Customer Phone Number": {
+        "type": "string",
+        "description": "Telefone de contato do cliente",
+        "sensitive": true,
+        "security": "DADOS SENSÍVEIS - NUNCA RETORNAR"
+      },
+      "Serial Number": {
+        "type": "string",
+        "description": "Número de série do produto vendido",
+        "sensitive": true,
+        "security": "DADOS SENSÍVEIS - NUNCA RETORNAR"
+      },
+      "IMEI 1": {
+        "type": "string",
+        "description": "IMEI primário do dispositivo (caso seja um celular)",
+        "sensitive": true,
+        "security": "DADOS SENSÍVEIS - NUNCA RETORNAR"
+      },
+      "IMEI 2": {
+        "type": "string",
+        "description": "IMEI secundário do dispositivo (caso dual-chip)",
+        "sensitive": true,
+        "security": "DADOS SENSÍVEIS - NUNCA RETORNAR"
+      },
+      "Contract Total Value Expected": {
+        "type": "double",
+        "description": "Valor total esperado do contrato",
+        "sensitive": false,
+        "usage": "SUM(COALESCE(\"Contract Total Value Expected\", 0))"
+      },
+      "Installments Paid Value": {
+        "type": "double",
+        "description": "Valor total já pago em parcelas",
+        "sensitive": false,
+        "usage": "SUM(COALESCE(\"Installments Paid Value\", 0))"
+      },
+      "Order Total Paid": {
+        "type": "double",
+        "description": "Valor total já pago do pedido",
+        "sensitive": false,
+        "usage": "SUM(COALESCE(\"Order Total Paid\", 0)) - principal para total recebido"
+      },
+      "Remaining Total": {
+        "type": "double",
+        "description": "Saldo restante a pagar",
+        "sensitive": false,
+        "usage": "SUM(COALESCE(\"Remaining Total\", 0)) - principal para valores a receber"
+      },
+      "Total Delay": {
+        "type": "double",
+        "description": "Quantidade total de dias de atraso no pagamento",
+        "sensitive": false,
+        "usage": "AVG(\"Total Delay\") ou SUM(\"Total Delay\")"
+      },
+      "Total Extra Payment Value Paid": {
+        "type": "double",
+        "description": "Valor extra pago além do esperado",
+        "sensitive": false,
+        "usage": "SUM(COALESCE(\"Total Extra Payment Value Paid\", 0))"
+      },
+      "Total Value Refunded": {
+        "type": "double",
+        "description": "Valor total reembolsado ao cliente",
+        "sensitive": false,
+        "usage": "SUM(COALESCE(\"Total Value Refunded\", 0))"
+      },
+      "Early Purchase Value": {
+        "type": "double",
+        "description": "Valor pago por antecipação do contrato (quitação antecipada)",
+        "sensitive": false,
+        "usage": "SUM(COALESCE(\"Early Purchase Value\", 0)) - principal para quitações"
+      },
+      "Early Purchase Date": {
+        "type": "string (datetime)",
+        "description": "Data em que o cliente realizou a quitação antecipada do contrato",
+        "sensitive": false,
+        "usage": "Filtros para análise de quitações antecipadas"
+      },
+      "customer_income": {
+        "type": "double",
+        "description": "Renda mensal estimada do cliente",
+        "sensitive": false,
+        "usage": "AVG(customer_income) para média de renda"
+      },
+      "Cancelled At": {
+        "type": "string (datetime)",
+        "description": "Data de cancelamento do pedido/venda",
+        "sensitive": false,
+        "usage": "Filtros para análise de cancelamentos"
+      },
+      "Finished At": {
+        "type": "string (datetime)",
+        "description": "Data de finalização do pedido/venda",
+        "sensitive": false,
+        "usage": "Filtros para análise de finalizações"
+      },
+      "PDD at": {
+        "type": "string (datetime)",
+        "description": "Data de PDD (Pending Documents)",
+        "sensitive": false,
+        "usage": "Filtros para análise de documentos pendentes"
+      }
+    }
+  },
+  "general_instructions": [
+    "Usar exatamente os nomes das colunas conforme schema",
+    "Para comparações entre períodos, usar CROSS JOIN para compatibilidade Athena"
+  ],
+  "postgresql_syntax_rules": {
+    "column_names": "Colunas com espaços devem ter aspas duplas: \"Contract Start Date\"",
+    "aliases": "Usar alias após agregações: COUNT(*) AS total",
+    "date_parsing": "(TO_TIMESTAMP(TRIM(\"coluna\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date",
+    "timezone": "America/New_York",
+    "CRITICAL_DATE_RULES": [
+      "SEMPRE usar ::date para converter timestamp em data",
+      "NUNCA usar CAST(TO_TIMESTAMP(...) AS TIMESTAMP)",
+      "SEMPRE considerar timezone Miami (America/New_York)",
+      "IMPORTANTE: A coluna 'Contract Start Date' JÁ ESTÁ armazenada em timezone de Miami, então use AT TIME ZONE 'America/New_York' após TO_TIMESTAMP para indicar isso",
+      "Usar (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York') para horário Miami atual",
+      "Para filtros temporais usar o mapeamento em português (hoje, ontem, esse mês, etc)",
+      "PADRÃO CORRETO: (TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date"
+    ],
+    "null_handling": "Usar COALESCE(coluna, 0) em agregações",
+    "forbidden_functions": [
+      {
+        "funcao": "LAST_DAY",
+        "variantes": [
+          "last_day",
+          "LAST_DAY(",
+          "last_day(",
+          "DAY(LAST_DAY",
+          "day(last_day",
+          "ontem"
+        ],
+        "motivo": "Função não existe no PostgreSQL 15",
+        "alternativa_postgresql": "(DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month' - INTERVAL '1 day')::date"
+      }
+    ]
+  },
+  "semantic_rules": {
+    "vendas": {
+      "date_column": "Contract Start Date"
+    },
+    "temporal_mapping": {
+      "hoje|hj": {
+        "variantes": [
+          "hoje",
+          "hj",
+          "today"
+        ],
+        "query": "(TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York')::date"
+      },
+      "ontem": {
+        "variantes": [
+          "ontem",
+          "yesterday"
+        ],
+        "query": "(TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York' - INTERVAL '1 day')::date"
+      },
+      "esta_semana": {
+        "variantes": [
+          "esta semana",
+          "essa semana",
+          "semana atual",
+          "this week"
+        ],
+        "query": "(TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date >= DATE_TRUNC('week', (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York'))::date"
+      },
+      "este_mes": {
+        "variantes": [
+          "este mes",
+          "esse mes",
+          "este mês",
+          "esse mês",
+          "mes atual",
+          "mês atual",
+          "this month"
+        ],
+        "query": "(TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date >= DATE_TRUNC('month', (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York'))::date"
+      },
+      "mes_passado": {
+        "variantes": [
+          "mes passado",
+          "mês passado",
+          "ultimo mes",
+          "último mês",
+          "last month"
+        ],
+        "query": "(TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date >= (DATE_TRUNC('month', (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York')) - INTERVAL '1 month')::date AND (TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date < DATE_TRUNC('month', (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York'))::date"
+      },
+      "este_ano": {
+        "variantes": [
+          "este ano",
+          "esse ano",
+          "ano atual",
+          "this year"
+        ],
+        "query": "(TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date >= DATE_TRUNC('year', (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York'))::date"
+      },
+      "ano_passado": {
+        "variantes": [
+          "ano passado",
+          "ultimo ano",
+          "último ano",
+          "last year"
+        ],
+        "query": "(TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date >= (DATE_TRUNC('year', (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York')) - INTERVAL '1 year')::date AND (TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date < DATE_TRUNC('year', (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York'))::date"
+      }
+    },
+    "status_mapping": {
+      "finalizados": "WHERE Status = 'FINISHED'",
+      "cancelados": "WHERE Status = 'CANCELED'",
+      "entregues": "WHERE Status = 'DELIVERED'",
+      "fechados": "WHERE Status = 'CLOSED'",
+      "negados": "WHERE Status = 'DENIED'",
+      "em_transito": "WHERE Status = 'IN TRANSIT'",
+      "aguardando_assinatura": "WHERE Status = 'WAITING SIGN'",
+      "aguardando_analise": "WHERE Status = 'WAITING ANALISYS'",
+      "aguardando_envio": "WHERE Status = 'WAITING SHIPMENT'",
+      "pdd": "WHERE Status = 'PDD'",
+      "fraude": "WHERE Status = 'FRAUD'",
+      "fechados_fraude": "WHERE Status = 'CLOSED BY FRAUD'",
+      "aprovados": "WHERE Status = 'APPROVED'",
+      "abertos": "WHERE Status = 'OPEN'",
+      "pagamento_pendente": "WHERE Status = 'PENDING PAYMENT'",
+      "pagamento_parcial": "WHERE Status = 'PARTIAL PAYMENT'",
+      "recuperacao_pdd": "WHERE Status = 'RECOVERY PDD'",
+      "quitacoes": "WHERE Status = 'EARLY PURCHASE' OR \"Early Purchase Value\" > 0",
+      "vendas_ativas": "WHERE Status IN ('IN TRANSIT', 'WAITING SHIPMENT', 'DELIVERED')"
+    },
+    "inadimplencia": {
+      "inadimplentes": "WHERE \"Status Default\" IN ('N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7')",
+      "regulares": "WHERE \"Status Default\" = 'REGULAR'",
+      "ok": "WHERE \"Status Default\" = 'OK'"
+    },
+    "valores": {
+      "total_recebido": "SUM(\"Order Total Paid\")",
+      "valores_vendidos": "SUM(\"Contract Total Value Expected\") WHERE Status IN ('DELIVERED', 'EARLY PURCHASE', 'FINISHED', 'IN TRANSIT', 'PDD', 'WAITING SHIPMENT')",
+      "valores_a_receber": "SUM(COALESCE(\"Remaining Total\", 0)) WHERE Status IN ('DELIVERED', 'IN TRANSIT', 'WAITING SHIPMENT')",
+      "valores_fraude_pdd": "SUM(COALESCE(\"Remaining Total\", 0)) WHERE Status IN ('FRAUD', 'PDD')",
+      "valores_quitacao": "SUM(\"Early Purchase Value\")",
+      "valores_deixados_arrecadar": "SUM(\"Contract Total Value Expected\" - \"Order Total Paid\") para quitações antecipadas"
+    },
+    "contagens": {
+      "pedidos": "COUNT(DISTINCT \"Order Code\")",
+      "clientes_unicos": "COUNT(DISTINCT \"Customer Name\")",
+      "vendas_geradas": "COUNT(*) WHERE Status NOT IN ('DENIED', 'OPEN', 'CLOSED', 'CLOSED BY FRAUD', 'WAITING ANALISYS', 'DELIVERY_CANCELLED', 'RECUSED', 'PENDING PAYMENT', 'PARTIAL PAYMENT', 'APPROVED')"
+    }
+  },
+  "query_examples": [
+    {
+      "description": "Vendas hoje (Miami timezone)",
+      "query": "SELECT COUNT(*) AS total FROM order_report WHERE (TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York')::date"
+    },
+    {
+      "description": "Vendas ontem (Miami timezone)",
+      "query": "SELECT COUNT(*) AS total FROM order_report WHERE (TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York' - INTERVAL '1 day')::date"
+    },
+    {
+      "description": "Top 5 produtos mais vendidos",
+      "query": "SELECT item_name, COUNT(*) AS total_vendas FROM order_report GROUP BY item_name ORDER BY total_vendas DESC LIMIT 5"
+    },
+    {
+      "description": "Total recebido",
+      "query": "SELECT SUM(COALESCE(\"Order Total Paid\", 0)) AS total_recebido FROM order_report"
+    },
+    {
+      "description": "Inadimplentes",
+      "query": "SELECT COUNT(*) AS total FROM order_report WHERE \"Status Default\" IN ('N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7')"
+    },
+    {
+      "description": "Vendas do mês atual (Miami timezone)",
+      "query": "SELECT COUNT(*) AS total FROM order_report WHERE (TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date >= DATE_TRUNC('month', (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York'))::date AND (TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date < (DATE_TRUNC('month', (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York')) + INTERVAL '1 month')::date"
+    },
+    {
+      "description": "Comparação mês atual vs mês passado (Miami timezone)",
+      "query": "WITH mes_atual AS (SELECT COUNT(*) as total FROM order_report WHERE (TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date >= DATE_TRUNC('month', (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York'))::date AND (TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date < (DATE_TRUNC('month', (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York')) + INTERVAL '1 month')::date), mes_passado AS (SELECT COUNT(*) as total FROM order_report WHERE (TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date >= (DATE_TRUNC('month', (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York')) - INTERVAL '1 month')::date AND (TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date < DATE_TRUNC('month', (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York'))::date) SELECT ma.total as mes_atual, mp.total as mes_passado FROM mes_atual ma CROSS JOIN mes_passado mp"
+    }
+  ],
+  "output_format": [
+    "query_sql",
+    "query_explanation",
+    "columns_used",
+    "filters_applied",
+    "security_validated"
+  ],
+  "system_prompt_template": "Você é o Analysis Orchestrator Agent, motor principal de geração de queries SQL para PostgreSQL 15.\n\n🎯 OBJETIVO:\nTransformar um plano de análise em uma query SQL OTIMIZADA, SEGURA e VÁLIDA para PostgreSQL 15.\n\n🎯 FORMATO DE SAÍDA (JSON):\n{{\n  \"query_sql\": \"Query SQL completa e otimizada\",\n  \"query_explanation\": \"Explicação clara do que a query faz\",\n  \"columns_used\": [\"lista\", \"de\", \"colunas\"],\n  \"filters_applied\": [\"lista\", \"de\", \"filtros\"],\n  \"optimization_notes\": \"Notas sobre otimizações aplicadas\"\n}}",
+  "user_prompt_template": "Transforme este plano em uma query SQL otimizada:\n\n📝 PERGUNTA DO USUÁRIO:\n{pergunta}\n\n📋 PLANO DE ANÁLISE:\n{plan}\n\n📂 CATEGORIA: {intent_category}\n\nGere a query SQL seguindo TODAS as regras de segurança, semântica e sintaxe do Athena.\nRetorne no formato JSON especificado."
+}

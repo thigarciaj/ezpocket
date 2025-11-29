@@ -23,10 +23,26 @@ class PlanBuilderAgent:
         
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         
-        # Carregar roles.json
+        # Carregar roles.json ou roles_local.json
         import json
         from pathlib import Path
-        roles_path = Path(__file__).parent / "roles.json"
+        from dotenv import load_dotenv
+        
+        # Carregar .env para verificar BD_REFERENCE
+        project_env = Path(__file__).parent.parent.parent / ".env"
+        load_dotenv(project_env)
+        
+        # Verificar qual roles usar baseado em BD_REFERENCE
+        bd_reference = os.getenv("BD_REFERENCE", "Athena")
+        
+        if bd_reference == "Local":
+            roles_file = "roles_local.json"
+            print(f"   🔧 Plan Builder usando roles_local.json (PostgreSQL 15)")
+        else:
+            roles_file = "roles.json"
+            print(f"   🔧 Plan Builder usando roles.json (AWS Athena)")
+        
+        roles_path = Path(__file__).parent / roles_file
         with open(roles_path, 'r', encoding='utf-8') as f:
             self.roles = json.load(f)
         

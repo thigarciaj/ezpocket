@@ -12,6 +12,30 @@ class PlanConfirmAgent:
     def __init__(self):
         """Inicializa o agente de confirmação"""
         self.agent_name = "PlanConfirmAgent"
+        
+        # Carregar roles.json ou roles_local.json
+        from pathlib import Path
+        from dotenv import load_dotenv
+        
+        # Carregar .env para verificar BD_REFERENCE
+        project_env = Path(__file__).parent.parent.parent / ".env"
+        load_dotenv(project_env)
+        
+        # Verificar qual roles usar baseado em BD_REFERENCE
+        bd_reference = os.getenv("BD_REFERENCE", "Athena")
+        
+        if bd_reference == "Local":
+            roles_file = "roles_local.json"
+            print(f"   🔧 Plan Confirm usando roles_local.json (PostgreSQL 15)")
+        else:
+            roles_file = "roles.json"
+            print(f"   🔧 Plan Confirm usando roles.json (AWS Athena)")
+        
+        # Carregar roles
+        roles_path = Path(__file__).parent / roles_file
+        with open(roles_path, 'r', encoding='utf-8') as f:
+            self.roles = json.load(f)
+        
         print("\n" + "="*80)
         print("✅ PLAN CONFIRM AGENT - CONFIRMAÇÃO DO USUÁRIO")
         print("="*80)
