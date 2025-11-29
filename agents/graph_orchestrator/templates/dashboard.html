@@ -434,7 +434,7 @@
         }
 
         .info-card {
-            background: transparent
+            background: transparent;
             border-radius: 10px;
             padding: 15px;
             margin-bottom: 15px;
@@ -2677,8 +2677,8 @@
         async function updatePlaceholder(module) {
             const chatInput = document.getElementById('chatInput');
             if (chatInput && module) {
-                // Não mostrar alguns módulos que rodam em paralelo ou são para usuário
-                if (module === 'user_feedback' || module === 'history_preferences') {
+                // Não mostrar apenas history_preferences (que roda em paralelo)
+                if (module === 'history_preferences') {
                     return; // Manter placeholder atual
                 }
                 
@@ -2980,10 +2980,8 @@
                     return;
                 }
                 
-                // Atualizar placeholder com o módulo atual (exceto user_feedback)
-                if (data.module !== 'user_feedback' || !data.show_rating) {
-                    updatePlaceholder(data.module);
-                }
+                // Atualizar placeholder com o módulo atual
+                updatePlaceholder(data.module);
                 
                 // Se for plan_builder, mostrar o plano normalmente
                 if (data.module === 'plan_builder') {
