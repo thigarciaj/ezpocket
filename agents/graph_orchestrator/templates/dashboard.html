@@ -248,6 +248,12 @@
         .chat-status {
             color: #25d366;
             font-size: 14px;
+            cursor: help;
+            transition: opacity 0.3s ease;
+        }
+
+        .chat-status:hover {
+            opacity: 0.8;
         }
 
         .chat-content {
@@ -1583,7 +1589,7 @@
         <div class="chat-area" id="chatArea" data-permission="chat_view">
             <div class="chat-header-invisible chat-header" data-permission="chat_header">
                 <div class="chat-title" data-permission="chat_title">EZPocket Assistente</div>
-                <div class="chat-status" data-permission="chat_status">(online)</div>
+                <div class="chat-status" id="chatStatus" data-permission="chat_status">(online)</div>
             </div>
             
             <div class="chat-content">
@@ -3178,9 +3184,46 @@
             }
         }
 
+        // Atualizar status do chat com informações da base de dados
+        async function updateChatStatus() {
+            try {
+                const response = await fetch('/api/database-info');
+                const data = await response.json();
+                
+                const statusElement = document.getElementById('chatStatus');
+                if (!statusElement) return;
+                
+                if (data.bd_reference === 'Local' && data.last_sync) {
+                    const lastSync = new Date(data.last_sync);
+                    const formattedDate = lastSync.toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit', 
+                        year: 'numeric'
+                    });
+                    const formattedTime = lastSync.toLocaleTimeString('pt-BR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                    
+                    statusElement.textContent = `Dados atualizados em ${formattedDate} às ${formattedTime} (local)`;
+                    statusElement.title = `Última sincronização: ${formattedDate} ${formattedTime}`;
+                } else if (data.bd_reference === 'Athena') {
+                    statusElement.textContent = '(online - dados em tempo real)';
+                    statusElement.title = 'Conectado diretamente ao AWS Athena';
+                } else {
+                    statusElement.textContent = '(online)';
+                }
+            } catch (error) {
+                console.warn('Erro ao buscar informações da base de dados:', error);
+                // Manter o status padrão em caso de erro
+            }
+        }
+
         // Inicializar WebSocket quando a página carregar
         document.addEventListener('DOMContentLoaded', async function() {
             await loadSessionTimeout();
+            await updateChatStatus(); // Atualizar status do chat
             initWebSocket();
             initActivityListeners();
             updateLastActivity(); // Inicia o timeout

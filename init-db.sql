@@ -714,453 +714,134 @@ CREATE INDEX idx_user_feedback_username_projeto ON user_feedback_logs(username, 
 CREATE INDEX idx_user_feedback_horario ON user_feedback_logs(horario DESC);
 CREATE INDEX idx_user_feedback_execution_sequence ON user_feedback_logs(execution_sequence);
 
+
 -- =====================================================
--- MÓDULO 2: HISTORY PREFERENCES AGENT (NÓ 1)
+-- TABELA ORDER REPORT - Schema idêntico ao CSV
 -- =====================================================
--- COMENTADO: Tabela não utilizada no momento
-/*
-CREATE TABLE IF NOT EXISTS history_preferences_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+CREATE TABLE IF NOT EXISTS order_report (
+    -- Tipos baseados no schema do Athena
+    "Order Code" BIGINT NOT NULL,
+    "Date Order Created" TEXT,
+    "Status" TEXT,
+    "Customer Name" TEXT,
+    "Customer Email" TEXT,
+    "Shipping Address" TEXT,
+    "Zip Code" TEXT,
+    "item_name" TEXT,
+    "TAC Expected" DOUBLE PRECISION,
+    "TAC Paid" DOUBLE PRECISION,
+    "Downpayment Paid" DOUBLE PRECISION,
+    "Taxes Percent" DOUBLE PRECISION,
+    "Installments Value" DOUBLE PRECISION,
+    "Taxes Value Installments" DOUBLE PRECISION,
+    "Taxes Value Initial Payment" DOUBLE PRECISION,
+    "Shipment Value" DOUBLE PRECISION,
+    "Discount Value" DOUBLE PRECISION,
+    "Total Installments" DOUBLE PRECISION,
+    "Dealer" TEXT,
+    "Sellers" TEXT,
+    "Coupons" TEXT,
+    "Delivery Date" TEXT,
+    "Contract Start Date" TEXT,
+    "Status Default" TEXT,
+    "Customer Phone Number" TEXT,
+    "Serial Number" TEXT,
+    "IMEI 1" TEXT,
+    "IMEI 2" TEXT,
+    "Contract Total Value Expected" DOUBLE PRECISION,
+    "Installments Paid Value" DOUBLE PRECISION,
+    "Order Total Paid" DOUBLE PRECISION,
+    "Remaining Total" DOUBLE PRECISION,
+    "Total Delay" DOUBLE PRECISION,
+    "Total Extra Payment Value Paid" DOUBLE PRECISION,
+    "Total Value Refunded" DOUBLE PRECISION,
+    "Early Purchase Value" DOUBLE PRECISION,
+    "Early Purchase Date" TEXT,
+    "customer_income" DOUBLE PRECISION,
+    "Cancelled At" TEXT,
+    "Finished At" TEXT,
+    "PDD at" TEXT,
     
-    -- Identificação (sempre presente)
-    username VARCHAR(100) NOT NULL,
-    projeto VARCHAR(100) NOT NULL,
-    horario TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    -- Metadados e controle
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
-    -- Dados recuperados
-    user_preferences JSONB,
-    user_patterns JSONB,
-    interaction_count INTEGER,
-    last_interactions TEXT[],
-    
-    -- Contexto identificado
-    context_summary TEXT,
-    relevant_history_found BOOLEAN DEFAULT FALSE,
-    
-    -- Performance
-    execution_time REAL,
-    records_retrieved INTEGER,
-    
-    -- Status
-    success BOOLEAN DEFAULT TRUE,
-    error_message TEXT,
-    
-    -- Metadata adicional
-    metadata JSONB
+    -- Chave primária composta
+    PRIMARY KEY ("Order Code", "item_name")
 );
 
-CREATE INDEX idx_history_preferences_username ON history_preferences_logs(username);
-CREATE INDEX idx_history_preferences_projeto ON history_preferences_logs(projeto);
-CREATE INDEX idx_history_preferences_horario ON history_preferences_logs(horario DESC);
-CREATE INDEX idx_history_preferences_username_projeto ON history_preferences_logs(username, projeto);
-*/
+
 
 -- =====================================================
--- MÓDULO 3: ROUTER AGENT (NÓ 2)
+-- TABELA DE CONTROLE DE SINCRONIZAÇÃO
 -- =====================================================
--- COMENTADO: Tabela não utilizada no momento
-/*
-CREATE TABLE IF NOT EXISTS router_logs (
+
+CREATE TABLE IF NOT EXISTS data_sync_control (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     
-    -- Identificação (sempre presente)
-    username VARCHAR(100) NOT NULL,
-    projeto VARCHAR(100) NOT NULL,
-    horario TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    -- Informações da sincronização
+    sync_type VARCHAR(50) NOT NULL,  -- 'order_report', 'customers', etc.
+    source_system VARCHAR(50) NOT NULL,  -- 'athena', 's3', etc.
+    target_table VARCHAR(100) NOT NULL,
     
-    -- Decisão de roteamento
-    route VARCHAR(100) NOT NULL,
-    route_reason TEXT,
-    confidence_score REAL,
+    -- Timestamps
+    sync_started_at TIMESTAMP NOT NULL,
+    sync_completed_at TIMESTAMP,
     
-    -- Análise da pergunta
-    query_type VARCHAR(50),
-    requires_aggregation BOOLEAN,
-    requires_join BOOLEAN,
-    complexity_level VARCHAR(20),
-    
-    -- Performance
-    execution_time REAL,
-    model_used VARCHAR(50),
+    -- Estatísticas
+    records_processed INTEGER DEFAULT 0,
+    records_inserted INTEGER DEFAULT 0,
+    records_updated INTEGER DEFAULT 0,
+    records_failed INTEGER DEFAULT 0,
     
     -- Status
-    success BOOLEAN DEFAULT TRUE,
-    error_message TEXT,
+    sync_status VARCHAR(20) DEFAULT 'running',  -- 'running', 'completed', 'failed', 'partial'
     
-    -- Metadata adicional
-    metadata JSONB
+    -- Detalhes técnicos
+    execution_time_seconds REAL,
+    batch_size INTEGER,
+    retry_count INTEGER DEFAULT 0,
+    
+    -- Logs e erros
+    success_message TEXT,
+    error_message TEXT,
+    error_details JSONB,
+    
+    -- Metadados
+    sync_config JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_router_username ON router_logs(username);
-CREATE INDEX idx_router_projeto ON router_logs(projeto);
-CREATE INDEX idx_router_horario ON router_logs(horario DESC);
-CREATE INDEX idx_router_username_projeto ON router_logs(username, projeto);
-CREATE INDEX idx_router_route ON router_logs(route);
-*/
-
--- =====================================================
--- MÓDULO 4: GENERATOR AGENT (NÓ 3)
--- =====================================================
--- COMENTADO: Tabela não utilizada no momento
-/*
-CREATE TABLE IF NOT EXISTS generator_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    
-    -- Identificação (sempre presente)
-    username VARCHAR(100) NOT NULL,
-    projeto VARCHAR(100) NOT NULL,
-    horario TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    
-    -- SQL Gerado
-    sql_query TEXT NOT NULL,
-    query_type VARCHAR(50),
-    tables_used TEXT[],
-    
-    -- Validação
-    query_valid BOOLEAN DEFAULT TRUE,
-    validation_errors TEXT[],
-    
-    -- Execução
-    query_executed BOOLEAN DEFAULT FALSE,
-    rows_returned INTEGER,
-    execution_error TEXT,
-    
-    -- Performance
-    execution_time REAL,
-    query_execution_time REAL,
-    model_used VARCHAR(50),
-    tokens_used INTEGER,
-    
-    -- Status
-    success BOOLEAN DEFAULT TRUE,
-    error_message TEXT,
-    
-    -- Metadata adicional
-    metadata JSONB
-);
-
-CREATE INDEX idx_generator_username ON generator_logs(username);
-CREATE INDEX idx_generator_projeto ON generator_logs(projeto);
-CREATE INDEX idx_generator_horario ON generator_logs(horario DESC);
-CREATE INDEX idx_generator_username_projeto ON generator_logs(username, projeto);
-CREATE INDEX idx_generator_query_type ON generator_logs(query_type);
-*/
-
--- =====================================================
--- MÓDULO 5: RESPONDER AGENT (NÓ 4)
--- =====================================================
--- COMENTADO: Tabela não utilizada no momento
-/*
-CREATE TABLE IF NOT EXISTS responder_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    
-    -- Identificação (sempre presente)
-    username VARCHAR(100) NOT NULL,
-    projeto VARCHAR(100) NOT NULL,
-    horario TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    
-    -- Resposta gerada
-    resposta TEXT NOT NULL,
-    resposta_format VARCHAR(50),
-    
-    -- Dados utilizados
-    data_rows_processed INTEGER,
-    charts_generated INTEGER,
-    
-    -- Qualidade
-    response_complete BOOLEAN DEFAULT TRUE,
-    user_satisfaction_score REAL,
-    
-    -- Performance
-    execution_time REAL,
-    model_used VARCHAR(50),
-    tokens_used INTEGER,
-    
-    -- Status
-    success BOOLEAN DEFAULT TRUE,
-    error_message TEXT,
-    
-    -- Metadata adicional
-    metadata JSONB
-);
-
-CREATE INDEX idx_responder_username ON responder_logs(username);
-CREATE INDEX idx_responder_projeto ON responder_logs(projeto);
-CREATE INDEX idx_responder_horario ON responder_logs(horario DESC);
-CREATE INDEX idx_responder_username_projeto ON responder_logs(username, projeto);
-CREATE INDEX idx_responder_format ON responder_logs(resposta_format);
-*/
-
--- =====================================================
--- FOREIGN KEYS: Conectando rotina_usuario com módulos
--- =====================================================
-
-ALTER TABLE rotina_usuario 
-    ADD CONSTRAINT fk_rotina_intent_validator 
-    FOREIGN KEY (intent_validator_id) 
-    REFERENCES intent_validator_logs(id) ON DELETE SET NULL;
-
-ALTER TABLE rotina_usuario 
-    ADD CONSTRAINT fk_rotina_history_preferences 
-    FOREIGN KEY (history_preferences_id) 
-    REFERENCES history_preferences_logs(id) ON DELETE SET NULL;
-
-ALTER TABLE rotina_usuario 
-    ADD CONSTRAINT fk_rotina_router 
-    FOREIGN KEY (router_id) 
-    REFERENCES router_logs(id) ON DELETE SET NULL;
-
-ALTER TABLE rotina_usuario 
-    ADD CONSTRAINT fk_rotina_generator 
-    FOREIGN KEY (generator_id) 
-    REFERENCES generator_logs(id) ON DELETE SET NULL;
-
-ALTER TABLE rotina_usuario 
-    ADD CONSTRAINT fk_rotina_responder 
-    FOREIGN KEY (responder_id) 
-    REFERENCES responder_logs(id) ON DELETE SET NULL;
-
--- =====================================================
--- VIEWS ÚTEIS PARA NAVEGAÇÃO
--- =====================================================
-
--- View: Rotina completa do usuário com todos os detalhes
-CREATE OR REPLACE VIEW vw_rotina_completa AS
-SELECT 
-    r.id,
-    r.username,
-    r.projeto,
-    r.horario,
-    r.modulo,
-    r.pergunta,
-    r.resposta_resumo,
-    r.execution_time,
-    r.success,
-    
-    -- Campos do Intent Validator
-    iv.intent_valid,
-    iv.intent_category,
-    iv.security_violation,
-    
-    -- Campos do History
-    hp.interaction_count,
-    hp.relevant_history_found,
-    
-    -- Campos do Router
-    rt.route,
-    rt.confidence_score,
-    
-    -- Campos do Generator
-    gn.sql_query,
-    gn.rows_returned,
-    
-    -- Campos do Responder
-    rp.resposta AS resposta_completa,
-    rp.charts_generated
-
-FROM rotina_usuario r
-LEFT JOIN intent_validator_logs iv ON r.intent_validator_id = iv.id
-LEFT JOIN history_preferences_logs hp ON r.history_preferences_id = hp.id
-LEFT JOIN router_logs rt ON r.router_id = rt.id
-LEFT JOIN generator_logs gn ON r.generator_id = gn.id
-LEFT JOIN responder_logs rp ON r.responder_id = rp.id
-ORDER BY r.horario DESC;
-
--- View: Timeline do usuário por projeto
-CREATE OR REPLACE VIEW vw_timeline_usuario AS
-SELECT 
-    username,
-    projeto,
-    DATE(horario) as data,
-    COUNT(*) as total_interacoes,
-    COUNT(DISTINCT modulo) as modulos_diferentes,
-    STRING_AGG(DISTINCT modulo, ', ') as modulos_usados,
-    AVG(execution_time) as tempo_medio,
-    COUNT(CASE WHEN success = TRUE THEN 1 END) as sucessos,
-    COUNT(CASE WHEN success = FALSE THEN 1 END) as falhas
-FROM rotina_usuario
-GROUP BY username, projeto, DATE(horario)
-ORDER BY username, projeto, data DESC;
-
--- View: Últimas 50 atividades por usuário/projeto
-CREATE OR REPLACE VIEW vw_ultimas_atividades AS
-SELECT 
-    username,
-    projeto,
-    horario,
-    modulo,
-    pergunta,
-    CASE 
-        WHEN LENGTH(resposta_resumo) > 100 
-        THEN SUBSTRING(resposta_resumo, 1, 100) || '...'
-        ELSE resposta_resumo
-    END as resposta_preview,
-    execution_time,
-    success
-FROM rotina_usuario
-ORDER BY horario DESC
-LIMIT 50;
-
--- View: Estatísticas por módulo
-CREATE OR REPLACE VIEW vw_stats_por_modulo AS
-SELECT 
-    projeto,
-    modulo,
-    COUNT(*) as total_execucoes,
-    AVG(execution_time) as tempo_medio,
-    COUNT(CASE WHEN success = TRUE THEN 1 END) as sucessos,
-    COUNT(CASE WHEN success = FALSE THEN 1 END) as falhas,
-    MIN(horario) as primeira_execucao,
-    MAX(horario) as ultima_execucao
-FROM rotina_usuario
-GROUP BY projeto, modulo
-ORDER BY projeto, total_execucoes DESC;
-
--- =====================================================
--- FUNÇÕES ÚTEIS
--- =====================================================
-
--- Função: Buscar rotina completa de um usuário em período
-CREATE OR REPLACE FUNCTION get_rotina_periodo(
-    p_username VARCHAR(100),
-    p_projeto VARCHAR(100),
-    p_data_inicio TIMESTAMP,
-    p_data_fim TIMESTAMP
-) RETURNS TABLE (
-    horario TIMESTAMP,
-    modulo VARCHAR(50),
-    pergunta TEXT,
-    resposta TEXT,
-    tempo REAL,
-    sucesso BOOLEAN
-) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT 
-        r.horario,
-        r.modulo,
-        r.pergunta,
-        r.resposta_resumo,
-        r.execution_time,
-        r.success
-    FROM rotina_usuario r
-    WHERE r.username = p_username
-      AND r.projeto = p_projeto
-      AND r.horario BETWEEN p_data_inicio AND p_data_fim
-    ORDER BY r.horario ASC;
-END;
-$$ LANGUAGE plpgsql;
-
--- Função: Buscar detalhes completos de uma interação
-CREATE OR REPLACE FUNCTION get_detalhes_interacao(
-    p_rotina_id UUID
-) RETURNS TABLE (
-    modulo VARCHAR(50),
-    detalhes JSONB
-) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT 
-        r.modulo,
-        CASE r.modulo
-            WHEN 'intent_validator' THEN row_to_json(iv.*)::JSONB
-            WHEN 'history_preferences' THEN row_to_json(hp.*)::JSONB
-            WHEN 'router' THEN row_to_json(rt.*)::JSONB
-            WHEN 'generator' THEN row_to_json(gn.*)::JSONB
-            WHEN 'responder' THEN row_to_json(rp.*)::JSONB
-            ELSE '{}'::JSONB
-        END as detalhes
-    FROM rotina_usuario r
-    LEFT JOIN intent_validator_logs iv ON r.intent_validator_id = iv.id
-    LEFT JOIN history_preferences_logs hp ON r.history_preferences_id = hp.id
-    LEFT JOIN router_logs rt ON r.router_id = rt.id
-    LEFT JOIN generator_logs gn ON r.generator_id = gn.id
-    LEFT JOIN responder_logs rp ON r.responder_id = rp.id
-    WHERE r.id = p_rotina_id;
-END;
-$$ LANGUAGE plpgsql;
-
--- Função: Obter estatísticas do usuário
-CREATE OR REPLACE FUNCTION get_user_stats(
-    p_username VARCHAR(100),
-    p_projeto VARCHAR(100)
-) RETURNS TABLE (
-    total_interacoes BIGINT,
-    tempo_total REAL,
-    tempo_medio REAL,
-    modulo_mais_usado VARCHAR(50),
-    taxa_sucesso REAL,
-    primeira_interacao TIMESTAMP,
-    ultima_interacao TIMESTAMP
-) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT 
-        COUNT(*)::BIGINT,
-        SUM(r.execution_time)::REAL,
-        AVG(r.execution_time)::REAL,
-        (SELECT modulo FROM rotina_usuario 
-         WHERE username = p_username AND projeto = p_projeto 
-         GROUP BY modulo ORDER BY COUNT(*) DESC LIMIT 1)::VARCHAR(50),
-        (COUNT(CASE WHEN r.success = TRUE THEN 1 END)::REAL / COUNT(*)::REAL * 100)::REAL,
-        MIN(r.horario),
-        MAX(r.horario)
-    FROM rotina_usuario r
-    WHERE r.username = p_username
-      AND r.projeto = p_projeto;
-END;
-$$ LANGUAGE plpgsql;
+CREATE INDEX idx_data_sync_control_type ON data_sync_control(sync_type);
+CREATE INDEX idx_data_sync_control_status ON data_sync_control(sync_status);
+CREATE INDEX idx_data_sync_control_started ON data_sync_control(sync_started_at DESC);
+CREATE INDEX idx_data_sync_control_completed ON data_sync_control(sync_completed_at DESC);
+CREATE INDEX idx_data_sync_control_target_table ON data_sync_control(target_table);
 
 
--- =====================================================
--- COMENTÁRIOS NAS TABELAS
--- =====================================================
+-- Comentários das tabelas
+COMMENT ON TABLE intent_validator_logs IS 'Logs de validação de intenções';
+COMMENT ON TABLE plan_builder_logs IS 'Logs de construção de planos';
+COMMENT ON TABLE plan_confirm_logs IS 'Logs de confirmação de planos';  
+COMMENT ON TABLE user_proposed_plan_logs IS 'Logs de planos propostos pelo usuário';
+COMMENT ON TABLE plan_refiner_logs IS 'Logs de refinamento de planos';
+COMMENT ON TABLE analysis_orchestrator_logs IS 'Logs de orquestração de análises';
+COMMENT ON TABLE sql_validator_logs IS 'Logs de validação de SQL';
+COMMENT ON TABLE auto_correction_logs IS 'Logs de correção automática';
+COMMENT ON TABLE athena_executor_logs IS 'Logs de execução no Athena';
+COMMENT ON TABLE python_runtime_logs IS 'Logs de runtime Python';
+COMMENT ON TABLE response_composer_logs IS 'Logs de composição de respostas';
+COMMENT ON TABLE user_feedback_logs IS 'Logs de feedback do usuário';
+COMMENT ON TABLE order_report IS 'Relatório de pedidos';
+COMMENT ON TABLE data_sync_control IS 'Controle de sincronização de dados';
+COMMENT ON COLUMN order_report."Order Code" IS 'Código único do pedido - permite múltiplos itens por pedido';
+COMMENT ON COLUMN order_report."Status" IS 'Status do pedido: FINISHED, EARLY_PURCHASE, CANCELED, CLOSED, PDD, FRAUD, etc';
+COMMENT ON COLUMN order_report."customer_income" IS 'Renda do cliente em valor monetário';
+COMMENT ON COLUMN order_report."TAC Expected" IS 'Valor TAC esperado';
+COMMENT ON COLUMN order_report."TAC Paid" IS 'Valor TAC efetivamente pago';
+COMMENT ON COLUMN order_report."Contract Total Value Expected" IS 'Valor total esperado do contrato';
+COMMENT ON COLUMN order_report."Order Total Paid" IS 'Valor total efetivamente pago';
+COMMENT ON COLUMN order_report."Remaining Total" IS 'Valor restante a ser pago';
 
-COMMENT ON TABLE rotina_usuario IS 'TABELA CENTRAL - Permite navegar por toda a rotina do usuário através de horário, username e projeto';
-COMMENT ON TABLE intent_validator_logs IS 'MÓDULO 1 - Intent Validator Agent (NÓ 0) - Validação de intenções';
-COMMENT ON TABLE history_preferences_logs IS 'MÓDULO 2 - History Preferences Agent (NÓ 1) - Context Manager/Memory';
-COMMENT ON TABLE router_logs IS 'MÓDULO 3 - Router Agent (NÓ 2) - Roteamento de queries';
-COMMENT ON TABLE generator_logs IS 'MÓDULO 4 - Generator Agent (NÓ 3) - Geração de SQL';
-COMMENT ON TABLE responder_logs IS 'MÓDULO 5 - Responder Agent (NÓ 4) - Geração de respostas';
 
-COMMENT ON COLUMN rotina_usuario.horario IS 'TIMESTAMP SEMPRE PRESENTE - Permite ordenação temporal';
-COMMENT ON COLUMN rotina_usuario.username IS 'CHAVE DE NAVEGAÇÃO - Identifica o usuário';
-COMMENT ON COLUMN rotina_usuario.projeto IS 'CHAVE DE NAVEGAÇÃO - Identifica o projeto';
-COMMENT ON COLUMN rotina_usuario.modulo IS 'CHAVE DE NAVEGAÇÃO - Identifica qual módulo foi executado';
-COMMENT ON COLUMN rotina_usuario.intent_validator_id IS 'FK para intent_validator_logs - Permite navegar para detalhes';
-COMMENT ON COLUMN rotina_usuario.history_preferences_id IS 'FK para history_preferences_logs - Permite navegar para detalhes';
-COMMENT ON COLUMN rotina_usuario.router_id IS 'FK para router_logs - Permite navegar para detalhes';
-COMMENT ON COLUMN rotina_usuario.generator_id IS 'FK para generator_logs - Permite navegar para detalhes';
-COMMENT ON COLUMN rotina_usuario.responder_id IS 'FK para responder_logs - Permite navegar para detalhes';
-
--- =====================================================
--- EXEMPLOS DE USO
--- =====================================================
-
--- Exemplo 1: Ver toda a rotina de um usuário no projeto ezpag
--- SELECT * FROM rotina_usuario WHERE username = 'joao' AND projeto = 'ezpag' ORDER BY horario DESC;
-
--- Exemplo 2: Ver horários e módulos acionados nas últimas 24 horas
--- SELECT horario, modulo, pergunta FROM rotina_usuario 
--- WHERE username = 'joao' AND projeto = 'ezpag' 
--- AND horario >= NOW() - INTERVAL '24 hours' 
--- ORDER BY horario DESC;
-
--- Exemplo 3: Navegar da rotina para detalhes do intent_validator
--- SELECT r.horario, r.pergunta, iv.* 
--- FROM rotina_usuario r
--- JOIN intent_validator_logs iv ON r.intent_validator_id = iv.id
--- WHERE r.username = 'joao' AND r.projeto = 'ezpag';
-
--- Exemplo 4: Ver rotina completa com todos os módulos (usando view)
--- SELECT * FROM vw_rotina_completa WHERE username = 'joao' AND projeto = 'ezpag' LIMIT 10;
-
--- Exemplo 5: Estatísticas do usuário (usando função)
--- SELECT * FROM get_user_stats('joao', 'ezpag');
-
--- Exemplo 6: Timeline diária do usuário
--- SELECT * FROM vw_timeline_usuario WHERE username = 'joao' AND projeto = 'ezpag';
-
--- =====================================================
--- FIM DO SCRIPT
--- =====================================================

@@ -2,6 +2,9 @@
 const BASE_PATH = "/home/servidores/ezpocket";
 const PYTHON_PATH = `${BASE_PATH}/ezinho_assistente/bin/python`;
 
+// Carregar variáveis de ambiente do .env
+require('dotenv').config({ path: `${BASE_PATH}/.env` });
+
 module.exports = {
   apps: [
     // Graph Orchestrator WebSocket Server
@@ -241,6 +244,28 @@ module.exports = {
       out_file: "/var/log/pm2/worker-history-preferences.out.log",
       error_file: "/var/log/pm2/worker-history-preferences.err.log",
       log_date_format: "YYYY-MM-DD HH:mm:ss"
+    },
+
+    // Data Sync Agent - Sincronização Athena -> PostgreSQL
+    {
+      name: "data-sync-agent",
+      script: "agents/data_sync_agent/data_sync_agent.py",
+      interpreter: PYTHON_PATH,
+      cwd: BASE_PATH,
+      autorestart: false,
+      watch: false,
+      max_memory_restart: "1G",
+      env: {
+        PYTHONPATH: BASE_PATH,
+        NODE_ENV: "production"
+      },
+      out_file: "/var/log/pm2/data-sync-agent.out.log",
+      error_file: "/var/log/pm2/data-sync-agent.err.log",
+      log_date_format: "YYYY-MM-DD HH:mm:ss",
+      cron_restart: process.env.DATA_SYNC_SCHEDULE,
+      kill_timeout: 600000,
+      min_uptime: "10s",
+      max_restarts: 0
     }
   ]
 };

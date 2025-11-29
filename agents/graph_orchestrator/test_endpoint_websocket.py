@@ -1005,6 +1005,68 @@ def get_qdrant_config():
 # ROTAS EXISTENTES
 # ============================================================================
 
+@app.route('/api/database-info', methods=['GET'])
+def get_database_info():
+    """Informações sobre a base de dados e última sincronização"""
+    try:
+        import psycopg2
+        from datetime import datetime
+        
+        # Configuração PostgreSQL
+        postgres_config = {
+            'host': os.getenv('POSTGRES_HOST', 'localhost'),
+            'port': int(os.getenv('POSTGRES_PORT', 5546)),
+            'database': os.getenv('POSTGRES_DB', 'ezpocket_logs'),
+            'user': os.getenv('POSTGRES_USER', 'ezpocket_user'),
+            'password': os.getenv('POSTGRES_PASSWORD', 'ezpocket_pass_2025')
+        }
+        
+        bd_reference = os.getenv('BD_REFERENCE', 'Athena')
+        
+        response_data = {
+            'bd_reference': bd_reference,
+            'last_sync': None,
+            'sync_status': None
+        }
+        
+        # Se for Local, buscar informações da última sincronização
+        if bd_reference.lower() == 'local':
+            try:
+                conn = psycopg2.connect(**postgres_config)
+                cursor = conn.cursor()
+                
+                # Buscar última sincronização bem-sucedida
+                cursor.execute("""
+                    SELECT sync_completed_at, sync_status, records_processed 
+                    FROM data_sync_control 
+                    WHERE sync_type = 'order_report' AND sync_status = 'completed'
+                    ORDER BY sync_completed_at DESC 
+                    LIMIT 1
+                """)
+                
+                result = cursor.fetchone()
+                if result:
+                    response_data['last_sync'] = result[0].isoformat() if result[0] else None
+                    response_data['sync_status'] = result[1]
+                    response_data['records_processed'] = result[2]
+                
+                cursor.close()
+                conn.close()
+                
+            except Exception as db_error:
+                print(f"Erro ao buscar informações do banco: {db_error}")
+                # Continuar com response_data padrão
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        print(f"Erro no endpoint database-info: {e}")
+        return jsonify({
+            'bd_reference': os.getenv('BD_REFERENCE', 'Athena'),
+            'last_sync': None,
+            'sync_status': 'error'
+        }), 500
+
 
 @app.route('/test-orchestrator/health', methods=['GET'])
 def health():
