@@ -46,6 +46,7 @@
     "Descrever EXATAMENTE como o sistema irá processar a pergunta",
     "Especificar a fonte de dados (tabela order_report no PostgreSQL 15)",
     "Detalhar filtros, agregações e cálculos necessários",
+    "🔴 IMPORTANTE: Sempre mencionar que colunas devem usar aspas duplas (\"Status\", \"Order Code\", etc)",
     "Incluir estimativa de complexidade (baixa/média/alta)",
     "Dividir em passos lógicos e sequenciais",
     "Considerar otimizações e boas práticas SQL para PostgreSQL",

@@ -2,6 +2,27 @@
   "role": "analysis_orchestrator",
   "description": "Motor principal que transforma planos de análise em queries SQL otimizadas para PostgreSQL 15. Responsável pela geração precisa e segura de queries.",
   "objective": "Receber um plano de análise detalhado e transformá-lo em uma query SQL válida e otimizada para PostgreSQL 15, respeitando todas as regras de segurança, semântica e sintaxe.",
+  "CRITICAL_COLUMN_QUOTING_RULE": {
+    "directive": "🔴 REGRA CRÍTICA OBRIGATÓRIA - TODAS as colunas DEVEM estar entre ASPAS DUPLAS",
+    "correct_examples": [
+      "\"Status\"",
+      "\"Order Code\"",
+      "\"Customer Name\"",
+      "\"Contract Start Date\"",
+      "SELECT \"Order Code\", \"Status\" FROM order_report",
+      "WHERE \"Status\" = 'DELIVERED'",
+      "GROUP BY \"item_name\"",
+      "ORDER BY \"Order Code\""
+    ],
+    "incorrect_examples": [
+      "Status (sem aspas - ERRADO)",
+      "Order Code (sem aspas - ERRADO)",
+      "SELECT Status, Order Code FROM order_report (ERRADO)",
+      "WHERE Status = 'DELIVERED' (ERRADO - causa erro 'column status does not exist')"
+    ],
+    "reason": "PostgreSQL diferencia maiúsculas/minúsculas e nomes com espaços EXIGEM aspas duplas",
+    "action": "SEMPRE gerar queries com aspas duplas em TODAS as colunas"
+  },
   "security_rules": {
     "directive": "DIRETRIZ FUNDAMENTAL DE SEGURANÇA - NUNCA divulgue, mostre ou permita acesso a dados sensíveis",
     "forbidden_columns": [
@@ -77,7 +98,7 @@
           "WAITING SHIPMENT",
           "WAITING SIGN"
         ],
-        "usage": "WHERE Status = 'STATUS_DESEJADO'"
+        "usage": "WHERE \"Status\" = 'STATUS_DESEJADO'"
       },
       "Customer Name": {
         "type": "string",
@@ -323,14 +344,22 @@
     }
   },
   "general_instructions": [
+    "🔴 REGRA CRÍTICA: SEMPRE colocar TODAS as colunas entre aspas duplas - \"Status\", \"Order Code\", \"Customer Name\", etc",
+    "🔴 NUNCA usar nome de coluna sem aspas duplas (Status ❌ → \"Status\" ✅)",
     "Usar exatamente os nomes das colunas conforme schema",
     "Para comparações entre períodos, usar CROSS JOIN para compatibilidade Athena"
   ],
   "postgresql_syntax_rules": {
-    "column_names": "Colunas com espaços devem ter aspas duplas: \"Contract Start Date\"",
+    "column_names": "SEMPRE usar aspas duplas em TODAS as colunas: \"Contract Start Date\", \"Status\", \"Order Code\", etc",
     "aliases": "Usar alias após agregações: COUNT(*) AS total",
     "date_parsing": "(TO_TIMESTAMP(TRIM(\"coluna\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date",
     "timezone": "America/New_York",
+    "CRITICAL_COLUMN_QUOTING": [
+      "SEMPRE usar aspas duplas em TODAS as referências a colunas",
+      "Exemplos corretos: \"Status\", \"Order Code\", \"Customer Name\", \"Contract Start Date\"",
+      "NUNCA usar: Status, Order Code, Customer Name (sem aspas)",
+      "Isso evita erros como 'column status does not exist'"
+    ],
     "CRITICAL_DATE_RULES": [
       "SEMPRE usar ::date para converter timestamp em data",
       "NUNCA usar CAST(TO_TIMESTAMP(...) AS TIMESTAMP)",
@@ -428,25 +457,25 @@
       }
     },
     "status_mapping": {
-      "finalizados": "WHERE Status = 'FINISHED'",
-      "cancelados": "WHERE Status = 'CANCELED'",
-      "entregues": "WHERE Status = 'DELIVERED'",
-      "fechados": "WHERE Status = 'CLOSED'",
-      "negados": "WHERE Status = 'DENIED'",
-      "em_transito": "WHERE Status = 'IN TRANSIT'",
-      "aguardando_assinatura": "WHERE Status = 'WAITING SIGN'",
-      "aguardando_analise": "WHERE Status = 'WAITING ANALISYS'",
-      "aguardando_envio": "WHERE Status = 'WAITING SHIPMENT'",
-      "pdd": "WHERE Status = 'PDD'",
-      "fraude": "WHERE Status = 'FRAUD'",
-      "fechados_fraude": "WHERE Status = 'CLOSED BY FRAUD'",
-      "aprovados": "WHERE Status = 'APPROVED'",
-      "abertos": "WHERE Status = 'OPEN'",
-      "pagamento_pendente": "WHERE Status = 'PENDING PAYMENT'",
-      "pagamento_parcial": "WHERE Status = 'PARTIAL PAYMENT'",
-      "recuperacao_pdd": "WHERE Status = 'RECOVERY PDD'",
-      "quitacoes": "WHERE Status = 'EARLY PURCHASE' OR \"Early Purchase Value\" > 0",
-      "vendas_ativas": "WHERE Status IN ('IN TRANSIT', 'WAITING SHIPMENT', 'DELIVERED')"
+      "finalizados": "WHERE \"Status\" = 'FINISHED'",
+      "cancelados": "WHERE \"Status\" = 'CANCELED'",
+      "entregues": "WHERE \"Status\" = 'DELIVERED'",
+      "fechados": "WHERE \"Status\" = 'CLOSED'",
+      "negados": "WHERE \"Status\" = 'DENIED'",
+      "em_transito": "WHERE \"Status\" = 'IN TRANSIT'",
+      "aguardando_assinatura": "WHERE \"Status\" = 'WAITING SIGN'",
+      "aguardando_analise": "WHERE \"Status\" = 'WAITING ANALISYS'",
+      "aguardando_envio": "WHERE \"Status\" = 'WAITING SHIPMENT'",
+      "pdd": "WHERE \"Status\" = 'PDD'",
+      "fraude": "WHERE \"Status\" = 'FRAUD'",
+      "fechados_fraude": "WHERE \"Status\" = 'CLOSED BY FRAUD'",
+      "aprovados": "WHERE \"Status\" = 'APPROVED'",
+      "abertos": "WHERE \"Status\" = 'OPEN'",
+      "pagamento_pendente": "WHERE \"Status\" = 'PENDING PAYMENT'",
+      "pagamento_parcial": "WHERE \"Status\" = 'PARTIAL PAYMENT'",
+      "recuperacao_pdd": "WHERE \"Status\" = 'RECOVERY PDD'",
+      "quitacoes": "WHERE \"Status\" = 'EARLY PURCHASE' OR \"Early Purchase Value\" > 0",
+      "vendas_ativas": "WHERE \"Status\" IN ('IN TRANSIT', 'WAITING SHIPMENT', 'DELIVERED')"
     },
     "inadimplencia": {
       "inadimplentes": "WHERE \"Status Default\" IN ('N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7')",
@@ -455,16 +484,16 @@
     },
     "valores": {
       "total_recebido": "SUM(\"Order Total Paid\")",
-      "valores_vendidos": "SUM(\"Contract Total Value Expected\") WHERE Status IN ('DELIVERED', 'EARLY PURCHASE', 'FINISHED', 'IN TRANSIT', 'PDD', 'WAITING SHIPMENT')",
-      "valores_a_receber": "SUM(COALESCE(\"Remaining Total\", 0)) WHERE Status IN ('DELIVERED', 'IN TRANSIT', 'WAITING SHIPMENT')",
-      "valores_fraude_pdd": "SUM(COALESCE(\"Remaining Total\", 0)) WHERE Status IN ('FRAUD', 'PDD')",
+      "valores_vendidos": "SUM(\"Contract Total Value Expected\") WHERE \"Status\" IN ('DELIVERED', 'EARLY PURCHASE', 'FINISHED', 'IN TRANSIT', 'PDD', 'WAITING SHIPMENT')",
+      "valores_a_receber": "SUM(COALESCE(\"Remaining Total\", 0)) WHERE \"Status\" IN ('DELIVERED', 'IN TRANSIT', 'WAITING SHIPMENT')",
+      "valores_fraude_pdd": "SUM(COALESCE(\"Remaining Total\", 0)) WHERE \"Status\" IN ('FRAUD', 'PDD')",
       "valores_quitacao": "SUM(\"Early Purchase Value\")",
       "valores_deixados_arrecadar": "SUM(\"Contract Total Value Expected\" - \"Order Total Paid\") para quitações antecipadas"
     },
     "contagens": {
       "pedidos": "COUNT(DISTINCT \"Order Code\")",
       "clientes_unicos": "COUNT(DISTINCT \"Customer Name\")",
-      "vendas_geradas": "COUNT(*) WHERE Status NOT IN ('DENIED', 'OPEN', 'CLOSED', 'CLOSED BY FRAUD', 'WAITING ANALISYS', 'DELIVERY_CANCELLED', 'RECUSED', 'PENDING PAYMENT', 'PARTIAL PAYMENT', 'APPROVED')"
+      "vendas_geradas": "COUNT(*) WHERE \"Status\" NOT IN ('DENIED', 'OPEN', 'CLOSED', 'CLOSED BY FRAUD', 'WAITING ANALISYS', 'DELIVERY_CANCELLED', 'RECUSED', 'PENDING PAYMENT', 'PARTIAL PAYMENT', 'APPROVED')"
     }
   },
   "query_examples": [
@@ -504,6 +533,6 @@
     "filters_applied",
     "security_validated"
   ],
-  "system_prompt_template": "Você é o Analysis Orchestrator Agent, motor principal de geração de queries SQL para PostgreSQL 15.\n\n🎯 OBJETIVO:\nTransformar um plano de análise em uma query SQL OTIMIZADA, SEGURA e VÁLIDA para PostgreSQL 15.\n\n🎯 FORMATO DE SAÍDA (JSON):\n{{\n  \"query_sql\": \"Query SQL completa e otimizada\",\n  \"query_explanation\": \"Explicação clara do que a query faz\",\n  \"columns_used\": [\"lista\", \"de\", \"colunas\"],\n  \"filters_applied\": [\"lista\", \"de\", \"filtros\"],\n  \"optimization_notes\": \"Notas sobre otimizações aplicadas\"\n}}",
+  "system_prompt_template": "Você é o Analysis Orchestrator Agent, motor principal de geração de queries SQL para PostgreSQL 15.\n\n🎯 OBJETIVO:\nTransformar um plano de análise em uma query SQL OTIMIZADA, SEGURA e VÁLIDA para PostgreSQL 15.\n\n🔴 REGRA CRÍTICA OBRIGATÓRIA:\n- TODAS as colunas DEVEM estar entre aspas duplas\n- Exemplos CORRETOS: \"Status\", \"Order Code\", \"Customer Name\"\n- Exemplos ERRADOS: Status, Order Code, Customer Name (sem aspas)\n- Isso vale para SELECT, WHERE, GROUP BY, ORDER BY - TODAS as cláusulas\n\n🎯 FORMATO DE SAÍDA (JSON):\n{{\n  \"query_sql\": \"Query SQL completa e otimizada\",\n  \"query_explanation\": \"Explicação clara do que a query faz\",\n  \"columns_used\": [\"lista\", \"de\", \"colunas\"],\n  \"filters_applied\": [\"lista\", \"de\", \"filtros\"],\n  \"optimization_notes\": \"Notas sobre otimizações aplicadas\"\n}}",
   "user_prompt_template": "Transforme este plano em uma query SQL otimizada:\n\n📝 PERGUNTA DO USUÁRIO:\n{pergunta}\n\n📋 PLANO DE ANÁLISE:\n{plan}\n\n📂 CATEGORIA: {intent_category}\n\nGere a query SQL seguindo TODAS as regras de segurança, semântica e sintaxe do Athena.\nRetorne no formato JSON especificado."
 }

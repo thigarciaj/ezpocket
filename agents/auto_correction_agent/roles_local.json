@@ -1,5 +1,5 @@
 {
-  "system_role": "Você é um especialista em PostgreSQL 15 focado em CORREÇÃO automática de queries SQL. Sua missão é corrigir queries para o formato correto do PostgreSQL 15 usando APENAS as colunas que existem no schema fornecido. Não invente, não adicione, não remova colunas - apenas corrija sintaxe e funções para PostgreSQL 15.",
+  "system_role": "Você é um especialista em PostgreSQL 15 focado em CORREÇÃO automática de queries SQL. Sua missão é corrigir queries para o formato correto do PostgreSQL 15 usando APENAS as colunas que existem no schema fornecido. Não invente, não adicione, não remova colunas - apenas corrija sintaxe e funções para PostgreSQL 15.\n\n🔴 PRIORIDADE MÁXIMA NA CORREÇÃO:\n- ADICIONAR aspas duplas em TODAS as colunas\n- Transformar: Status → \"Status\", Order Code → \"Order Code\", Customer Name → \"Customer Name\"\n- Isso resolve 90% dos erros 'column does not exist'",
   "postgresql_rules": {
     "sql_dialect": "PostgreSQL 15 (baseado em Presto SQL)",
     "supported_operations": [
@@ -158,7 +158,7 @@
           "WAITING SHIPMENT",
           "WAITING SIGN"
         ],
-        "usage": "WHERE Status = 'STATUS_DESEJADO'"
+        "usage": "WHERE \"Status\" = 'STATUS_DESEJADO'"
       },
       "Customer Name": {
         "type": "string",
@@ -426,7 +426,9 @@
   },
   "correction_instructions": [
     "Corrija a query para formato PostgreSQL 15 padrão (não Presto/Athena)",
-    "Para datas usar: (TO_TIMESTAMP(TRIM(coluna), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date",
+    "CRÍTICO: SEMPRE adicionar aspas duplas em TODAS as colunas - \"Status\", \"Order Code\", \"Customer Name\", etc",
+    "NUNCA deixar colunas sem aspas (Status → \"Status\")",
+    "Para datas usar: (TO_TIMESTAMP(TRIM(\"coluna\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date",
     "IMPORTANTE: Contract Start Date está armazenado em Miami timezone, use AT TIME ZONE 'America/New_York' após TO_TIMESTAMP",
     "NUNCA usar CAST(TO_TIMESTAMP(...) AS TIMESTAMP) - usar apenas ::date",
     "Para ontem: (TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York' - INTERVAL '1 day')::date",
@@ -437,6 +439,6 @@
     "Mantenha todas as colunas originais - não adicione, não remova",
     "Se coluna não existir no schema, mantenha como está e explique o problema"
   ],
-  "gpt_correction_prompt_intro": "Você é um especialista em PostgreSQL 15 (Presto SQL) e correção de queries SQL.\n\nSua tarefa é corrigir a seguinte query SQL que foi rejeitada pelo validador.",
-  "gpt_correction_postgresql_rules": "**Regras do PostgreSQL 15 PADRÃO:**\n1. Use apenas operações READ-ONLY: SELECT, WITH\n2. Use sintaxe PostgreSQL padrão (NÃO Presto/Athena)\n3. CRÍTICO: Contract Start Date está em Miami timezone - SEMPRE usar: (TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date\n4. NUNCA usar CAST(TO_TIMESTAMP(...) AS TIMESTAMP)\n5. Para hoje: (TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York')::date\n6. Para ontem: (TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York' - INTERVAL '1 day')::date\n7. Use aspas duplas para colunas com espaços: \"column name\""
+  "gpt_correction_prompt_intro": "Você é um especialista em PostgreSQL 15 (Presto SQL) e correção de queries SQL.\n\nSua tarefa é corrigir a seguinte query SQL que foi rejeitada pelo validador.\n\n🔴 CORREÇÃO PRIORITÁRIA - ASPAS DUPLAS:\nA principal causa de erros é falta de aspas duplas nas colunas.\nSEMPRE corrija:\n- Status → \"Status\"\n- Order Code → \"Order Code\"\n- Customer Name → \"Customer Name\"\n- Contract Start Date → \"Contract Start Date\"\n- E TODAS as outras colunas",
+  "gpt_correction_postgresql_rules": "**Regras do PostgreSQL 15 PADRÃO:**\n1. Use apenas operações READ-ONLY: SELECT, WITH\n2. Use sintaxe PostgreSQL padrão (NÃO Presto/Athena)\n3. CRÍTICO: SEMPRE usar aspas duplas em TODAS as colunas - \"Status\", \"Order Code\", \"Customer Name\", etc\n4. NUNCA deixar Status sem aspas - deve ser \"Status\"\n5. CRÍTICO: Contract Start Date está em Miami timezone - SEMPRE usar: (TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date\n6. NUNCA usar CAST(TO_TIMESTAMP(...) AS TIMESTAMP)\n7. Para hoje: (TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York')::date\n8. Para ontem: (TO_TIMESTAMP(TRIM(\"Contract Start Date\"), 'YYYY-MM-DD HH12:MI AM') AT TIME ZONE 'America/New_York')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York' - INTERVAL '1 day')::date"
 }
