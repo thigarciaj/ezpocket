@@ -3135,6 +3135,12 @@
                 } else if (data.bd_reference === 'Athena') {
                     statusElement.textContent = 'Online 🌍';
                     statusElement.title = 'AWS Athena - Dados em tempo real da nuvem';
+                    
+                    // Ocultar seção de projetos quando Athena
+                    const projetosSection = document.getElementById('projetosSection');
+                    const criarProjetoBtn = document.querySelector('[data-permission="atalhos_criar_projeto_btn"]');
+                    if (projetosSection) projetosSection.style.display = 'none';
+                    if (criarProjetoBtn) criarProjetoBtn.style.display = 'none';
                 } else {
                     statusElement.textContent = 'Online 🌍';
                 }
