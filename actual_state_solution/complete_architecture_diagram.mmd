@@ -1,0 +1,261 @@
+graph TB
+    subgraph User["USUARIO"]
+        Browser[Navegador Web<br/>Chrome/Firefox/Safari]
+    end
+
+    subgraph Frontend["CAMADA DE APRESENTACAO"]
+        Dashboard[Dashboard HTML<br/>templates/dashboard.html<br/>Socket.IO Client]
+        ChatUI[Interface de Chat<br/>Caixinhas de mensagem<br/>Markdown rendering]
+        ProjectUI[Gerenciamento de Projetos<br/>CRUD de projetos<br/>Historico de conversas<br/>Oculto se Athena]
+        WSClient[WebSocket Client<br/>Real-time bidirectional]
+    end
+
+    subgraph Backend["CAMADA DE APLICACAO Flask"]
+        FlaskApp[Flask Application<br/>test_endpoint_websocket.py<br/>Python 3.11]
+        SocketIOServer[Flask-SocketIO<br/>WebSocket Server<br/>Rooms Broadcasting]
+        AuthMiddleware[Autenticacao<br/>token_required<br/>Cookie-based JWT]
+        
+        subgraph RestAPI["REST API Endpoints"]
+            ProjectsAPI["/api/projects GET POST DELETE"]
+            ConversationsAPI["/api/projects/id/conversations GET POST"]
+            DatabaseInfoAPI["/api/database-info GET status"]
+        end
+    end
+
+    subgraph DataLayer["CAMADA DE DADOS"]
+        subgraph PostgreSQL["PostgreSQL 15"]
+            ProjectsTable[(projects<br/>id, name, description<br/>username, metadata<br/>created_at, updated_at<br/>is_active)]
+            ConversationsTable[(conversations<br/>id, project_id, message_order<br/>sender, message, timestamp<br/>ratings, metadata<br/>FK CASCADE)]
+            OrderReportTable[(order_report<br/>Tabela desnormalizada<br/>Dados operacionais<br/>Status, valores, datas)]
+        end
+        
+        subgraph RedisDB["Redis"]
+            JobQueues[Filas de Jobs<br/>intent_validator<br/>plan_builder<br/>sql_validator<br/>etc...]
+            WorkerState[Estado dos Workers<br/>Job results<br/>Progress tracking]
+            InteractiveQueues[Filas Interativas<br/>plan_confirm<br/>user_proposed_plan<br/>user_feedback]
+        end
+        
+        subgraph CloudData["AWS Cloud"]
+            S3Bucket[S3 Bucket<br/>receivables_db<br/>Parquet files]
+            AthenaService[AWS Athena<br/>Presto SQL Engine<br/>Serverless queries]
+        end
+    end
+
+    subgraph Orchestration["CAMADA DE ORQUESTRACAO"]
+        GraphOrch[Graph Orchestrator<br/>graph_orchestrator.py<br/>Pipeline Manager<br/>State Machine]
+        
+        subgraph ContextManager["Gerenciador de Contexto"]
+            ContextFetch[Busca Historico<br/>GET conversations<br/>se projeto ativo]
+            ContextFormat[Formata Contexto<br/>--- HISTORICO ---<br/>Usuario: msg<br/>Assistente: msg<br/>--- FIM ---]
+            ContextPropagate[Propaga Contexto<br/>conversation_context<br/>has_history flag<br/>para todos workers]
+        end
+        
+        RedisQueueManager[Sistema de Filas Redis<br/>Implementacao customizada<br/>rpush/blpop<br/>Job scheduling e dispatch]
+    end
+
+    subgraph Agents["CAMADA DE AGENTES INTELIGENTES"]
+        subgraph AIAgents["Agentes com IA GPT-4o"]
+            Intent[Intent Validator<br/>intent_validator.py<br/>roles.json<br/>Usa contexto<br/>Valida intencao e escopo]
+            
+            PlanBuilder[Plan Builder<br/>plan_builder.py<br/>roles.json + roles_local.json<br/>Usa contexto<br/>Otimiza com historico<br/>Gera plano de execucao]
+            
+            PlanRefiner[Plan Refiner<br/>plan_refiner.py<br/>roles_local.json<br/>Usa contexto<br/>Otimiza com historico<br/>Refina plano com sugestao]
+            
+            AnalysisOrch[Analysis Orchestrator<br/>analysis_orchestrator.py<br/>roles.json + roles_local.json<br/>Usa contexto<br/>Otimiza queries<br/>Gera SQL otimizado]
+            
+            AutoCorrect[Auto Correction<br/>auto_correction.py<br/>roles_local.json<br/>Usa contexto<br/>Corrige SQL invalido]
+            
+            PythonRT[Python Runtime<br/>python_runtime.py<br/>roles.json<br/>Usa contexto<br/>Comparacoes automaticas<br/>Analise estatistica pandas/numpy]
+            
+            ResponseComp[Response Composer<br/>response_composer.py<br/>roles.json<br/>Usa contexto<br/>Respostas contextualizadas<br/>Formata em Markdown]
+        end
+        
+        subgraph AIAgentsSupport["Agentes de IA Adicional"]
+            SQLValidator[SQL Validator<br/>sql_validator.py<br/>GPT-4o validation<br/>Athena compatibility]
+        end
+        
+        subgraph UtilityAgents["Agentes Utilitarios"]
+            Executor[Athena Executor<br/>athena_executor.py<br/>Executa SQL<br/>Local: PostgreSQL order_report<br/>Athena: S3 Parquet via Athena]
+            
+            DataSync[Data Sync Agent<br/>data_sync_agent.py<br/>Job PM2 separado<br/>Athena para PostgreSQL<br/>Sincroniza order_report]
+            
+            PlanConfirm[Plan Confirm<br/>plan_confirm.py<br/>Aguarda confirmacao via Redis<br/>Interativo 5min timeout]
+            
+            UserProposed[User Proposed Plan<br/>user_proposed_plan.py<br/>Recebe sugestao via Redis<br/>Propaga contexto<br/>Interativo 5min timeout]
+            
+            UserFeedback[User Feedback<br/>user_feedback.py<br/>Coleta rating 1-5 estrelas<br/>Comentarios opcionais]
+            
+            History[History Preferences<br/>history_preferences.py<br/>Salva em PostgreSQL<br/>Metadados completos<br/>Parent IDs para rastreamento]
+        end
+    end
+
+    subgraph External["SERVICOS EXTERNOS"]
+        OpenAI[OpenAI API<br/>GPT-4o model<br/>Chat completions<br/>Temperature 0.1-0.7]
+    end
+
+    subgraph Infrastructure["INFRAESTRUTURA"]
+        PM2[PM2 Process Manager<br/>ezpocket_remastered.config.js<br/>Auto-restart<br/>Load balancing<br/>8 instances]
+        
+        Nginx[Nginx Reverse Proxy<br/>Port 80 para 3004<br/>Static files<br/>WebSocket upgrade]
+        
+        EnvConfig[.env Configuration<br/>BD_REFERENCE=Local/Athena<br/>OPENAI_API_KEY<br/>Database credentials<br/>Redis config]
+        
+        Logs[Application Logs<br/>Worker logs<br/>Error tracking<br/>Performance metrics]
+    end
+
+    %% USER TO FRONTEND
+    Browser -->|HTTPS| Dashboard
+    Dashboard --> ChatUI
+    Dashboard --> ProjectUI
+    Dashboard --> WSClient
+
+    %% FRONTEND TO BACKEND
+    WSClient <-->|WebSocket<br/>socket.emit/on| SocketIOServer
+    Dashboard -->|REST API| AuthMiddleware
+    AuthMiddleware --> RestAPI
+    
+    %% REST API TO DATABASE
+    ProjectsAPI -->|CRUD| ProjectsTable
+    ConversationsAPI -->|CRUD| ConversationsTable
+    DatabaseInfoAPI -->|Query| PostgreSQL
+    
+    %% WEBSOCKET TO ORCHESTRATION
+    SocketIOServer -->|handle_start_job| GraphOrch
+    
+    %% CONTEXT FLOW (NOVO)
+    GraphOrch -->|Se projeto ativo| ContextFetch
+    ContextFetch -->|GET conversations| ConversationsTable
+    ConversationsTable -->|Historico| ContextFormat
+    ContextFormat -->|String formatada| ContextPropagate
+    ContextPropagate -->|initial_data| RedisQueueManager
+    
+    %% ORCHESTRATION TO AGENTS
+    GraphOrch -->|submit_job<br/>+ conversation_context<br/>+ has_history| RedisQueueManager
+    RedisQueueManager -->|rpush job_id| JobQueues
+    
+    %% PIPELINE COMPLETO
+    JobQueues -->|1. Dispatch| Intent
+    Intent -->|API call + contexto| OpenAI
+    Intent -->|Result| JobQueues
+    
+    JobQueues -->|2. Dispatch| PlanBuilder
+    PlanBuilder -->|API call + contexto| OpenAI
+    PlanBuilder -->|Plan gerado| JobQueues
+    
+    JobQueues -->|3. Dispatch| PlanConfirm
+    PlanConfirm -->|Aguarda usuario| InteractiveQueues
+    PlanConfirm -->|Se confirmado| AnalysisOrch
+    PlanConfirm -->|Se rejeitado| UserProposed
+    
+    UserProposed -->|Aguarda sugestao| InteractiveQueues
+    UserProposed -->|Sugestao recebida| PlanRefiner
+    PlanRefiner -->|API call + contexto| OpenAI
+    PlanRefiner -->|Plan refinado| PlanConfirm
+    
+    AnalysisOrch -->|API call + contexto| OpenAI
+    AnalysisOrch -->|SQL gerado| JobQueues
+    
+    JobQueues -->|4. Dispatch| SQLValidator
+    SQLValidator -->|API call validacao| OpenAI
+    SQLValidator -->|Se invalido| AutoCorrect
+    SQLValidator -->|Se valido| Executor
+    
+    AutoCorrect -->|API call + contexto| OpenAI
+    AutoCorrect -->|SQL corrigido| Executor
+    
+    Executor -->|Se Local| OrderReportTable
+    Executor -->|Se Athena| AthenaService
+    AthenaService -->|Query Parquet| S3Bucket
+    
+    DataSync -->|Sincroniza periodicamente| AthenaService
+    DataSync -->|Copia dados| OrderReportTable
+    Executor -->|Resultados| PythonRT
+    
+    PythonRT -->|API call + contexto| OpenAI
+    PythonRT -->|Analise estatistica| ResponseComp
+    
+    ResponseComp -->|API call + contexto| OpenAI
+    ResponseComp -->|Resposta formatada| UserFeedback
+    
+    UserFeedback -->|Aguarda rating| InteractiveQueues
+    UserFeedback -->|Rating recebido| History
+    
+    %% HISTORY SAVING PARALLEL - todos agentes salvam em paralelo via dispatch
+    Intent -.->|via JobQueues| History
+    PlanBuilder -.->|via JobQueues| History
+    PlanRefiner -.->|via JobQueues| History
+    PlanConfirm -.->|via JobQueues| History
+    AnalysisOrch -.->|via JobQueues| History
+    SQLValidator -.->|via JobQueues| History
+    AutoCorrect -.->|via JobQueues| History
+    Executor -.->|via JobQueues| History
+    PythonRT -.->|via JobQueues| History
+    ResponseComp -.->|via JobQueues| History
+    UserFeedback -.->|via JobQueues| History
+    UserProposed -.->|via JobQueues| History
+    
+    History -->|Salva tudo| ConversationsTable
+    
+    %% RESULT BACK TO USER
+    History -->|Pipeline completo| GraphOrch
+    GraphOrch -->|emit message| SocketIOServer
+    SocketIOServer -->|WebSocket| WSClient
+    WSClient -->|Render markdown| ChatUI
+    
+    %% EXTERNAL SERVICES - 8 agentes usam OpenAI GPT-4o
+    %% Intent, PlanBuilder, PlanRefiner, AnalysisOrch já mapeados acima
+    %% SQLValidator, AutoCorrect, PythonRT, ResponseComp já mapeados acima
+    
+    %% INFRASTRUCTURE
+    FlaskApp -.->|Managed by| PM2
+    PM2 -.->|Restart on crash| FlaskApp
+    Dashboard -.->|Served by| Nginx
+    FlaskApp -.->|Reads| EnvConfig
+    FlaskApp -.->|Writes| Logs
+    Agents -.->|Writes| Logs
+
+    %% REDIS OPERATIONS
+    JobQueues <-->|Read/Write| RedisDB
+    WorkerState <-->|Read/Write| RedisDB
+    InteractiveQueues <-->|Read/Write| RedisDB
+
+    %% STYLING
+    classDef user fill:#e8f4f8,stroke:#0066cc,stroke-width:3px
+    classDef frontend fill:#e1f5ff,stroke:#0066cc,stroke-width:2px
+    classDef backend fill:#e1ffe1,stroke:#00cc66,stroke-width:2px
+    classDef data fill:#ffe1f5,stroke:#cc0066,stroke-width:2px
+    classDef orchestration fill:#fff4e1,stroke:#ff9900,stroke-width:2px
+    classDef ai fill:#ffe8cc,stroke:#ff6600,stroke-width:2px
+    classDef aisupport fill:#ffd699,stroke:#ff9933,stroke-width:2px
+    classDef utility fill:#f0e1ff,stroke:#9900cc,stroke-width:2px
+    classDef external fill:#ffd4d4,stroke:#cc0000,stroke-width:2px
+    classDef infra fill:#f5f5f5,stroke:#666666,stroke-width:2px
+    classDef context fill:#fff9e6,stroke:#ffcc00,stroke-width:3px
+
+    class Browser user
+    class Dashboard,ChatUI,ProjectUI,WSClient frontend
+    class FlaskApp,SocketIOServer,AuthMiddleware,RestAPI,ProjectsAPI,ConversationsAPI,DatabaseInfoAPI backend
+    class PostgreSQL,ProjectsTable,ConversationsTable,OrderReportTable,RedisDB,JobQueues,WorkerState,InteractiveQueues,CloudData,S3Bucket,AthenaService data
+    class GraphOrch,RedisQueueManager orchestration
+    class ContextManager,ContextFetch,ContextFormat,ContextPropagate context
+    class Intent,PlanBuilder,PlanRefiner,AnalysisOrch,AutoCorrect,PythonRT,ResponseComp ai
+    class SQLValidator aisupport
+    class Executor,DataSync,PlanConfirm,UserProposed,UserFeedback,History utility
+    class OpenAI external
+    class PM2,Nginx,EnvConfig,Logs infra
+
+    %% NOTES
+    subgraph Legend["LEGENDA"]
+        L1[Linha solida: Fluxo principal]
+        L2[Linha pontilhada: Salvamento paralelo via JobQueues]
+        L3[8 Agentes usam OpenAI GPT-4o]
+        L4[6 Agentes utilitarios sem IA]
+        L5[Context Manager: novo sistema]
+        L6[Data Sync: job PM2 separado]
+        L7[Queries: Local PostgreSQL ou Athena S3]
+        L8[Pipeline completo: Intent->PlanBuilder->PlanConfirm->AnalysisOrch->SQLValidator->Executor->PythonRT->ResponseComp->UserFeedback->History]
+        L9[graph_config.py simplificado: mostra apenas até AnalysisOrch]
+        L10[Sistema de filas customizado Redis - não usa RQ/Celery/BullMQ]
+    end
+    
+    style Legend fill:#ffffff,stroke:#cccccc,stroke-width:2px

@@ -19,8 +19,8 @@ graph TB
     end
 
     subgraph Orchestration["🎭 ORQUESTRAÇÃO"]
-        GraphOrch[Graph Orchestrator<br/>Pipeline Manager]
-        Queue[RQ - Redis Queue<br/>Job Management]
+        GraphOrch[Graph Orchestrator<br/>Pipeline Manager<br/>Submit Jobs]
+        Queue[Sistema de Filas<br/>Redis Customizado<br/>rpush/blpop]
     end
 
     subgraph AIAgents["🤖 AGENTES COM IA (OpenAI GPT-4o)"]
@@ -28,18 +28,19 @@ graph TB
         Plan[Plan Builder<br/>Geração de Planos]
         Refiner[Plan Refiner<br/>Refinamento]
         Analysis[Analysis Orchestrator<br/>Geração SQL]
+        Validator[SQL Validator<br/>Validação com GPT-4o]
         Correction[Auto Correction<br/>Correção SQL]
         Runtime[Python Runtime<br/>Análise Estatística]
         Composer[Response Composer<br/>Formatação]
     end
 
     subgraph NonAIAgents["⚡ AGENTES SEM IA"]
-        Validator[SQL Validator<br/>Validação Sintaxe]
         Executor[Athena Executor<br/>Execução SQL]
         Confirm[Plan Confirm<br/>Confirmação Usuário]
         Feedback[User Feedback<br/>Avaliação]
         History[History Preferences<br/>Persistência]
         UserPlan[User Proposed Plan<br/>Sugestão Usuário]
+        DataSync[Data Sync Agent<br/>Athena → PostgreSQL]
     end
 
     subgraph AI_External["🌐 SERVIÇOS EXTERNOS"]
@@ -74,6 +75,7 @@ graph TB
     Plan -->|API Call| OpenAI
     Refiner -->|API Call| OpenAI
     Analysis -->|API Call| OpenAI
+    Validator -->|API Call| OpenAI
     Correction -->|API Call| OpenAI
     Runtime -->|API Call| OpenAI
     Composer -->|API Call| OpenAI
@@ -82,7 +84,8 @@ graph TB
     Executor -->|SQL Query| Athena
     Executor -->|SQL Query| Postgres
     History -->|Save| Postgres
-    Validator -.->|Validate| Analysis
+    DataSync -->|Sync Data| Athena
+    DataSync -->|Copy to| Postgres
 
     %% Context flow (novo)
     Postgres -.->|Conversation History| Routes
@@ -110,8 +113,8 @@ graph TB
     class HTML,CSS,WS_Client frontend
     class Flask,SocketIO,Auth,Routes backend
     class Postgres,Redis,Athena database
-    class Intent,Plan,Refiner,Analysis,Correction,Runtime,Composer ai
-    class Validator,Executor,Confirm,Feedback,History,UserPlan nonai
+    class Intent,Plan,Refiner,Analysis,Validator,Correction,Runtime,Composer ai
+    class Executor,Confirm,Feedback,History,UserPlan,DataSync nonai
     class OpenAI,Qdrant external
     class PM2,Logs monitoring
 

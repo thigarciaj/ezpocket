@@ -44,11 +44,25 @@ graph TD
     AutoCorrection --> AthenaExecutor2["⚡ Athena Executor<br/>Executa Query Corrigida<br/>PostgreSQL ou Athena"]
     AutoCorrection --> H9[History Preferences<br/>Salva Auto Correction]
     
-    %% Athena Executor vai para Python Runtime + History (paralelo)
-    AthenaExecutor --> PythonRuntime["🐍 Python Runtime<br/>Análise Estatística<br/>🔴 Comparações automáticas"]
+    %% Athena Executor executa query (Local: PostgreSQL | Athena: S3 Parquet)
+    AthenaExecutor --> QuerySource{Fonte?}
+    QuerySource -->|BD_REFERENCE=Local| LocalDB[PostgreSQL<br/>order_report]
+    QuerySource -->|BD_REFERENCE=Athena| AthenaDB[AWS Athena<br/>S3 Parquet]
+    LocalDB --> PythonRuntime["🐍 Python Runtime<br/>Análise Estatística<br/>🔴 Comparações automáticas"]
+    AthenaDB --> PythonRuntime
     AthenaExecutor --> H10[History Preferences<br/>Salva Athena Executor]
-    AthenaExecutor2 --> PythonRuntime2["🐍 Python Runtime<br/>Análise Estatística<br/>🔴 Comparações automáticas"]
+    
+    AthenaExecutor2 --> QuerySource2{Fonte?}
+    QuerySource2 -->|BD_REFERENCE=Local| LocalDB2[PostgreSQL<br/>order_report]
+    QuerySource2 -->|BD_REFERENCE=Athena| AthenaDB2[AWS Athena<br/>S3 Parquet]
+    LocalDB2 --> PythonRuntime2["🐍 Python Runtime<br/>Análise Estatística<br/>🔴 Comparações automáticas"]
+    AthenaDB2 --> PythonRuntime2
     AthenaExecutor2 --> H10B[History Preferences<br/>Salva Athena Executor]
+    
+    %% Data Sync Agent (Job PM2 separado - não faz parte do pipeline principal)
+    DataSync["🔄 Data Sync Agent<br/>(PM2 cron job separado)<br/>Athena → PostgreSQL"]
+    DataSync -.->|Sincroniza periodicamente| AthenaDB
+    DataSync -.->|Copia para| LocalDB
     
     %% Python Runtime vai para Response Composer + History (paralelo)
     PythonRuntime --> ResponseComposer["🎨 Response Composer<br/>Resposta Contextualizada<br/>🔴 Referencia histórico"]
@@ -138,3 +152,10 @@ graph TD
     style ResponseComposer2 fill:#e8f5ff
     style UserFeedback fill:#fff0e1
     style UserFeedback2 fill:#fff0e1
+    style QuerySource fill:#f0e1ff
+    style QuerySource2 fill:#f0e1ff
+    style LocalDB fill:#e1ffe1
+    style LocalDB2 fill:#e1ffe1
+    style AthenaDB fill:#e8f5ff
+    style AthenaDB2 fill:#e8f5ff
+    style DataSync fill:#ffe1e1
