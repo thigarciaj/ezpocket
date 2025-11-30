@@ -1,22 +1,28 @@
 graph TD
-    Start([Usuário faz pergunta]) --> IntentValidator[Intent Validator]
+    Start([Usuário faz pergunta]) --> CheckProject{Projeto<br/>ativo?}
     
-    IntentValidator --> PlanBuilder[Plan Builder]
+    CheckProject -->|SIM| LoadHistory[Busca histórico<br/>do banco]
+    CheckProject -->|NÃO| IntentValidator
+    
+    LoadHistory --> FormatContext[Formata contexto<br/>para agentes]
+    FormatContext --> IntentValidator[Intent Validator<br/>📚 com contexto]
+    
+    IntentValidator --> PlanBuilder[Plan Builder<br/>📚 com contexto]
     IntentValidator --> H1[History Preferences]
     
-    PlanBuilder --> PlanConfirm[Plan Confirm]
+    PlanBuilder --> PlanConfirm[Plan Confirm<br/>Aguarda confirmação]
     PlanBuilder --> H2[History Preferences]
     
-    PlanConfirm -->|Aguarda resposta usuário| Decision{Usuário<br/>confirma?}
+    PlanConfirm -->|Aguarda via Redis| Decision{Usuário<br/>confirma?}
     
     %% Ramo SIM (apenas uma seta)
     Decision -->|SIM| Yes[  ]
-    Yes --> AnalysisOrchestrator["🔧 Analysis Orchestrator<br/>Gera Query SQL"]
+    Yes --> AnalysisOrchestrator["🔧 Analysis Orchestrator<br/>Gera Query SQL<br/>🔴 Otimiza com contexto"]
     Yes --> H3[History Preferences<br/>Salva Plan Confirm]
 
     %% Ramo NÃO (apenas uma seta)
     Decision -->|NÃO| No[  ]
-    No --> UserProposed[User Proposed Plan<br/>Aguarda sugestão]
+    No --> UserProposed[User Proposed Plan<br/>Aguarda sugestão via Redis<br/>📝 Propaga contexto]
     No --> H4[History Preferences<br/>Salva Plan Confirm]
     
     %% Fluxo após Analysis Orchestrator: Paralelo para SQL Validator + History
@@ -31,42 +37,49 @@ graph TD
     ValidationDecision -->|VÁLIDA| H8[History Preferences<br/>Salva SQL Validator]
     
     %% Se query INVÁLIDA: vai para AutoCorrection + History (paralelo)
-    ValidationDecision -->|INVÁLIDA| AutoCorrection[Auto Correction<br/>Corrige Query SQL]
+    ValidationDecision -->|INVÁLIDA| AutoCorrection[Auto Correction<br/>Corrige Query SQL<br/>🔴 Entende contexto]
     ValidationDecision -->|INVÁLIDA| H8B[History Preferences<br/>Salva SQL Validator]
     
     %% AutoCorrection corrige e vai para Athena Executor + History (paralelo)
-    AutoCorrection --> AthenaExecutor2["⚡ Athena Executor<br/>Executa Query Corrigida"]
+    AutoCorrection --> AthenaExecutor2["⚡ Athena Executor<br/>Executa Query Corrigida<br/>PostgreSQL ou Athena"]
     AutoCorrection --> H9[History Preferences<br/>Salva Auto Correction]
     
     %% Athena Executor vai para Python Runtime + History (paralelo)
-    AthenaExecutor --> PythonRuntime["🐍 Python Runtime<br/>Análise Estatística Python"]
+    AthenaExecutor --> PythonRuntime["🐍 Python Runtime<br/>Análise Estatística<br/>🔴 Comparações automáticas"]
     AthenaExecutor --> H10[History Preferences<br/>Salva Athena Executor]
-    AthenaExecutor2 --> PythonRuntime2["🐍 Python Runtime<br/>Análise Estatística Python"]
+    AthenaExecutor2 --> PythonRuntime2["🐍 Python Runtime<br/>Análise Estatística<br/>🔴 Comparações automáticas"]
     AthenaExecutor2 --> H10B[History Preferences<br/>Salva Athena Executor]
     
     %% Python Runtime vai para Response Composer + History (paralelo)
-    PythonRuntime --> ResponseComposer["🎨 Response Composer<br/>Formata Resposta Bonita"]
+    PythonRuntime --> ResponseComposer["🎨 Response Composer<br/>Resposta Contextualizada<br/>🔴 Referencia histórico"]
     PythonRuntime --> H11[History Preferences<br/>Salva Python Runtime]
-    PythonRuntime2 --> ResponseComposer2["🎨 Response Composer<br/>Formata Resposta Bonita"]
+    PythonRuntime2 --> ResponseComposer2["🎨 Response Composer<br/>Resposta Contextualizada<br/>🔴 Referencia histórico"]
     PythonRuntime2 --> H12[History Preferences<br/>Salva Python Runtime]
     
     %% Response Composer vai para History primeiro
     ResponseComposer --> H13[History Preferences<br/>Salva Response Composer]
     ResponseComposer2 --> H14[History Preferences<br/>Salva Response Composer]
     
-    %% History chama User Feedback após salvar Response Composer
-    H13 --> UserFeedback["📊 User Feedback<br/>Busca resposta do banco<br/>Pede rating ao usuário"]
-    H14 --> UserFeedback2["📊 User Feedback<br/>Busca resposta do banco<br/>Pede rating ao usuário"]
+    %% History salva nova conversa no projeto (se ativo)
+    H13 --> SaveConversation[💾 Salva no PostgreSQL<br/>projects.conversations<br/>para histórico futuro]
+    H14 --> SaveConversation2[💾 Salva no PostgreSQL<br/>projects.conversations<br/>para histórico futuro]
+    
+    %% Após salvar, chama User Feedback
+    SaveConversation --> UserFeedback["📊 User Feedback<br/>Aguarda rating via Redis<br/>(opcional)"]
+    SaveConversation2 --> UserFeedback2["📊 User Feedback<br/>Aguarda rating via Redis<br/>(opcional)"]
     
     %% User Feedback salva no History (última etapa)
     UserFeedback --> H15[History Preferences<br/>Salva User Feedback]
     UserFeedback2 --> H16[History Preferences<br/>Salva User Feedback]
     
-    UserProposed -->|Sugestão recebida| PlanRefiner[Plan Refiner<br/>Refina plano]
+    UserProposed -->|Sugestão recebida| PlanRefiner[Plan Refiner<br/>Refina plano<br/>🔴 Usa contexto]
     UserProposed --> H6[History Preferences<br/>Salva User Proposed]
     
     PlanRefiner -->|Plano refinado| PlanConfirm
     PlanRefiner --> H7[History Preferences<br/>Salva Plan Refiner]
+    
+    Note1[💡 OTIMIZAÇÃO:<br/>Queries não refazem<br/>dados do histórico]
+    Note1 -.-> AnalysisOrchestrator
     
     H1 --> End1([Fim])
     H2 --> End2([Fim])

@@ -1,0 +1,125 @@
+graph TB
+    subgraph Frontend["🖥️ FRONTEND"]
+        HTML[Dashboard HTML<br/>Socket.IO Client<br/>Vanilla JS]
+        CSS[Tailwind CSS<br/>Custom Styles]
+        WS_Client[WebSocket Client<br/>Real-time Communication]
+    end
+
+    subgraph Backend["⚙️ BACKEND - Flask Application"]
+        Flask[Flask Server<br/>Python 3.11]
+        SocketIO[Flask-SocketIO<br/>WebSocket Server]
+        Auth[JWT Authentication<br/>Cookie-based]
+        Routes[REST API Endpoints<br/>/api/projects<br/>/api/conversations]
+    end
+
+    subgraph Database["💾 DATABASES"]
+        Postgres[(PostgreSQL 15<br/>Projetos & Conversas<br/>order_report)]
+        Redis[(Redis<br/>Filas de Jobs<br/>Workers State)]
+        Athena[(AWS Athena<br/>Dados em Tempo Real<br/>S3 + Presto SQL)]
+    end
+
+    subgraph Orchestration["🎭 ORQUESTRAÇÃO"]
+        GraphOrch[Graph Orchestrator<br/>Pipeline Manager]
+        Queue[RQ - Redis Queue<br/>Job Management]
+    end
+
+    subgraph AIAgents["🤖 AGENTES COM IA (OpenAI GPT-4o)"]
+        Intent[Intent Validator<br/>Validação de Intenção]
+        Plan[Plan Builder<br/>Geração de Planos]
+        Refiner[Plan Refiner<br/>Refinamento]
+        Analysis[Analysis Orchestrator<br/>Geração SQL]
+        Correction[Auto Correction<br/>Correção SQL]
+        Runtime[Python Runtime<br/>Análise Estatística]
+        Composer[Response Composer<br/>Formatação]
+    end
+
+    subgraph NonAIAgents["⚡ AGENTES SEM IA"]
+        Validator[SQL Validator<br/>Validação Sintaxe]
+        Executor[Athena Executor<br/>Execução SQL]
+        Confirm[Plan Confirm<br/>Confirmação Usuário]
+        Feedback[User Feedback<br/>Avaliação]
+        History[History Preferences<br/>Persistência]
+        UserPlan[User Proposed Plan<br/>Sugestão Usuário]
+    end
+
+    subgraph AI_External["🌐 SERVIÇOS EXTERNOS"]
+        OpenAI[OpenAI API<br/>GPT-4o<br/>Embeddings]
+        Qdrant[Qdrant Vector DB<br/>Semantic Search<br/>Embeddings]
+    end
+
+    subgraph Monitoring["📊 MONITORAMENTO"]
+        PM2[PM2 Process Manager<br/>Auto-restart<br/>Logs]
+        Logs[Application Logs<br/>Debug Info]
+    end
+
+    %% Frontend connections
+    HTML --> WS_Client
+    WS_Client <-->|WebSocket| SocketIO
+
+    %% Backend connections
+    Flask --> SocketIO
+    Flask --> Auth
+    Flask --> Routes
+    Routes -->|CRUD| Postgres
+    SocketIO --> GraphOrch
+
+    %% Orchestration connections
+    GraphOrch -->|Submit Jobs| Queue
+    Queue -->|Store State| Redis
+    Queue -->|Dispatch| AIAgents
+    Queue -->|Dispatch| NonAIAgents
+
+    %% AI Agents connections
+    Intent -->|API Call| OpenAI
+    Plan -->|API Call| OpenAI
+    Refiner -->|API Call| OpenAI
+    Analysis -->|API Call| OpenAI
+    Correction -->|API Call| OpenAI
+    Runtime -->|API Call| OpenAI
+    Composer -->|API Call| OpenAI
+
+    %% Non-AI Agents connections
+    Executor -->|SQL Query| Athena
+    Executor -->|SQL Query| Postgres
+    History -->|Save| Postgres
+    Validator -.->|Validate| Analysis
+
+    %% Context flow (novo)
+    Postgres -.->|Conversation History| Routes
+    Routes -.->|Format Context| GraphOrch
+    GraphOrch -.->|Context String| AIAgents
+
+    %% External services
+    AIAgents -.->|Semantic Search| Qdrant
+    Qdrant -.->|Embeddings| OpenAI
+
+    %% Monitoring
+    Flask -.->|Managed by| PM2
+    AIAgents -.->|Logs| Logs
+    NonAIAgents -.->|Logs| Logs
+
+    %% Styling
+    classDef frontend fill:#e1f5ff,stroke:#0066cc
+    classDef backend fill:#e1ffe1,stroke:#00cc66
+    classDef database fill:#ffe1f5,stroke:#cc0066
+    classDef ai fill:#fff4e1,stroke:#ff9900
+    classDef nonai fill:#f0e1ff,stroke:#9900cc
+    classDef external fill:#ffe8cc,stroke:#ff6600
+    classDef monitoring fill:#f5f5f5,stroke:#666666
+
+    class HTML,CSS,WS_Client frontend
+    class Flask,SocketIO,Auth,Routes backend
+    class Postgres,Redis,Athena database
+    class Intent,Plan,Refiner,Analysis,Correction,Runtime,Composer ai
+    class Validator,Executor,Confirm,Feedback,History,UserPlan nonai
+    class OpenAI,Qdrant external
+    class PM2,Logs monitoring
+
+    %% Legend
+    subgraph Legend["📖 LEGENDA"]
+        L1[→ Fluxo principal]
+        L2[⇢ Comunicação via API]
+        L3[⋯→ Contexto/Config]
+    end
+
+    style Legend fill:#ffffff,stroke:#cccccc

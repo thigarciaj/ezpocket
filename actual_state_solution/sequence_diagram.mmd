@@ -1,0 +1,73 @@
+sequenceDiagram
+    participant U as Usuário
+    participant F as Frontend<br/>(Dashboard)
+    participant WS as WebSocket<br/>(Socket.IO)
+    participant B as Backend<br/>(Flask)
+    participant DB as PostgreSQL<br/>(Projetos/Conversas)
+    participant R as Redis<br/>(Filas)
+    participant W as Workers<br/>(Agentes IA)
+    participant AI as OpenAI<br/>(GPT-4o)
+    participant DATA as Athena/PostgreSQL<br/>(Dados)
+
+    Note over U,DATA: 🎯 Fluxo com Projeto Ativo (com contexto)
+
+    U->>F: 1. Faz pergunta no chat
+    F->>DB: 2. GET /api/projects/{id}/conversations<br/>(busca histórico)
+    DB-->>F: 3. Retorna histórico anterior<br/>(ex: vendas ontem = 150)
+    
+    F->>F: 4. Formata array de mensagens
+    F->>WS: 5. socket.emit('start_job', {<br/>pergunta, conversation_history[]})
+    
+    WS->>B: 6. Recebe payload via WebSocket
+    B->>B: 7. Formata contexto:<br/>"--- HISTÓRICO ---<br/>Usuário: vendas ontem?<br/>Assistente: 150 vendas<br/>--- FIM ---"
+    
+    B->>R: 8. submit_job(initial_data={<br/>pergunta, conversation_context,<br/>has_history: true})
+    
+    Note over R,W: Pipeline de Agentes com Contexto
+    
+    R->>W: 9. intent_validator queue
+    W->>AI: 10. Prompt com contexto<br/>(entende "e hoje?" = continuação)
+    AI-->>W: 11. Intent válida: quantidade
+    W->>R: 12. Resultado + contexto propagado
+    
+    R->>W: 13. plan_builder queue
+    W->>AI: 14. Prompt com contexto<br/>(cria plano otimizado:<br/>buscar APENAS hoje)
+    AI-->>W: 15. Plano: "Buscar vendas de hoje<br/>(ontem já existe no histórico)"
+    W->>R: 16. Resultado + contexto propagado
+    
+    R->>W: 17. analysis_orchestrator queue
+    W->>AI: 18. Prompt com contexto<br/>(gera SQL apenas para hoje)
+    AI-->>W: 19. SQL: WHERE date = CURRENT_DATE
+    W->>R: 20. Resultado + contexto propagado
+    
+    R->>W: 21. sql_validator queue
+    W->>W: 22. Valida sintaxe (PostgreSQL/Athena)
+    W->>R: 23. Query válida + contexto propagado
+    
+    R->>W: 24. athena_executor queue
+    W->>DATA: 25. Executa SQL
+    DATA-->>W: 26. Resultado: 200 vendas hoje
+    W->>R: 27. Resultado + contexto propagado
+    
+    R->>W: 28. python_runtime queue
+    W->>AI: 29. Prompt com contexto<br/>(análise com comparação automática)
+    AI-->>W: 30. Análise: "Hoje 200 vs ontem 150<br/>(+33% crescimento)"
+    W->>R: 31. Resultado + contexto propagado
+    
+    R->>W: 32. response_composer queue
+    W->>AI: 33. Prompt com contexto<br/>(resposta natural e contextualizada)
+    AI-->>W: 34. "Hoje foram 200 vendas,<br/>enquanto ontem foram 150<br/>(crescimento de 33%)"
+    W->>R: 35. Resposta formatada
+    
+    R->>B: 36. Job completo
+    B->>DB: 37. POST /api/projects/{id}/conversations<br/>(salva nova interação)
+    DB-->>B: 38. Confirmação
+    
+    B->>WS: 39. emit('message', resposta)
+    WS->>F: 40. Recebe resposta via WebSocket
+    F->>F: 41. Renderiza resposta<br/>em caixinha cinza
+    F->>U: 42. Exibe resposta contextualizada
+
+    Note over U,DATA: 💬 Chat Geral (sem projeto) = sem contexto, stateless
+
+    Note over U,DATA: 🔄 Otimização: Apenas 1 query (hoje)<br/>em vez de 2 queries (ontem + hoje)
