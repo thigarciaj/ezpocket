@@ -47,7 +47,9 @@ class PlanBuilderWorker(ModuleWorker):
         print(f"[PLAN_BUILDER]       intent_category: {data.get('intent_category')}")
         print(f"[PLAN_BUILDER]       username: {data.get('username')}")
         print(f"[PLAN_BUILDER]       projeto: {data.get('projeto')}")
+        print(f"[PLAN_BUILDER]       has_history: {data.get('has_history', False)}")
         
+        # Passar state completo incluindo contexto
         state = dict(data)
         
         # Gerar plano
@@ -78,7 +80,10 @@ class PlanBuilderWorker(ModuleWorker):
             'projeto': data.get('projeto'),
             'intent_category': data.get('intent_category'),
             # IMPORTANTE: Propagar user_proposed_plan se existir (para debug/logs)
-            'user_proposed_plan': data.get('user_proposed_plan', '')
+            'user_proposed_plan': data.get('user_proposed_plan', ''),
+            # Propagar contexto para próximos módulos
+            'conversation_context': data.get('conversation_context', ''),
+            'has_history': data.get('has_history', False)
         }
 
 if __name__ == '__main__':

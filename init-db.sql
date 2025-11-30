@@ -879,4 +879,71 @@ COMMENT ON COLUMN order_report."Cancelled At" IS 'Data de cancelamento do pedido
 COMMENT ON COLUMN order_report."Finished At" IS 'Data de finalização do pedido/venda. Uso: Filtros para análise de finalizações';
 COMMENT ON COLUMN order_report."PDD at" IS 'Data de PDD (Pending Documents - Documentos Pendentes). Uso: Filtros para análise de documentos pendentes';
 
+-- =====================================================
+-- PROJETOS E CONVERSAS - Sistema de histórico de chat
+-- =====================================================
+
+-- Tabela de projetos
+CREATE TABLE IF NOT EXISTS projects (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    username VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    metadata JSONB,
+    
+    CONSTRAINT unique_project_name_user UNIQUE(name, username)
+);
+
+CREATE INDEX idx_projects_username ON projects(username);
+CREATE INDEX idx_projects_active ON projects(is_active);
+CREATE INDEX idx_projects_created ON projects(created_at DESC);
+
+COMMENT ON TABLE projects IS 'Projetos criados pelos usuários para organizar conversas com a IA';
+COMMENT ON COLUMN projects.name IS 'Nome do projeto (único por usuário)';
+COMMENT ON COLUMN projects.username IS 'Usuário proprietário do projeto';
+COMMENT ON COLUMN projects.is_active IS 'Se o projeto está ativo ou arquivado';
+
+-- Tabela de conversas (mensagens do chat)
+CREATE TABLE IF NOT EXISTS conversations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    message_order INTEGER NOT NULL,
+    sender VARCHAR(20) NOT NULL CHECK (sender IN ('user', 'assistant', 'system')),
+    message TEXT NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    
+    -- Contexto da mensagem
+    intent_category VARCHAR(100),
+    job_id UUID,
+    
+    -- Metadados da execução
+    execution_time REAL,
+    model_used VARCHAR(50),
+    tokens_used INTEGER,
+    
+    -- Avaliação do usuário (se houver)
+    user_rating INTEGER CHECK (user_rating >= 1 AND user_rating <= 5),
+    user_comment TEXT,
+    
+    -- Metadata adicional
+    metadata JSONB,
+    
+    CONSTRAINT unique_project_message_order UNIQUE(project_id, message_order)
+);
+
+CREATE INDEX idx_conversations_project ON conversations(project_id);
+CREATE INDEX idx_conversations_timestamp ON conversations(timestamp DESC);
+CREATE INDEX idx_conversations_sender ON conversations(sender);
+CREATE INDEX idx_conversations_project_order ON conversations(project_id, message_order);
+
+COMMENT ON TABLE conversations IS 'Histórico completo de conversas entre usuário e IA, organizadas por projeto';
+COMMENT ON COLUMN conversations.project_id IS 'Projeto ao qual a mensagem pertence';
+COMMENT ON COLUMN conversations.message_order IS 'Ordem sequencial da mensagem na conversa (1, 2, 3...)';
+COMMENT ON COLUMN conversations.sender IS 'Quem enviou a mensagem: user (usuário), assistant (IA), ou system (sistema)';
+COMMENT ON COLUMN conversations.job_id IS 'ID do job que processou esta mensagem (se houver)';
+COMMENT ON COLUMN conversations.user_rating IS 'Avaliação do usuário para a resposta (1-5 estrelas)';
+
 

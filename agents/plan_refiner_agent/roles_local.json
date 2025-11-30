@@ -40,6 +40,12 @@
     "pergunta": "Pergunta original do usuário",
     "intent_category": "Categoria da intenção identificada"
   },
+  "context_optimization_rules": {
+    "directive": "🔴 OTIMIZAÇÃO COM HISTÓRICO - Aproveite dados já existentes no histórico",
+    "rule": "Se há histórico com dados anteriores e a sugestão do usuário pede comparação, refinar o plano para buscar APENAS os dados novos e comparar com o histórico. NÃO refazer queries de períodos que já existem.",
+    "exception": "Se usuário pedir explicitamente 'refaça', 'recalcule tudo', 'mostre novamente', então sim incluir todos os períodos no plano refinado",
+    "benefit": "Planos mais eficientes que aproveitam dados já calculados"
+  },
   "refinement_rules": [
     "Manter a estrutura do plano original (passos, fontes de dados, estimativa)",
     "Incorporar sugestões específicas do usuário de forma clara",

@@ -38,6 +38,8 @@ class UserProposedPlanAgent:
         user_plan = state.get('user_proposed_plan', '')
         username = state.get('username', 'unknown')
         projeto = state.get('projeto', 'default')
+        conversation_context = state.get('conversation_context', '')
+        has_history = state.get('has_history', False)
         
         print("="*80)
         print("[USER_PROPOSED_PLAN] 💡 USER PROPOSED PLAN - SUGESTÃO DO USUÁRIO")
@@ -73,7 +75,10 @@ class UserProposedPlanAgent:
             'received_at': datetime.now().isoformat(),
             'pergunta': pergunta,
             'username': username,
-            'projeto': projeto
+            'projeto': projeto,
+            # Propagar contexto para plan_refiner
+            'conversation_context': conversation_context,
+            'has_history': has_history
         }
         
         print(f"[USER_PROPOSED_PLAN] 📤 OUTPUT:")

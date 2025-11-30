@@ -89,14 +89,15 @@ class ResponderAgent:
         return periodo, datas_expl_str, ano_atual, ano_passado
     
     def _gerar_resposta_natural(self, pergunta, resultado_str, periodo="", datas_expl="", 
-                               ano_atual=None, ano_passado=None, query_formatada=""):
+                               ano_atual=None, ano_passado=None, query_formatada="",
+                               conversation_context="", has_history=False):
         """Gera uma resposta natural usando LLM"""
         if ano_atual is None:
             ano_atual = datetime.now().year
         if ano_passado is None:
             ano_passado = ano_atual - 1
         
-        prompt_resposta = self.roles['response_prompt_template'].format(
+        base_prompt = self.roles['response_prompt_template'].format(
             pergunta=pergunta,
             periodo=periodo,
             datas_expl=datas_expl,
@@ -104,6 +105,12 @@ class ResponderAgent:
             ano_atual=ano_atual,
             ano_passado=ano_passado
         )
+        
+        # Injetar contexto ANTES do prompt se houver histórico
+        if has_history and conversation_context:
+            prompt_resposta = f"{conversation_context}\n\n{base_prompt}"
+        else:
+            prompt_resposta = base_prompt
         
         try:
             resposta_llm = self.client.chat.completions.create(
@@ -147,6 +154,8 @@ class ResponderAgent:
         pergunta = state["pergunta"]
         sql_query = state.get("sql_query")
         source = state.get("source", "UNKNOWN")
+        conversation_context = state.get("conversation_context", "")
+        has_history = state.get("has_history", False)
         
         print(f"[RESPONDER] 🔄 Executando SQL e formatando resposta")
         

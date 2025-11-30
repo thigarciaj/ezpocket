@@ -75,6 +75,8 @@ class AnalysisOrchestratorAgent:
         intent_category = state.get("intent_category", "unknown")
         username = state.get("username", "")
         projeto = state.get("projeto", "")
+        conversation_context = state.get("conversation_context", "")
+        has_history = state.get("has_history", False)
         
         # Header
         print(f"\n{'='*80}")
@@ -88,6 +90,7 @@ class AnalysisOrchestratorAgent:
         print(f"[ANALYSIS_ORCHESTRATOR]    📂 Categoria: {intent_category}")
         print(f"[ANALYSIS_ORCHESTRATOR]    👤 Username: {username}")
         print(f"[ANALYSIS_ORCHESTRATOR]    📁 Projeto: {projeto}")
+        print(f"[ANALYSIS_ORCHESTRATOR]    📚 Has history: {has_history}")
         
         print(f"\n[ANALYSIS_ORCHESTRATOR] ⚙️  PROCESSAMENTO:")
         
@@ -96,7 +99,15 @@ class AnalysisOrchestratorAgent:
         try:
             # Construir prompt para o GPT
             system_prompt = self._build_system_prompt()
-            user_prompt = self._build_user_prompt(plan, pergunta, intent_category)
+            base_user_prompt = self._build_user_prompt(plan, pergunta, intent_category)
+            
+            # Injetar contexto ANTES do prompt se houver histórico
+            if has_history and conversation_context:
+                user_prompt = f"{conversation_context}\n\n{base_user_prompt}"
+                print(f"[ANALYSIS_ORCHESTRATOR]    📚 Contexto adicionado: {len(conversation_context)} caracteres")
+            else:
+                user_prompt = base_user_prompt
+                print(f"[ANALYSIS_ORCHESTRATOR]    💬 Sem contexto (chat geral ou primeira mensagem)")
             
             print(f"[ANALYSIS_ORCHESTRATOR]    🤖 Chamando OpenAI GPT-4o...")
             

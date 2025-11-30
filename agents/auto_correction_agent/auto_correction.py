@@ -69,7 +69,9 @@ class AutoCorrectionAgent:
                 validation_issues: List[str],
                 username: str,
                 projeto: str,
-                schema_context: Dict[str, Any] = None) -> Dict[str, Any]:
+                schema_context: Dict[str, Any] = None,
+                conversation_context: str = "",
+                has_history: bool = False) -> Dict[str, Any]:
         """
         Corrige query SQL inválida
         
@@ -247,7 +249,12 @@ class AutoCorrectionAgent:
         
         issues_text = "\n".join([f"- {issue}" for issue in validation_issues])
         
-        prompt = self.roles['gpt_correction_prompt_intro'].format(
+        # Adicionar contexto de conversa se houver
+        context_section = ""
+        if has_history and conversation_context:
+            context_section = f"{conversation_context}\n\n"
+        
+        base_prompt = self.roles['gpt_correction_prompt_intro'].format(
             query_original=query_original,
             query_auto_corrected=query_auto_corrected,
             issues_text=issues_text,
@@ -256,6 +263,8 @@ class AutoCorrectionAgent:
                 supported_functions=', '.join(self.athena_rules.get('supported_functions', [])[:20])
             )
         )
+        
+        prompt = f"{context_section}{base_prompt}"
         
         try:
             response = self.client.chat.completions.create(

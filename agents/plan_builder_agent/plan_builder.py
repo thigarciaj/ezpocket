@@ -116,23 +116,35 @@ class PlanBuilderAgent:
 RETORNE APENAS JSON válido no formato:
 {json.dumps(self.roles['output_structure'], indent=2, ensure_ascii=False)}"""
 
+            # Verificar se há contexto de conversa (projeto ativo)
+            conversation_context = state.get("conversation_context", "")
+            has_history = state.get("has_history", False)
+            
             # Verificar se há sugestão do usuário vinda do user_proposed_plan
             user_proposed_plan = state.get("user_proposed_plan", "")
             
             if user_proposed_plan:
                 print(f"[PLAN_BUILDER]    💡 Sugestão do usuário detectada: {user_proposed_plan[:100]}...")
-                user_prompt = self.roles['user_prompt_with_suggestion'].format(
+                base_prompt = self.roles['user_prompt_with_suggestion'].format(
                     pergunta=pergunta,
                     intent_category=intent_category,
                     projeto=projeto,
                     user_proposed_plan=user_proposed_plan
                 )
             else:
-                user_prompt = self.roles['user_prompt_normal'].format(
+                base_prompt = self.roles['user_prompt_normal'].format(
                     pergunta=pergunta,
                     intent_category=intent_category,
                     projeto=projeto
                 )
+            
+            # Injetar contexto ANTES do prompt se houver histórico
+            if has_history and conversation_context:
+                user_prompt = f"{conversation_context}\n\n{base_prompt}"
+                print(f"[PLAN_BUILDER]    📚 Contexto adicionado: {len(conversation_context)} caracteres")
+            else:
+                user_prompt = base_prompt
+                print(f"[PLAN_BUILDER]    💬 Sem contexto (chat geral ou primeira mensagem)")
 
             print(f"[PLAN_BUILDER]    🤖 Chamando {self.model} para gerar plano...")
             

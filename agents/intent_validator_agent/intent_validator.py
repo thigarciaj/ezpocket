@@ -142,10 +142,23 @@ EXEMPLOS DE CLASSIFICAÇÃO CORRETA:
         if "🔒" in system_prompt:
             print(f"   ✅ Regras de segurança ativadas")
 
-        user_prompt = self.roles['user_prompt_template'].format(
+        # Verificar se há contexto de conversa (projeto ativo)
+        conversation_context = state.get("conversation_context", "")
+        has_history = state.get("has_history", False)
+        
+        # Construir prompt do usuário com contexto se disponível
+        base_prompt = self.roles['user_prompt_template'].format(
             pergunta=pergunta,
             projeto=projeto if projeto else 'Geral'
         )
+        
+        # Injetar contexto ANTES da pergunta se houver histórico
+        if has_history and conversation_context:
+            user_prompt = f"{conversation_context}\n\n{base_prompt}"
+            print(f"   📚 Contexto adicionado: {len(conversation_context)} caracteres")
+        else:
+            user_prompt = base_prompt
+            print(f"   💬 Sem contexto (chat geral ou primeira mensagem)")
 
         print(f"   🤖 Chamando GPT-4o (modelo: {self.model})...")
         

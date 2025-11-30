@@ -52,7 +52,9 @@ class AnalysisOrchestratorWorker(ModuleWorker):
         print(f"[ANALYSIS_ORCHESTRATOR]       plan_confirmed: {data.get('plan_confirmed')}")
         print(f"[ANALYSIS_ORCHESTRATOR]       username: {data.get('username')}")
         print(f"[ANALYSIS_ORCHESTRATOR]       projeto: {data.get('projeto')}")
+        print(f"[ANALYSIS_ORCHESTRATOR]       has_history: {data.get('has_history', False)}")
         
+        # Passar state completo (inclui conversation_context e has_history)
         state = dict(data)
         
         # Gerar query SQL
@@ -91,6 +93,9 @@ class AnalysisOrchestratorWorker(ModuleWorker):
             'intent_valid': data.get('intent_valid'),
             'plan_steps': data.get('plan_steps', []),
             'estimated_complexity': data.get('estimated_complexity', 'média'),
+            # Propagar contexto para próximos módulos
+            'conversation_context': data.get('conversation_context', ''),
+            'has_history': data.get('has_history', False),
             # Definir próximos módulos: sql_validator e history_preferences em paralelo
             # history salva analysis_orchestrator enquanto sql_validator valida
             '_next_modules': ['sql_validator', 'history_preferences']

@@ -1032,6 +1032,310 @@ def data_sync_completed():
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
+# =====================================================
+# ENDPOINTS DE PROJETOS E CONVERSAS
+# =====================================================
+
+@app.route('/api/projects', methods=['GET'])
+@token_required
+def get_projects():
+    """Lista todos os projetos do usuário"""
+    try:
+        username = request.user.get('preferred_username') or request.user.get('sub')
+        
+        import psycopg2
+        postgres_config = {
+            'host': os.getenv('POSTGRES_HOST', 'localhost'),
+            'port': int(os.getenv('POSTGRES_PORT', 5546)),
+            'database': os.getenv('POSTGRES_DB', 'ezpocket_logs'),
+            'user': os.getenv('POSTGRES_USER', 'ezpocket_user'),
+            'password': os.getenv('POSTGRES_PASSWORD', 'ezpocket_pass_2025')
+        }
+        
+        conn = psycopg2.connect(**postgres_config)
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT id, name, description, created_at, updated_at, is_active
+            FROM projects
+            WHERE username = %s AND is_active = true
+            ORDER BY updated_at DESC
+        """, (username,))
+        
+        projects = []
+        for row in cursor.fetchall():
+            projects.append({
+                'id': str(row[0]),
+                'name': row[1],
+                'description': row[2],
+                'created_at': row[3].isoformat() if row[3] else None,
+                'updated_at': row[4].isoformat() if row[4] else None,
+                'is_active': row[5]
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'projects': projects,
+            'count': len(projects)
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Erro ao buscar projetos: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/projects', methods=['POST'])
+@token_required
+def create_project():
+    """Cria um novo projeto"""
+    try:
+        username = request.user.get('preferred_username') or request.user.get('sub')
+        
+        data = request.get_json()
+        name = data.get('name')
+        description = data.get('description', '')
+        
+        if not name:
+            return jsonify({'error': 'Nome do projeto é obrigatório'}), 400
+        
+        import psycopg2
+        postgres_config = {
+            'host': os.getenv('POSTGRES_HOST', 'localhost'),
+            'port': int(os.getenv('POSTGRES_PORT', 5546)),
+            'database': os.getenv('POSTGRES_DB', 'ezpocket_logs'),
+            'user': os.getenv('POSTGRES_USER', 'ezpocket_user'),
+            'password': os.getenv('POSTGRES_PASSWORD', 'ezpocket_pass_2025')
+        }
+        
+        conn = psycopg2.connect(**postgres_config)
+        cursor = conn.cursor()
+        
+        # Metadata básico do projeto
+        metadata = {
+            'created_by': username,
+            'version': '1.0',
+            'source': 'web_interface'
+        }
+        
+        cursor.execute("""
+            INSERT INTO projects (name, description, username, metadata)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id, name, description, created_at, updated_at, is_active
+        """, (name, description, username, json.dumps(metadata)))
+        
+        row = cursor.fetchone()
+        project = {
+            'id': str(row[0]),
+            'name': row[1],
+            'description': row[2],
+            'created_at': row[3].isoformat() if row[3] else None,
+            'updated_at': row[4].isoformat() if row[4] else None,
+            'is_active': row[5]
+        }
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        print(f"✅ Projeto criado: {name} para {username}")
+        return jsonify({
+            'project_id': str(row[0]),
+            'project_name': row[1],
+            'message': 'Projeto criado com sucesso'
+        }), 201
+        
+    except psycopg2.IntegrityError:
+        return jsonify({'error': 'Já existe um projeto com este nome'}), 409
+    except Exception as e:
+        print(f"❌ Erro ao criar projeto: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/projects/<project_id>/conversations', methods=['GET'])
+@token_required
+def get_conversations(project_id):
+    """Busca histórico de conversas de um projeto"""
+    try:
+        username = request.user.get('preferred_username') or request.user.get('sub')
+        
+        import psycopg2
+        postgres_config = {
+            'host': os.getenv('POSTGRES_HOST', 'localhost'),
+            'port': int(os.getenv('POSTGRES_PORT', 5546)),
+            'database': os.getenv('POSTGRES_DB', 'ezpocket_logs'),
+            'user': os.getenv('POSTGRES_USER', 'ezpocket_user'),
+            'password': os.getenv('POSTGRES_PASSWORD', 'ezpocket_pass_2025')
+        }
+        
+        conn = psycopg2.connect(**postgres_config)
+        cursor = conn.cursor()
+        
+        # Verificar se o projeto pertence ao usuário
+        cursor.execute("""
+            SELECT username FROM projects WHERE id = %s
+        """, (project_id,))
+        
+        result = cursor.fetchone()
+        if not result or result[0] != username:
+            return jsonify({'error': 'Projeto não encontrado ou sem permissão'}), 403
+        
+        # Buscar conversas
+        cursor.execute("""
+            SELECT message_order, sender, message, timestamp, user_rating, user_comment
+            FROM conversations
+            WHERE project_id = %s
+            ORDER BY message_order ASC
+        """, (project_id,))
+        
+        conversations = []
+        for row in cursor.fetchall():
+            conversations.append({
+                'order': row[0],
+                'sender': row[1],
+                'message': row[2],
+                'timestamp': row[3].isoformat() if row[3] else None,
+                'rating': row[4],
+                'comment': row[5]
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'conversations': conversations,
+            'count': len(conversations)
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Erro ao buscar conversas: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/projects/<project_id>/conversations', methods=['POST'])
+@token_required
+def save_conversation(project_id):
+    """Salva uma mensagem na conversa"""
+    try:
+        username = request.user.get('preferred_username') or request.user.get('sub')
+        
+        data = request.get_json()
+        sender = data.get('sender')  # 'user', 'assistant', 'system'
+        message = data.get('message')
+        
+        if not sender or not message:
+            return jsonify({'error': 'Sender e message são obrigatórios'}), 400
+        
+        import psycopg2
+        postgres_config = {
+            'host': os.getenv('POSTGRES_HOST', 'localhost'),
+            'port': int(os.getenv('POSTGRES_PORT', 5546)),
+            'database': os.getenv('POSTGRES_DB', 'ezpocket_logs'),
+            'user': os.getenv('POSTGRES_USER', 'ezpocket_user'),
+            'password': os.getenv('POSTGRES_PASSWORD', 'ezpocket_pass_2025')
+        }
+        
+        conn = psycopg2.connect(**postgres_config)
+        cursor = conn.cursor()
+        
+        # Verificar permissão
+        cursor.execute("SELECT username FROM projects WHERE id = %s", (project_id,))
+        result = cursor.fetchone()
+        if not result or result[0] != username:
+            return jsonify({'error': 'Projeto não encontrado ou sem permissão'}), 403
+        
+        # Buscar próximo message_order
+        cursor.execute("""
+            SELECT COALESCE(MAX(message_order), 0) + 1
+            FROM conversations
+            WHERE project_id = %s
+        """, (project_id,))
+        
+        next_order = cursor.fetchone()[0]
+        
+        # Inserir mensagem
+        cursor.execute("""
+            INSERT INTO conversations (project_id, message_order, sender, message)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id
+        """, (project_id, next_order, sender, message))
+        
+        conversation_id = cursor.fetchone()[0]
+        
+        # Atualizar updated_at do projeto
+        cursor.execute("""
+            UPDATE projects SET updated_at = CURRENT_TIMESTAMP WHERE id = %s
+        """, (project_id,))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'id': str(conversation_id),
+            'message_order': next_order,
+            'message': 'Mensagem salva com sucesso'
+        }), 201
+        
+    except Exception as e:
+        print(f"❌ Erro ao salvar conversa: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/projects/<project_id>', methods=['DELETE'])
+@token_required
+def delete_project(project_id):
+    """Deleta um projeto e todas as suas conversas (CASCADE)"""
+    try:
+        username = request.user.get('preferred_username') or request.user.get('sub')
+        
+        import psycopg2
+        postgres_config = {
+            'host': os.getenv('POSTGRES_HOST', 'localhost'),
+            'port': int(os.getenv('POSTGRES_PORT', 5546)),
+            'database': os.getenv('POSTGRES_DB', 'ezpocket_logs'),
+            'user': os.getenv('POSTGRES_USER', 'ezpocket_user'),
+            'password': os.getenv('POSTGRES_PASSWORD', 'ezpocket_pass_2025')
+        }
+        
+        conn = psycopg2.connect(**postgres_config)
+        cursor = conn.cursor()
+        
+        # Verificar se o projeto pertence ao usuário
+        cursor.execute("""
+            SELECT name, username FROM projects WHERE id = %s
+        """, (project_id,))
+        
+        result = cursor.fetchone()
+        if not result:
+            return jsonify({'error': 'Projeto não encontrado'}), 404
+        
+        if result[1] != username:
+            return jsonify({'error': 'Você não tem permissão para deletar este projeto'}), 403
+        
+        project_name = result[0]
+        
+        # Deletar projeto (CASCADE vai deletar as conversas automaticamente)
+        cursor.execute("""
+            DELETE FROM projects WHERE id = %s
+        """, (project_id,))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        print(f"✅ Projeto deletado: {project_name} (ID: {project_id}) do usuário {username}")
+        return jsonify({
+            'message': f'Projeto "{project_name}" deletado com sucesso',
+            'deleted_project_id': project_id
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Erro ao deletar projeto: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/test-orchestrator/health', methods=['GET'])
 def health():
     """Verifica se o serviço está rodando"""
@@ -1120,6 +1424,7 @@ def handle_start_job(data):
         username = data.get('username', 'test_user')
         projeto = data.get('projeto', 'test_project')
         module = data.get('module', 'intent_validator')
+        conversation_history = data.get('conversation_history', [])
         
         if not pergunta:
             emit('error', {'message': 'Campo "pergunta" é obrigatório'})
@@ -1171,6 +1476,7 @@ def handle_start_job(data):
         print(f"[WS] Pergunta: {pergunta}")
         print(f"[WS] Username: {username}")
         print(f"[WS] Projeto: {projeto}")
+        print(f"[WS] Histórico: {len(conversation_history)} mensagens")
         print(f"[WS] SID: {request.sid}")
         print(f"{'='*80}\n")
         
@@ -1184,12 +1490,26 @@ def handle_start_job(data):
             'projeto': projeto
         }
         
-        # Submete o job
+        # Preparar contexto para IA
+        context_for_ai = ""
+        if conversation_history:
+            context_for_ai = "\n\n--- HISTÓRICO DA CONVERSA ---\n"
+            for msg in conversation_history:
+                sender_label = "Usuário" if msg['sender'] == 'user' else "Assistente"
+                context_for_ai += f"{sender_label}: {msg['message']}\n"
+            context_for_ai += "--- FIM DO HISTÓRICO ---\n\n"
+            print(f"[WS] 📚 Contexto preparado com {len(conversation_history)} mensagens")
+        
+        # Submete o job com contexto
         job_id = orchestrator.submit_job(
             start_module=module,
             username=username,
             projeto=projeto,
-            initial_data={"pergunta": pergunta}
+            initial_data={
+                "pergunta": pergunta,
+                "conversation_context": context_for_ai,
+                "has_history": len(conversation_history) > 0
+            }
         )
         
         # Associar job_id com sid

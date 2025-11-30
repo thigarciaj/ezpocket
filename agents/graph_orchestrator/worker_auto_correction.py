@@ -61,12 +61,14 @@ class AutoCorrectionWorker(ModuleWorker):
         print(f"[AUTO_CORRECTION]    Projeto: {projeto}")
         print(f"[AUTO_CORRECTION]    Issues: {len(validation_issues)}")
         
-        # Corrigir query
+        # Corrigir query (com contexto se houver)
         result = self.agent.correct(
             query_original=query_original,
             validation_issues=validation_issues,
             username=username,
-            projeto=projeto
+            projeto=projeto,
+            conversation_context=data.get('conversation_context', ''),
+            has_history=data.get('has_history', False)
         )
         
         print(f"[AUTO_CORRECTION] ✅ Correção concluída")
@@ -88,6 +90,9 @@ class AutoCorrectionWorker(ModuleWorker):
             'parent_plan_confirm_id': data.get('parent_plan_confirm_id'),
             'parent_plan_builder_id': data.get('parent_plan_builder_id'),
             'parent_intent_validator_id': data.get('parent_intent_validator_id'),
+            # Propagar contexto para próximos módulos
+            'conversation_context': data.get('conversation_context', ''),
+            'has_history': data.get('has_history', False),
             # Próximos módulos: athena_executor + history (paralelo)
             '_next_modules': ['athena_executor', 'history_preferences']
         }

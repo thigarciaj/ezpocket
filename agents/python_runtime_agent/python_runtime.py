@@ -37,6 +37,8 @@ class PythonRuntimeAgent:
         row_count = state.get('row_count', 0)
         columns = state.get('columns', [])
         query_executed = state.get('query_executed', '')
+        conversation_context = state.get('conversation_context', '')
+        has_history = state.get('has_history', False)
         
         # Usar results_full se disponível, senão results_preview
         results_to_analyze = results_full if results_full else results_preview
@@ -111,7 +113,12 @@ class PythonRuntimeAgent:
 
 Responda APENAS com o JSON, sem texto adicional."""
         
-        prompt = f"{prompt_intro}\n\n{prompt_responsibilities}\n\n{prompt_types}\n\n{prompt_guidelines}\n\n{prompt_task}\n{json_format}"
+        # Adicionar contexto de conversa se houver
+        context_section = ""
+        if has_history and conversation_context:
+            context_section = f"{conversation_context}\n\n"
+        
+        prompt = f"{context_section}{prompt_intro}\n\n{prompt_responsibilities}\n\n{prompt_types}\n\n{prompt_guidelines}\n\n{prompt_task}\n{json_format}"
         
         return prompt
     

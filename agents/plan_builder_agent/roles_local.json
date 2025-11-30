@@ -50,6 +50,7 @@
     "🔴 CRÍTICO: Ao mencionar valores de Status, usar VALORES REAIS do banco conforme semantic_rules.status_mapping",
     "Exemplo: 'aguardando assinatura' → descrever como 'Status = WAITING SIGN' no plano",
     "Exemplo: 'vendas ativas' → descrever como 'Status IN (IN TRANSIT, WAITING SHIPMENT, DELIVERED)' no plano",
+    "🔴 OTIMIZAÇÃO COM HISTÓRICO: Se há histórico de conversa com dados anteriores (ex: vendas de ontem), e a pergunta pede comparação (ex: e hoje?), NÃO refazer a query dos dados antigos. Criar plano para buscar APENAS os dados novos (hoje) e comparar diretamente com os valores que já existem no histórico. EXCEÇÃO: Se usuário pedir explicitamente para refazer (ex: 'refaça', 'mostre novamente', 'recalcule tudo'), aí sim buscar tudo de novo",
     "Incluir estimativa de complexidade (baixa/média/alta)",
     "Dividir em passos lógicos e sequenciais",
     "Considerar otimizações e boas práticas SQL para PostgreSQL",

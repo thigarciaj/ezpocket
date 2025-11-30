@@ -57,6 +57,17 @@
     ],
     "action": "Rejeitar e retornar erro se tentar acessar dados sensíveis"
   },
+  "context_optimization_rules": {
+    "directive": "🔴 OTIMIZAÇÃO CRÍTICA - Quando há histórico de conversa, evite queries desnecessárias",
+    "rule": "Se o histórico contém dados de períodos anteriores (ex: vendas de ontem = 150) e a pergunta pede dados de outro período (ex: e hoje?), gere query SQL APENAS para o novo período. NÃO refazer consultas de dados que já existem no histórico.",
+    "examples": [
+      "Histórico: 'Quantas vendas ontem?' → 150 vendas | Nova pergunta: 'E hoje?' → Gerar query SOMENTE para hoje, não incluir ontem novamente",
+      "Histórico: 'Vendas de novembro?' → 500 vendas | Nova pergunta: 'E dezembro?' → Query SOMENTE dezembro",
+      "Histórico: 'Faturamento do produto X?' → R$ 10k | Nova pergunta: 'E do produto Y?' → Query SOMENTE produto Y"
+    ],
+    "exception": "EXCEÇÃO: Se usuário pedir EXPLICITAMENTE para refazer (palavras: 'refaça', 'recalcule', 'mostre novamente', 'refazer tudo', 'recalcular'), aí sim gerar query completa incluindo períodos anteriores",
+    "benefit": "Reduz carga no banco, melhora performance e aproveita dados já calculados"
+  },
   "database_schema": {
     "table_name": "order_report",
     "timezone": "America/New_York",

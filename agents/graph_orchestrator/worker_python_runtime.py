@@ -66,11 +66,12 @@ class PythonRuntimeWorker(ModuleWorker):
         print(f"[PYTHON_RUNTIME]    Projeto: {projeto}")
         print(f"[PYTHON_RUNTIME]    Pergunta: {pergunta}")
         print(f"[PYTHON_RUNTIME]    Rows para análise: {row_count}")
+        print(f"[PYTHON_RUNTIME]    Has history: {data.get('has_history', False)}")
         
         # Medir tempo de execução
         start_time = time.time()
         
-        # Executar análise - passar data completo como state
+        # Executar análise - passar data completo como state (inclui conversation_context)
         result = self.agent.execute(data)
         
         execution_time = time.time() - start_time
@@ -94,6 +95,9 @@ class PythonRuntimeWorker(ModuleWorker):
             'parent_plan_confirm_id': data.get('parent_plan_confirm_id'),
             'parent_plan_builder_id': data.get('parent_plan_builder_id'),
             'parent_intent_validator_id': data.get('parent_intent_validator_id'),
+            # Propagar contexto para próximos módulos
+            'conversation_context': data.get('conversation_context', ''),
+            'has_history': data.get('has_history', False),
             # Resultados da análise
             **result,
             # Tempo de execução

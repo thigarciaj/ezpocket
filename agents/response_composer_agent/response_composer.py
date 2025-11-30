@@ -38,12 +38,21 @@ class ResponseComposerAgent:
         row_count = state.get('row_count', 0)
         results = state.get('results', [])
         
+        # Verificar se há contexto de conversa (projeto ativo)
+        conversation_context = state.get('conversation_context', '')
+        has_history = state.get('has_history', False)
+        
         # Limitar dados brutos para evitar tokens excessivos (max 50 registros)
         results_sample = results[:50] if isinstance(results, list) else []
         
+        # Construir prompt base
+        context_section = ""
+        if has_history and conversation_context:
+            context_section = f"{conversation_context}\n\n"
+        
         prompt = f"""{self.roles['prompt_intro']}
 
-**PERGUNTA ORIGINAL DO USUÁRIO:**
+{context_section}**PERGUNTA ORIGINAL DO USUÁRIO:**
 {pergunta}
 
 **ANÁLISE TÉCNICA DISPONÍVEL:**

@@ -768,15 +768,18 @@
             position: absolute;
             top: 8px;
             right: 8px;
-            background: #ff4444;
-            color: #fff;
+            background: transparent;
             border: none;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            font-size: 12px;
+            font-size: 18px;
             cursor: pointer;
             display: none;
+            transition: transform 0.2s ease;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .projeto-delete:hover {
+            transform: scale(1.2);
         }
 
         .projeto-item:hover .projeto-delete {
@@ -3148,6 +3151,7 @@
             initWebSocket();
             initActivityListeners();
             updateLastActivity(); // Inicia o timeout
+            await carregarProjetos(); // Carregar projetos do usuário
         });
         
         // Limpar jobs ao sair da página
@@ -3244,10 +3248,13 @@
             }
 
             try {
-                const response = await fetch('/projetos/criar', {
+                const response = await fetch('/api/projects', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nome, descricao })
+                    headers: { 
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ name: nome, description: descricao })
                 });
 
                 if (response.ok) {
@@ -3256,15 +3263,15 @@
                     await carregarProjetos();
                     
                     // Seleciona automaticamente o projeto recém-criado
-                    if (data.id && data.nome) {
-                        await selecionarProjeto(data.id, data.nome);
-                        console.log(`Projeto "${data.nome}" criado e selecionado automaticamente`);
+                    if (data.project_id && data.project_name) {
+                        await selecionarProjeto(data.project_id, data.project_name);
+                        console.log(`Projeto "${data.project_name}" criado e selecionado automaticamente`);
                     }
                     
                     console.log('Projeto criado e selecionado:', data);
                 } else {
                     const error = await response.json();
-                    showMensagemModal('Erro', error.message || 'Erro ao criar projeto', 'info');
+                    showMensagemModal('Erro', error.error || 'Erro ao criar projeto', 'info');
                 }
             } catch (error) {
                 console.error('Erro ao criar projeto:', error);
@@ -3274,10 +3281,12 @@
 
         async function carregarProjetos() {
             try {
-                const response = await fetch('/projetos/listar');
+                const response = await fetch('/api/projects', {
+                    credentials: 'include'
+                });
                 if (response.ok) {
-                    const projetos = await response.json();
-                    renderizarProjetos(projetos);
+                    const data = await response.json();
+                    renderizarProjetos(data.projects || []);
                 }
             } catch (error) {
                 console.error('Erro ao carregar projetos:', error);
@@ -3300,19 +3309,20 @@
             const projetosOrdenados = projetos.sort((a, b) => {
                 if (projetoAtivo?.id === a.id) return -1;
                 if (projetoAtivo?.id === b.id) return 1;
-                return new Date(b.data_criacao) - new Date(a.data_criacao);
+                return new Date(b.created_at) - new Date(a.created_at);
             });
 
             container.innerHTML = projetosOrdenados.map(projeto => {
-                const dataCriacao = new Date(projeto.data_criacao).toLocaleDateString('pt-BR');
+                const dataCriacao = new Date(projeto.created_at).toLocaleDateString('pt-BR');
+                const nomeSanitizado = (projeto.name || '').replace(/'/g, "\\'");
                 return `
                     <div class="projeto-item ${projetoAtivo?.id === projeto.id ? 'ativo' : ''}" 
-                         onclick="selecionarProjeto(${projeto.id}, '${projeto.nome}')" 
+                         onclick="selecionarProjeto('${projeto.id}', '${nomeSanitizado}')" 
                          data-projeto-id="${projeto.id}">
-                        <div class="projeto-nome">${projeto.nome}</div>
-                        <div class="projeto-descricao">${projeto.descricao || 'Sem descrição'}</div>
+                        <div class="projeto-nome">${projeto.name}</div>
+                        <div class="projeto-descricao">${projeto.description || 'Sem descrição'}</div>
                         <div class="projeto-data" style="font-size: 10px; color: #999; margin-top: 4px;">Criado em: ${dataCriacao}</div>
-                        <button class="projeto-delete" onclick="event.stopPropagation(); deletarProjeto(${projeto.id}, '${projeto.nome}')" title="Deletar projeto">×</button>
+                        <button class="projeto-delete" onclick="event.stopPropagation(); deletarProjeto('${projeto.id}', '${nomeSanitizado}')" title="Deletar projeto">❌</button>
                     </div>
                 `;
             }).join('');
@@ -3323,6 +3333,9 @@
             
             // Se o projeto já está ativo, desseleciona (toggle)
             if (projetoAtivo && projetoAtivo.id === projetoId) {
+                // Limpa jobs e workers antes de desselecionar
+                await cleanupJobsAndWorkers();
+                
                 // Desseleciona o projeto e força remoção da classe
                 if (projetoElement) {
                     projetoElement.classList.remove('ativo');
@@ -3333,9 +3346,16 @@
                 
                 // Limpa o chat e volta para o chat geral
                 limparChat();
-                console.log('Projeto desselecionado - voltando para chat geral');
+                
+                // Desbloqueia input após limpar
+                unblockInputArea();
+                
+                console.log('🔄 Projeto desselecionado - jobs limpos e voltando para chat geral');
                 return;
             }
+
+            // Limpa jobs e workers antes de trocar de projeto
+            await cleanupJobsAndWorkers();
 
             // Remove seleção anterior de outros projetos
             document.querySelectorAll('.projeto-item').forEach(item => {
@@ -3348,10 +3368,13 @@
             }
 
             projetoAtivo = { id: projetoId, nome: projetoNome };
-            console.log('Projeto selecionado:', projetoAtivo);
+            console.log('🔄 Projeto selecionado:', projetoAtivo, '- jobs limpos');
 
             // Carrega o histórico do projeto
             await carregarHistoricoProjeto(projetoId);
+            
+            // Desbloqueia input após carregar histórico
+            unblockInputArea();
         }
 
         function limparChat() {
@@ -3372,10 +3395,12 @@
                 // Limpa o chat antes de carregar o histórico do projeto
                 limparChat();
                 
-                const response = await fetch(`/projetos/${projetoId}/historico`);
+                const response = await fetch(`/api/projects/${projetoId}/conversations`, {
+                    credentials: 'include'
+                });
                 if (response.ok) {
-                    const historico = await response.json();
-                    aplicarHistoricoChat(historico);
+                    const data = await response.json();
+                    aplicarHistoricoChat(data.conversations || []);
                 } else {
                     console.log('Nenhum histórico encontrado para o projeto');
                 }
@@ -3401,50 +3426,96 @@
                 return;
             }
 
-            // Carrega as mensagens do histórico
+            // Carrega as mensagens do histórico (já vêm ordenadas por message_order)
+            // Usa addMessageToChat que já formata corretamente com as caixinhas
             historico.forEach(msg => {
-                addMessageToChat(msg.sender, msg.message, msg.type);
+                if (msg.sender === 'user') {
+                    // Renderiza como mensagem do usuário (caixinha verde)
+                    addMessageToChatSilent('Você', msg.message, 'user');
+                } else if (msg.sender === 'assistant') {
+                    // Renderiza como mensagem do assistente (caixinha cinza)
+                    addMessageToChatSilent('EZPocket', msg.message, 'bot');
+                }
             });
+            
+            // Adiciona mensagem final perguntando se deseja algo mais
+            addMessageToChatSilent('EZPocket', '✅ Histórico carregado. Posso ajudar com mais alguma coisa?', 'bot');
 
-            // Envia contexto para a IA
-            enviarContextoParaIA(historico);
+            // Scroll para o final
+            chatContent.scrollTop = chatContent.scrollHeight;
         }
-
-        async function enviarContextoParaIA(historico) {
-            if (!historico || historico.length === 0) return;
-
-            try {
-                await fetch('/projetos/contexto', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        projeto_id: projetoAtivo.id,
-                        historico: historico 
-                    })
-                });
-            } catch (error) {
-                console.error('Erro ao enviar contexto:', error);
+        
+        // Versão silenciosa do addMessageToChat (não salva no banco)
+        function addMessageToChatSilent(sender, message, type) {
+            const chatContent = document.querySelector('.chat-content');
+            
+            // Remover mensagem de boas-vindas se ainda estiver lá
+            const welcomeMsg = chatContent.querySelector('.welcome-message');
+            if (welcomeMsg) {
+                welcomeMsg.style.display = 'none';
             }
+            
+            // Detectar se a mensagem já é HTML (contém tags HTML estruturadas)
+            const isHTML = message.includes('<div') || message.includes('<table') || message.includes('<h2>');
+            
+            // Aplicar formatação markdown se for resposta do bot E não for HTML
+            let formattedMessage = message;
+            if (type === 'bot' && !isHTML) {
+                formattedMessage = formatMarkdownResponse(message);
+            }
+            
+            // Criar elemento da mensagem
+            const messageDiv = document.createElement('div');
+            messageDiv.style.cssText = `
+                padding: 8px 12px;
+                border-radius: 18px;
+                width: auto;
+                word-wrap: break-word;
+                line-height: 1.4;
+                ${type === 'user' ? 
+                    'background: #25d366 !important; color: #000 !important; max-width: 50% !important;' : 
+                    'background: #333 !important; color: #fff !important; min-width: fit-content; max-width: 95% !important;'
+                }
+            `;
+            
+            // Criar container para a mensagem
+            const messageContainer = document.createElement('div');
+            messageContainer.style.cssText = `
+                display: flex;
+                width: 100%;
+                margin-bottom: 25px;
+                ${type === 'user' ? 'justify-content: flex-end;' : 'justify-content: flex-start;'}
+            `;
+            
+            // Se for HTML estruturado, renderizar diretamente; caso contrário, usar markdown
+            if (type === 'bot' && isHTML) {
+                messageDiv.innerHTML = formattedMessage;
+            } else if (type === 'bot' && (message.includes('##') || message.includes('**'))) {
+                messageDiv.innerHTML = `<div class="response-container">${formattedMessage}</div>`;
+            } else {
+                messageDiv.innerHTML = formattedMessage;
+            }
+            
+            messageContainer.appendChild(messageDiv);
+            chatContent.appendChild(messageContainer);
         }
+
+        // Função removida - não é mais necessária enviar contexto separadamente
 
         async function deletarProjeto(projetoId, projetoNome) {
             // Armazena dados para o modal
             window.projetoParaDeletar = { id: projetoId, nome: projetoNome };
             
-            // Atualiza conteúdo do modal de logout para usar como modal de deletar projeto
+            // Atualiza conteúdo do modal
             const modal = document.getElementById('customModal');
-            
-            // Garante que o modal está escondido antes de atualizar
             modal.classList.remove('show');
             
-            // Aguarda um momento para garantir que as mudanças sejam aplicadas
             await new Promise(resolve => setTimeout(resolve, 50));
             
             const title = modal.querySelector('#modalTitle');
             const message = modal.querySelector('#modalMessage');
             const confirmBtn = modal.querySelector('[data-permission="modal_confirm_button"]');
             
-            // Atualiza o conteúdo forçadamente
             if (title) {
                 title.textContent = 'Confirmar Exclusão';
                 title.innerHTML = 'Confirmar Exclusão';
@@ -3460,26 +3531,31 @@
                 confirmBtn.onclick = confirmarDeletarProjeto;
             }
             
-            // Mostra o modal após as atualizações
             modal.classList.add('show');
-        }        async function confirmarDeletarProjeto() {
+        }
+        
+        async function confirmarDeletarProjeto() {
             const projeto = window.projetoParaDeletar;
             if (!projeto) return;
 
             hideModal();
 
             try {
-                const response = await fetch(`/projetos/${projeto.id}`, {
-                    method: 'DELETE'
+                const response = await fetch(`/api/projects/${projeto.id}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
                 });
 
                 if (response.ok) {
+                    // Limpar Redis antes de remover do frontend
+                    await cleanupJobsAndWorkers();
+                    console.log('🧹 Redis limpo após deletar projeto');
+                    
                     await carregarProjetos();
                     
                     // Se era o projeto ativo, limpa seleção
                     if (projetoAtivo?.id === projeto.id) {
                         projetoAtivo = null;
-                        // Volta para chat normal
                         const chatContent = document.querySelector('.chat-content');
                         chatContent.innerHTML = `
                             <div class="welcome-message">
@@ -3488,8 +3564,14 @@
                             </div>
                         `;
                     }
+                    
+                    // Desbloqueia input após deletar
+                    unblockInputArea();
+                    
+                    console.log(`✅ Projeto "${projeto.nome}" deletado com sucesso`);
                 } else {
-                    showMensagemModal('Erro', 'Erro ao deletar projeto', 'info');
+                    const error = await response.json();
+                    showMensagemModal('Erro', error.error || 'Erro ao deletar projeto', 'info');
                 }
             } catch (error) {
                 console.error('Erro ao deletar projeto:', error);
@@ -3512,17 +3594,7 @@
             }, 100);
         }
 
-        async function salvarMensagemProjeto(projetoId, sender, message, type) {
-            try {
-                await fetch(`/projetos/${projetoId}/mensagem`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sender, message, type })
-                });
-            } catch (error) {
-                console.error('Erro ao salvar mensagem:', error);
-            }
-        }
+
 
         // Flag para evitar processamento duplicado
         let isProcessingMessage = false;
@@ -3599,6 +3671,27 @@
             }
             
             console.log('🔓 Input desbloqueado');
+        }
+        
+        // Função auxiliar para buscar histórico do projeto para enviar como contexto
+        async function getProjectHistory(projectId) {
+            try {
+                const response = await fetch(`/api/projects/${projectId}/conversations`, {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    // Retorna array formatado para o backend
+                    return (data.conversations || []).map(msg => ({
+                        sender: msg.sender,
+                        message: msg.message,
+                        timestamp: msg.timestamp
+                    }));
+                }
+            } catch (error) {
+                console.error('❌ Erro ao buscar histórico para contexto:', error);
+            }
+            return [];
         }
         
         async function sendMessage() {
@@ -3727,12 +3820,20 @@
                 const loggedUsername = await getLoggedUsername();
                 console.log('👤 [SEND] Username a ser usado:', loggedUsername);
                 
+                // Coletar histórico do projeto para enviar como contexto
+                let conversationHistory = [];
+                if (projetoAtivo && projetoAtivo.id) {
+                    conversationHistory = await getProjectHistory(projetoAtivo.id);
+                    console.log('📚 [CONTEXT] Enviando histórico do projeto:', projetoAtivo.nome, '- Mensagens:', conversationHistory.length);
+                }
+                
                 // Enviar via WebSocket
                 socket.emit('start_job', {
                     pergunta: message,
                     username: loggedUsername,
-                    projeto: 'default',  // Por enquanto default
-                    module: 'intent_validator'
+                    projeto: projetoAtivo?.nome || 'default',
+                    module: 'intent_validator',
+                    conversation_history: conversationHistory  // Contexto do histórico
                 });
                 
                 // Reset flag após enviar job normal
@@ -3932,8 +4033,35 @@
             }
         }
 
+        // Função auxiliar para salvar mensagem no projeto
+        async function salvarMensagemProjeto(sender, message) {
+            // Só salva se houver projeto ativo
+            if (!projetoAtivo || !projetoAtivo.id) {
+                return;
+            }
+
+            try {
+                await fetch(`/api/projects/${projetoAtivo.id}/conversations`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        sender: sender === 'Você' ? 'user' : 'assistant',
+                        message: message
+                    })
+                });
+            } catch (error) {
+                console.error('Erro ao salvar mensagem no projeto:', error);
+            }
+        }
+
         function addMessageToChat(sender, message, type) {
             const chatContent = document.querySelector('.chat-content');
+            
+            // Salvar mensagem no projeto (async, não bloqueante)
+            salvarMensagemProjeto(sender, message);
             
             // Remover mensagem de boas-vindas se ainda estiver lá
             const welcomeMsg = chatContent.querySelector('.welcome-message');

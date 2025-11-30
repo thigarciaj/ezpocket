@@ -110,7 +110,10 @@ class UserProposedPlanWorker(ModuleWorker):
                     # Parent IDs - propagar do PlanConfirm/PlanBuilder
                     'parent_intent_validator_id': data.get('parent_intent_validator_id'),
                     'parent_plan_builder_id': data.get('parent_plan_builder_id'),
-                    'parent_user_proposed_plan_id': None  # Será preenchido pelo History
+                    'parent_user_proposed_plan_id': None,  # Será preenchido pelo History
+                    # Propagar contexto para plan_refiner
+                    'conversation_context': data.get('conversation_context', ''),
+                    'has_history': data.get('has_history', False)
                 }
             
             time.sleep(0.5)

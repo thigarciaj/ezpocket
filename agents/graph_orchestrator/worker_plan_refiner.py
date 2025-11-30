@@ -77,12 +77,14 @@ class PlanRefinerWorker(ModuleWorker):
                 'success': False
             }
         
-        # Processar com o agente
+        # Processar com o agente (passar contexto se houver)
         result = self.agent.refine_plan(
             pergunta=pergunta,
             original_plan=original_plan,
             user_suggestion=user_suggestion,
-            intent_category=intent_category
+            intent_category=intent_category,
+            conversation_context=data.get('conversation_context', ''),
+            has_history=data.get('has_history', False)
         )
         
         # Preparar output com todos os campos necessários
@@ -101,7 +103,10 @@ class PlanRefinerWorker(ModuleWorker):
             # Parent IDs
             'parent_plan_builder_id': data.get('parent_plan_builder_id'),
             'parent_user_proposed_plan_id': data.get('parent_user_proposed_plan_id'),
-            'parent_intent_validator_id': data.get('parent_intent_validator_id')
+            'parent_intent_validator_id': data.get('parent_intent_validator_id'),
+            # Propagar contexto para próximos módulos
+            'conversation_context': data.get('conversation_context', ''),
+            'has_history': data.get('has_history', False)
         }
         
         print(f"[PLAN_REFINER]    ✅ Refinamento concluído")

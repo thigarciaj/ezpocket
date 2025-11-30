@@ -58,7 +58,9 @@ class PlanRefinerAgent:
         pergunta: str,
         original_plan: str,
         user_suggestion: str,
-        intent_category: str = "unknown"
+        intent_category: str = "unknown",
+        conversation_context: str = "",
+        has_history: bool = False
     ) -> Dict[str, Any]:
         """
         Refina um plano baseado na sugestão do usuário
@@ -82,9 +84,17 @@ class PlanRefinerAgent:
             
             # Construir prompt
             system_prompt = self._build_system_prompt()
-            user_prompt = self._build_user_prompt(
+            base_user_prompt = self._build_user_prompt(
                 pergunta, original_plan, user_suggestion, intent_category
             )
+            
+            # Injetar contexto ANTES do prompt se houver histórico
+            if has_history and conversation_context:
+                user_prompt = f"{conversation_context}\n\n{base_user_prompt}"
+                print(f"   📚 Contexto adicionado: {len(conversation_context)} caracteres")
+            else:
+                user_prompt = base_user_prompt
+                print(f"   💬 Sem contexto disponível")
             
             # Chamar OpenAI
             response = self.client.chat.completions.create(

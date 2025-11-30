@@ -51,7 +51,10 @@ class IntentValidatorWorker(ModuleWorker):
         state = {
             'pergunta': pergunta,
             'username': username,
-            'projeto': projeto
+            'projeto': projeto,
+            # Propagar contexto de conversa se houver
+            'conversation_context': data.get('conversation_context', ''),
+            'has_history': data.get('has_history', False)
         }
         
         # Processar com o agente
@@ -76,6 +79,9 @@ class IntentValidatorWorker(ModuleWorker):
             'username': username,  # MANTER ORIGINAL
             'projeto': projeto,    # MANTER ORIGINAL
             'previous_module': 'intent_validator',
+            # Propagar contexto para próximos módulos
+            'conversation_context': data.get('conversation_context', ''),
+            'has_history': data.get('has_history', False)
         }
         # Adicionar campos do result (exceto username/projeto para não sobrescrever)
         for key, value in result.items():
