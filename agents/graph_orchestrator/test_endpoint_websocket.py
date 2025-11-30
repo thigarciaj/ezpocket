@@ -949,6 +949,8 @@ def get_database_info():
         import psycopg2
         from datetime import datetime
         
+        print("🔍 Buscando informações do banco de dados...")
+        
         # Configuração PostgreSQL
         postgres_config = {
             'host': os.getenv('POSTGRES_HOST', 'localhost'),
@@ -959,6 +961,7 @@ def get_database_info():
         }
         
         bd_reference = os.getenv('BD_REFERENCE', 'Athena')
+        print(f"   BD_REFERENCE: {bd_reference}")
         
         response_data = {
             'bd_reference': bd_reference,
@@ -983,9 +986,14 @@ def get_database_info():
                 
                 result = cursor.fetchone()
                 if result:
-                    response_data['last_sync'] = result[0].isoformat() if result[0] else None
+                    last_sync_datetime = result[0]
+                    response_data['last_sync'] = last_sync_datetime.isoformat() if last_sync_datetime else None
                     response_data['sync_status'] = result[1]
                     response_data['records_processed'] = result[2]
+                    print(f"   ✅ Última sincronização: {last_sync_datetime}")
+                    print(f"   📊 Registros processados: {result[2]}")
+                else:
+                    print("   ⚠️ Nenhuma sincronização encontrada no banco")
                 
                 cursor.close()
                 conn.close()
@@ -1003,6 +1011,25 @@ def get_database_info():
             'last_sync': None,
             'sync_status': 'error'
         }), 500
+
+
+@app.route('/api/data-sync-completed', methods=['POST'])
+def data_sync_completed():
+    """Notificação de que o data_sync terminou - emite evento WebSocket para todos"""
+    try:
+        print("📢 Data sync completado - notificando todos os clientes via WebSocket")
+        
+        # Emitir evento para TODOS os clientes conectados
+        socketio.emit('data_sync_completed', {
+            'message': 'Sincronização de dados concluída',
+            'timestamp': datetime.now().isoformat()
+        }, broadcast=True)
+        
+        return jsonify({'status': 'success', 'message': 'Clientes notificados'}), 200
+        
+    except Exception as e:
+        print(f"❌ Erro ao notificar clientes: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
 @app.route('/test-orchestrator/health', methods=['GET'])

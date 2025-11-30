@@ -2874,6 +2874,12 @@
                 unblockInputArea(); // Desbloqueia se desconectar
             });
 
+            socket.on('data_sync_completed', (data) => {
+                console.log('📢 Data sync completado:', data);
+                // Atualizar status do chat imediatamente
+                updateChatStatus();
+            });
+
             socket.on('job_started', (data) => {
                 console.log('Job iniciado:', data);
                 currentJobId = data.job_id;
@@ -3096,29 +3102,29 @@
         // Atualizar status do chat com informações da base de dados
         async function updateChatStatus() {
             try {
-                const response = await fetch('/api/database-info');
+                // Cache-busting: adiciona timestamp para forçar requisição nova
+                const response = await fetch(`/api/database-info?t=${Date.now()}`);
                 const data = await response.json();
+                console.log('📊 Database info atualizado:', data);
                 
                 const statusElement = document.getElementById('chatStatus');
                 if (!statusElement) return;
                 
                 if (data.bd_reference === 'Local' && data.last_sync) {
-                    // A data vem do backend já em horário de Miami (naive datetime)
-                    // Precisamos criar a data como se fosse UTC e depois mostrar em Miami
-                    const lastSyncUTC = new Date(data.last_sync + 'Z'); // Adiciona 'Z' para tratar como UTC
+                    // A data vem do backend já em horário de Miami (naive datetime salvo no banco)
+                    // NÃO adicionar 'Z' pois a data já está em Miami, apenas parsear direto
+                    const lastSyncDate = new Date(data.last_sync);
                     
-                    // Formatar data e hora no timezone de Miami (America/New_York)
-                    const formattedDate = lastSyncUTC.toLocaleDateString('pt-BR', {
+                    // Formatar data e hora diretamente (já está em Miami)
+                    const formattedDate = lastSyncDate.toLocaleDateString('pt-BR', {
                         day: '2-digit',
                         month: '2-digit', 
-                        year: 'numeric',
-                        timeZone: 'America/New_York'
+                        year: 'numeric'
                     });
-                    const formattedTime = lastSyncUTC.toLocaleTimeString('pt-BR', {
+                    const formattedTime = lastSyncDate.toLocaleTimeString('pt-BR', {
                         hour: '2-digit',
                         minute: '2-digit',
-                        second: '2-digit',
-                        timeZone: 'America/New_York'
+                        second: '2-digit'
                     });
                     
                     statusElement.textContent = `Online 🌍 (Miami: ${formattedDate} ${formattedTime})`;

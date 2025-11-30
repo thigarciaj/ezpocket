@@ -697,7 +697,21 @@ def main():
         success = agent.perform_sync_with_retry()
         
         if success:
-            logger.info("✅ Sincronização concluída com sucesso - saindo")
+            logger.info("✅ Sincronização concluída com sucesso")
+            
+            # Notificar o backend que a sincronização terminou
+            try:
+                import requests
+                backend_url = os.getenv('BACKEND_URL', 'http://localhost:5050')
+                response = requests.post(f'{backend_url}/api/data-sync-completed', timeout=5)
+                if response.status_code == 200:
+                    logger.info("📢 Backend notificado sobre atualização")
+                else:
+                    logger.warning(f"⚠️ Falha ao notificar backend: {response.status_code}")
+            except Exception as e:
+                logger.warning(f"⚠️ Não foi possível notificar backend: {e}")
+            
+            logger.info("✅ Saindo")
             sys.exit(0)
         else:
             logger.error("❌ Sincronização falhou - saindo com erro")
