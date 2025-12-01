@@ -68,6 +68,8 @@ graph TB
             PythonRT[Python Runtime<br/>python_runtime.py<br/>roles.json<br/>Usa contexto<br/>Comparacoes automaticas<br/>Analise estatistica pandas/numpy]
             
             ResponseComp[Response Composer<br/>response_composer.py<br/>roles.json<br/>Usa contexto<br/>Respostas contextualizadas<br/>Formata em Markdown]
+            
+            ResponseGraphCompiler[Response Graph Compiler<br/>response_graph_compiler.py<br/>roles.json + roles_local.json<br/>GPT-4o avalia dados<br/>Gera gráficos Plotly<br/>Randomização inteligente<br/>25 tipos de gráficos<br/>Python code generation]
         end
         
         subgraph AIAgentsSupport["Agentes de IA Adicional"]
@@ -175,7 +177,10 @@ graph TB
     PythonRT -->|Analise estatistica| ResponseComp
     
     ResponseComp -->|API call + contexto| OpenAI
-    ResponseComp -->|Resposta formatada| UserFeedback
+    ResponseComp -->|Resposta formatada| ResponseGraphCompiler
+    
+    ResponseGraphCompiler -->|API call + avaliação| OpenAI
+    ResponseGraphCompiler -->|Gráficos Plotly JSON<br/>Python code| UserFeedback
     
     UserFeedback -->|Aguarda rating| InteractiveQueues
     UserFeedback -->|Rating recebido| History
@@ -191,6 +196,7 @@ graph TB
     Executor -.->|via JobQueues| History
     PythonRT -.->|via JobQueues| History
     ResponseComp -.->|via JobQueues| History
+    ResponseGraphCompiler -.->|via JobQueues| History
     UserFeedback -.->|via JobQueues| History
     UserProposed -.->|via JobQueues| History
     
@@ -202,9 +208,9 @@ graph TB
     SocketIOServer -->|WebSocket| WSClient
     WSClient -->|Render markdown| ChatUI
     
-    %% EXTERNAL SERVICES - 8 agentes usam OpenAI GPT-4o
+    %% EXTERNAL SERVICES - 9 agentes usam OpenAI GPT-4o
     %% Intent, PlanBuilder, PlanRefiner, AnalysisOrch já mapeados acima
-    %% SQLValidator, AutoCorrect, PythonRT, ResponseComp já mapeados acima
+    %% SQLValidator, AutoCorrect, PythonRT, ResponseComp, ResponseGraphCompiler já mapeados acima
     
     %% INFRASTRUCTURE
     FlaskApp -.->|Managed by| PM2
@@ -248,12 +254,12 @@ graph TB
     subgraph Legend["LEGENDA"]
         L1[Linha solida: Fluxo principal]
         L2[Linha pontilhada: Salvamento paralelo via JobQueues]
-        L3[8 Agentes usam OpenAI GPT-4o]
-        L4[6 Agentes utilitarios sem IA]
+        L3[9 Agentes usam OpenAI GPT-4o]
+        L4[5 Agentes utilitários sem IA]
         L5[Context Manager: novo sistema]
         L6[Data Sync: job PM2 separado]
         L7[Queries: Local PostgreSQL ou Athena S3]
-        L8[Pipeline completo: Intent->PlanBuilder->PlanConfirm->AnalysisOrch->SQLValidator->Executor->PythonRT->ResponseComp->UserFeedback->History]
+        L8[Pipeline completo: Intent->PlanBuilder->PlanConfirm->AnalysisOrch->SQLValidator->Executor->PythonRT->ResponseComp->ResponseGraphCompiler->UserFeedback->History]
         L9[graph_config.py simplificado: mostra apenas até AnalysisOrch]
         L10[Sistema de filas customizado Redis - não usa RQ/Celery/BullMQ]
     end

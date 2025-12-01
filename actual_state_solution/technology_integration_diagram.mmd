@@ -32,6 +32,7 @@ graph TB
         Correction[Auto Correction<br/>Correção SQL]
         Runtime[Python Runtime<br/>Análise Estatística]
         Composer[Response Composer<br/>Formatação]
+        GraphCompiler[Response Graph Compiler<br/>Gráficos Plotly<br/>Randomização Inteligente]
     end
 
     subgraph NonAIAgents["⚡ AGENTES SEM IA"]
@@ -45,7 +46,6 @@ graph TB
 
     subgraph AI_External["🌐 SERVIÇOS EXTERNOS"]
         OpenAI[OpenAI API<br/>GPT-4o<br/>Embeddings]
-        Qdrant[Qdrant Vector DB<br/>Semantic Search<br/>Embeddings]
     end
 
     subgraph Monitoring["📊 MONITORAMENTO"]
@@ -79,6 +79,7 @@ graph TB
     Correction -->|API Call| OpenAI
     Runtime -->|API Call| OpenAI
     Composer -->|API Call| OpenAI
+    GraphCompiler -->|API Call| OpenAI
 
     %% Non-AI Agents connections
     Executor -->|SQL Query| Athena
@@ -91,10 +92,6 @@ graph TB
     Postgres -.->|Conversation History| Routes
     Routes -.->|Format Context| GraphOrch
     GraphOrch -.->|Context String| AIAgents
-
-    %% External services
-    AIAgents -.->|Semantic Search| Qdrant
-    Qdrant -.->|Embeddings| OpenAI
 
     %% Monitoring
     Flask -.->|Managed by| PM2
@@ -113,9 +110,9 @@ graph TB
     class HTML,CSS,WS_Client frontend
     class Flask,SocketIO,Auth,Routes backend
     class Postgres,Redis,Athena database
-    class Intent,Plan,Refiner,Analysis,Validator,Correction,Runtime,Composer ai
+    class Intent,Plan,Refiner,Analysis,Validator,Correction,Runtime,Composer,GraphCompiler ai
     class Executor,Confirm,Feedback,History,UserPlan,DataSync nonai
-    class OpenAI,Qdrant external
+    class OpenAI external
     class PM2,Logs monitoring
 
     %% Legend

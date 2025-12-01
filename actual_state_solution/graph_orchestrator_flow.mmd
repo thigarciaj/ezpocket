@@ -70,17 +70,21 @@ graph TD
     PythonRuntime2 --> ResponseComposer2["🎨 Response Composer<br/>Resposta Contextualizada<br/>🔴 Referencia histórico"]
     PythonRuntime2 --> H12[History Preferences<br/>Salva Python Runtime]
     
-    %% Response Composer vai para History primeiro
+    %% Response Composer vai para Response Graph Compiler + History (paralelo)
+    ResponseComposer --> ResponseGraphCompiler["📊 Response Graph Compiler<br/>Avalia e gera gráficos Plotly<br/>🔴 Randomização inteligente"]
     ResponseComposer --> H13[History Preferences<br/>Salva Response Composer]
+    ResponseComposer2 --> ResponseGraphCompiler2["📊 Response Graph Compiler<br/>Avalia e gera gráficos Plotly<br/>🔴 Randomização inteligente"]
     ResponseComposer2 --> H14[History Preferences<br/>Salva Response Composer]
+    
+    %% Response Graph Compiler vai para User Feedback + History (paralelo)
+    ResponseGraphCompiler --> UserFeedback["⭐ User Feedback<br/>Aguarda rating via Redis<br/>+ visualização de gráficos"]
+    ResponseGraphCompiler --> H17[History Preferences<br/>Salva Graph Compiler]
+    ResponseGraphCompiler2 --> UserFeedback2["⭐ User Feedback<br/>Aguarda rating via Redis<br/>+ visualização de gráficos"]
+    ResponseGraphCompiler2 --> H18[History Preferences<br/>Salva Graph Compiler]
     
     %% History salva nova conversa no projeto (se ativo)
     H13 --> SaveConversation[💾 Salva no PostgreSQL<br/>projects.conversations<br/>para histórico futuro]
     H14 --> SaveConversation2[💾 Salva no PostgreSQL<br/>projects.conversations<br/>para histórico futuro]
-    
-    %% Após salvar, chama User Feedback
-    SaveConversation --> UserFeedback["📊 User Feedback<br/>Aguarda rating via Redis<br/>(opcional)"]
-    SaveConversation2 --> UserFeedback2["📊 User Feedback<br/>Aguarda rating via Redis<br/>(opcional)"]
     
     %% User Feedback salva no History (última etapa)
     UserFeedback --> H15[History Preferences<br/>Salva User Feedback]
@@ -113,6 +117,8 @@ graph TD
     H14 --> End14([Fim])
     H15 --> End15([Fim])
     H16 --> End16([Fim])
+    H17 --> End17([Fim])
+    H18 --> End18([Fim])
 
     style IntentValidator fill:#e1f5ff
     style PlanBuilder fill:#e1f5ff
@@ -144,12 +150,16 @@ graph TD
     style H14 fill:#f5f5f5
     style H15 fill:#f5f5f5
     style H16 fill:#f5f5f5
+    style H17 fill:#f5f5f5
+    style H18 fill:#f5f5f5
     style AthenaExecutor fill:#e1ffe1
     style AthenaExecutor2 fill:#e1ffe1
     style PythonRuntime fill:#ffe8cc
     style PythonRuntime2 fill:#ffe8cc
     style ResponseComposer fill:#e8f5ff
     style ResponseComposer2 fill:#e8f5ff
+    style ResponseGraphCompiler fill:#ffe8f0
+    style ResponseGraphCompiler2 fill:#ffe8f0
     style UserFeedback fill:#fff0e1
     style UserFeedback2 fill:#fff0e1
     style QuerySource fill:#f0e1ff

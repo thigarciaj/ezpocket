@@ -57,16 +57,28 @@ sequenceDiagram
     R->>W: 32. response_composer queue
     W->>AI: 33. Prompt com contexto<br/>(resposta natural e contextualizada)
     AI-->>W: 34. "Hoje foram 200 vendas,<br/>enquanto ontem foram 150<br/>(crescimento de 33%)"
-    W->>R: 35. Resposta formatada
+    W->>R: 35. Resposta formatada + contexto
     
-    R->>B: 36. Job completo
-    B->>DB: 37. POST /api/projects/{id}/conversations<br/>(salva nova interação)
-    DB-->>B: 38. Confirmação
+    R->>W: 36. response_graph_compiler queue
+    W->>AI: 37. Avalia dados para gráficos<br/>(GPT sugere 2-3 tipos apropriados)
+    AI-->>W: 38. suggested_types: [bar, donut, pareto]
+    W->>W: 39. Randomiza: escolhe "pareto"
+    W->>W: 40. Gera gráfico Plotly JSON + Python code
+    W->>R: 41. Gráficos prontos + contexto
     
-    B->>WS: 39. emit('message', resposta)
-    WS->>F: 40. Recebe resposta via WebSocket
-    F->>F: 41. Renderiza resposta<br/>em caixinha cinza
-    F->>U: 42. Exibe resposta contextualizada
+    R->>W: 42. user_feedback queue<br/>(aguarda rating via Redis)
+    W->>U: 43. Exibe estrelas + botão gráficos
+    U->>W: 44. Dá nota 5 estrelas
+    W->>R: 45. Rating salvo + contexto
+    
+    R->>B: 46. Job completo
+    B->>DB: 47. POST /api/projects/{id}/conversations<br/>(salva nova interação + gráficos + rating)
+    DB-->>B: 48. Confirmação
+    
+    B->>WS: 49. emit('message', resposta + gráficos)
+    WS->>F: 50. Recebe resposta via WebSocket
+    F->>F: 51. Renderiza resposta + botão gráficos<br/>em caixinha cinza
+    F->>U: 52. Exibe resposta contextualizada com gráficos
 
     Note over U,DATA: 💬 Chat Geral (sem projeto) = sem contexto, stateless
 
