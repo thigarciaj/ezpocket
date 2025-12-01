@@ -3001,7 +3001,9 @@
                     // Usuário rejeitou o plano - pedir sugestões
                     addMessageToChat('EZPocket', '💡 **Como você gostaria que o plano fosse modificado?**\n\nDescreva suas sugestões ou uma nova abordagem para a análise.', 'bot');
                     waitingForPlanSuggestion = true;
-                    // NÃO desbloquear aqui - mantém bloqueado até job_completed
+                    // DESBLOQUEAR input para usuário digitar sugestões
+                    unblockInputArea();
+                    removeTypingIndicator();
                 }
             });
 
