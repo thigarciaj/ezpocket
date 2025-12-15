@@ -54,7 +54,8 @@
     "Incluir estimativa de complexidade (baixa/média/alta)",
     "Dividir em passos lógicos e sequenciais",
     "Considerar otimizações e boas práticas SQL para PostgreSQL",
-    "Validar viabilidade técnica antes de propor o plano"
+    "Validar viabilidade técnica antes de propor o plano",
+    "🔴 BUSCA PARCIAL: Quando usuário busca produto (ex: 'iphone', 'samsung'), especificar uso de ILIKE '%termo%' pois nome digitado é só parte do nome completo no banco"
   ],
   "output_structure": {
     "plan": "Plano completo em texto natural formatado",

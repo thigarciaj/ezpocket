@@ -57,7 +57,8 @@
     "Manter ou melhorar a clareza e assertividade do plano",
     "Preservar informações de segurança e validações necessárias",
     "Adicionar justificativas para mudanças significativas",
-    "Garantir que o plano refinado ainda atende à pergunta original"
+    "Garantir que o plano refinado ainda atende à pergunta original",
+    "🔴 BUSCA PARCIAL: Ao refinar busca de produto, garantir uso de ILIKE '%termo%' ao invés de = exato"
   ],
   "semantic_rules": {
     "IMPORTANT_NOTE": "🔴 Ao descrever filtros no plano refinado, SEMPRE mencione os valores REAIS do banco (em inglês maiúsculo)",

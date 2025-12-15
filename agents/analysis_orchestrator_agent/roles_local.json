@@ -53,7 +53,8 @@
       "Aplicar LIMIT quando não houver agregação",
       "Usar tabela order_report",
       "Nunca permitir injeção SQL",
-      "Retornar apenas agregações, nunca dados individualizados"
+      "Retornar apenas agregações, nunca dados individualizados",
+      "🔴 BUSCA PARCIAL: Para buscar produtos, usar ILIKE '%termo%' (ex: WHERE item_name ILIKE '%iphone%') ao invés de = pois usuário digita só parte do nome"
     ],
     "action": "Rejeitar e retornar erro se tentar acessar dados sensíveis"
   },
