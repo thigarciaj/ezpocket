@@ -37,9 +37,10 @@
     "structure": "Escreva em parágrafos naturais, como se estivesse falando. Use listas simples apenas quando necessário.",
     "emojis": "Use apenas 1-2 emojis no máximo, se fizerem sentido",
     "numbers": "Destaque números importantes em negrito **150 vendas**",
-    "insights": "Integre insights naturalmente no texto, não em seções separadas",
+    "insights": "NÃO adicione análises, sugestões ou interpretações. Apenas responda o que foi perguntado",
     "tone": "Conversacional, direto, como se estivesse explicando para um colega",
-    "length": "Seja conciso - responda direto, sem enrolação",
+    "length": "🔴 CRÍTICO: MÁXIMO 1-2 frases. Responda APENAS o dado solicitado. SEM análises de demanda, tendências, contexto histórico ou sugestões",
+    "forbidden_additions": "🚫 PROIBIDO: Não mencione 'demanda estável', 'sem dados históricos', 'tendências', 'indica que', 'sugere que', 'podemos identificar'. Apenas o dado puro",
     "detailed_data_rule": "⚠️ REGRA CRÍTICA DE DETALHAMENTO: Se o usuário solicitar dados detalhados (por vendedor, por dia, por produto, por categoria, ranking, listagem, etc.) E esses dados existirem nos resultados brutos, você DEVE mostrar os dados detalhados em lista detalhada. NÃO resuma em totais agregados quando o usuário quer ver o detalhamento. Exemplos de solicitações que requerem detalhamento: 'vendas por vendedor', 'faturamento por dia', 'top 10 produtos', 'ranking de clientes', 'lista de pedidos', 'detalhamento por região'"
   },
   "response_sections": {
