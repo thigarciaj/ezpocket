@@ -100,6 +100,60 @@
     "timezone": "America/New_York",
     "date_format": "%Y-%m-%d %I:%i %p",
     "table_validation": "Sempre valide se a tabela existe e se as colunas estão corretas",
+    "critical_cast_correction": {
+      "directive": "🔴 CORREÇÃO AUTOMÁTICA OBRIGATÓRIA - Adicionar ::timestamp em colunas de data que estão como TEXT",
+      "text_date_columns": [
+        "Date Order Created",
+        "Contract Start Date",
+        "Delivery Date",
+        "Early Purchase Date",
+        "Cancelled At",
+        "Finished At",
+        "PDD at"
+      ],
+      "auto_fix_rule": "Se detectar comparação de data sem ::timestamp, adicionar automaticamente",
+      "error_patterns": [
+        "operator does not exist: text >= timestamp",
+        "operator does not exist: text = date",
+        "cannot compare text with timestamp"
+      ],
+      "correction_examples": [
+        "ERRADO: WHERE \"Contract Start Date\" >= date_trunc('month', CURRENT_TIMESTAMP)",
+        "CORRIGIR PARA: WHERE \"Contract Start Date\"::timestamp >= date_trunc('month', CURRENT_TIMESTAMP)",
+        "ERRADO: WHERE \"Early Purchase Date\" = CURRENT_DATE",
+        "CORRIGIR PARA: WHERE DATE(\"Early Purchase Date\"::timestamp) = CURRENT_DATE"
+      ]
+    },
+    "business_metrics_correction": {
+      "vendas_ativas": {
+        "conceito": "Vendas ativas são pedidos em trânsito, aguardando envio ou entregues. NÃO incluir cancelados, negados ou fechados",
+        "correcao_exemplo": "WHERE \"Status\" IN ('IN TRANSIT', 'WAITING SHIPMENT', 'DELIVERED')"
+      },
+      "vendas_hoje": {
+        "conceito": "Pedidos iniciados hoje (Contract Start Date igual a data atual). Contract Start Date é TEXT, SEMPRE adicionar ::timestamp",
+        "correcao_exemplo": "WHERE DATE(\"Contract Start Date\"::timestamp) = CURRENT_DATE"
+      },
+      "vendas_mes": {
+        "conceito": "Pedidos iniciados desde o dia 1 do mês atual. Usar date_trunc('month') para obter início do mês. Contract Start Date é TEXT, SEMPRE adicionar ::timestamp",
+        "correcao_exemplo": "WHERE \"Contract Start Date\"::timestamp >= date_trunc('month', CURRENT_TIMESTAMP)"
+      },
+      "total_a_receber": {
+        "conceito": "Soma do saldo devedor (Remaining Total) apenas de pedidos ativos. Pedidos entregues, em trânsito ou aguardando envio",
+        "correcao_exemplo": "SUM(\"Remaining Total\") WHERE \"Status\" IN ('DELIVERED', 'IN TRANSIT', 'WAITING SHIPMENT')"
+      },
+      "total_vendido": {
+        "conceito": "Soma do valor total de contrato (Contract Total Value Expected) de vendas válidas. Exclui apenas status inválidos como negados, abertos, fechados",
+        "correcao_exemplo": "SUM(\"Contract Total Value Expected\") WHERE \"Status\" IN ('DELIVERED', 'EARLY PURCHASE', 'FINISHED', 'IN TRANSIT', 'PDD', 'WAITING SHIPMENT')"
+      },
+      "quitacoes_antecipadas": {
+        "conceito": "Pedidos quitados antecipadamente com Status EARLY PURCHASE. Para filtrar por período, usar coluna Early Purchase Date",
+        "correcao_exemplo": "WHERE \"Status\" = 'EARLY PURCHASE'"
+      },
+      "finalizadas": {
+        "conceito": "Pedidos completamente concluídos com Status FINISHED. Para filtrar por período, usar coluna Finished At",
+        "correcao_exemplo": "WHERE \"Status\" = 'FINISHED'"
+      }
+    },
     "forbidden_columns": [
       "Customer Email",
       "Customer Phone Number",

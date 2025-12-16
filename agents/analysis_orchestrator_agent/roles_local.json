@@ -73,6 +73,98 @@
     "table_name": "order_report",
     "timezone": "America/New_York",
     "date_format": "YYYY-MM-DD HH12:MI AM",
+    "critical_type_casting_rule": {
+      "directive": "🔴 OBRIGATÓRIO - Colunas de data estão como TEXT. SEMPRE adicionar ::timestamp ao comparar com datas",
+      "text_date_columns": [
+        "Date Order Created",
+        "Contract Start Date",
+        "Delivery Date",
+        "Early Purchase Date",
+        "Cancelled At",
+        "Finished At",
+        "PDD at"
+      ],
+      "mandatory_cast": "Adicionar ::timestamp após o nome da coluna quando comparar com datas ou usar em date_trunc",
+      "correct_examples": [
+        "WHERE \"Contract Start Date\"::timestamp >= date_trunc('month', CURRENT_TIMESTAMP)",
+        "WHERE DATE(\"Early Purchase Date\"::timestamp) = CURRENT_DATE",
+        "WHERE \"Finished At\"::timestamp BETWEEN '2025-01-01'::timestamp AND '2025-01-31'::timestamp"
+      ],
+      "wrong_examples_cause_error": [
+        "WHERE \"Contract Start Date\" >= date_trunc('month', CURRENT_TIMESTAMP) -- ERRO: text >= timestamp",
+        "WHERE \"Early Purchase Date\" = CURRENT_DATE -- ERRO: text = date"
+      ]
+    },
+    "business_metrics_guide": {
+      "vendas_ativas_active_orders": {
+        "definicao": "Vendas ativas são pedidos aprovados em processo de entrega ou entregues mas não finalizados. Pedidos com Status IN TRANSIT (em trânsito), WAITING SHIPMENT (aguardando envio) ou DELIVERED (entregue)",
+        "exemplo_filtro": "WHERE \"Status\" IN ('IN TRANSIT', 'WAITING SHIPMENT', 'DELIVERED')"
+      },
+      "vendas_geradas_mes_countmonthraw": {
+        "definicao": "Total de pedidos com data de início de contrato registrada, independente do status. Qualquer pedido que tenha Contract Start Date preenchido é considerado venda gerada",
+        "exemplo_filtro": "WHERE \"Contract Start Date\" IS NOT NULL"
+      },
+      "quitacoes_antecipadas_early_purchase": {
+        "definicao": "Pedidos quitados antecipadamente pelo cliente antes do prazo. Status EARLY PURCHASE indica quitação antecipada completa do valor devido",
+        "exemplo_filtro": "WHERE \"Status\" = 'EARLY PURCHASE'"
+      },
+      "vendas_finalizadas_finished": {
+        "definicao": "Pedidos completamente concluídos com todas parcelas pagas. Status FINISHED indica que o processo de venda foi finalizado por completo",
+        "exemplo_filtro": "WHERE \"Status\" = 'FINISHED'"
+      },
+      "aguardando_assinatura_waiting_signature": {
+        "definicao": "Pedidos aprovados aguardando assinatura do contrato pelo cliente. Status WAITING SIGN indica etapa de assinatura pendente",
+        "exemplo_filtro": "WHERE \"Status\" = 'WAITING SIGN'"
+      },
+      "vendas_hoje_counttoday": {
+        "definicao": "Quantidade de pedidos iniciados hoje (Contract Start Date igual a data atual). Contract Start Date é TEXT, sempre usar ::timestamp",
+        "exemplo_filtro": "WHERE DATE(\"Contract Start Date\"::timestamp) = CURRENT_DATE"
+      },
+      "vendas_semana_countthisweek": {
+        "definicao": "Pedidos iniciados desde domingo (início da semana) até hoje, apenas com status válidos de venda. Usar date_trunc('week') para obter início da semana. Contract Start Date é TEXT, sempre usar ::timestamp",
+        "exemplo_filtro": "WHERE \"Contract Start Date\"::timestamp >= date_trunc('week', CURRENT_TIMESTAMP) AND \"Status\" IN ('WAITING SHIPMENT', 'IN TRANSIT', 'FINISHED', 'DELIVERED', 'EARLY PURCHASE')"
+      },
+      "vendas_mes_countthismonth": {
+        "definicao": "Pedidos iniciados desde o dia 1 do mês até hoje, apenas com status válidos de venda (exclui cancelados, negados, etc). Usar date_trunc('month'). Contract Start Date é TEXT, sempre usar ::timestamp",
+        "exemplo_filtro": "WHERE \"Contract Start Date\"::timestamp >= date_trunc('month', CURRENT_TIMESTAMP) AND \"Status\" IN ('WAITING SHIPMENT', 'IN TRANSIT', 'FINISHED', 'DELIVERED', 'EARLY PURCHASE')"
+      },
+      "total_a_receber_to_receive_value": {
+        "definicao": "Soma do valor restante a receber (coluna Remaining Total) de pedidos ativos. Apenas pedidos entregues, em trânsito ou aguardando envio que ainda têm saldo devedor",
+        "exemplo_calculo": "SUM(\"Remaining Total\") WHERE \"Status\" IN ('DELIVERED', 'IN TRANSIT', 'WAITING SHIPMENT')"
+      },
+      "total_vendido_total_sold": {
+        "definicao": "Soma do valor total de contrato esperado (Contract Total Value Expected) de vendas válidas. Valor bruto vendido incluindo parcelas futuras, excluindo vendas inválidas",
+        "exemplo_calculo": "SUM(\"Contract Total Value Expected\") WHERE \"Status\" IN ('DELIVERED', 'EARLY PURCHASE', 'FINISHED', 'IN TRANSIT', 'PDD', 'WAITING SHIPMENT')"
+      },
+      "total_recebido_total_received": {
+        "definicao": "Soma do valor total já pago pelos clientes (Order Total Paid). Dinheiro efetivamente recebido de todos os pedidos sem filtro de status",
+        "exemplo_calculo": "SUM(\"Order Total Paid\")"
+      },
+      "finalizadas_hoje_countfinishedtoday": {
+        "definicao": "Quantidade de pedidos finalizados hoje. Filtrar por Status FINISHED e data de finalização (Finished At) igual a hoje. Finished At é TEXT, usar ::timestamp",
+        "exemplo_filtro": "WHERE \"Status\" = 'FINISHED' AND DATE(\"Finished At\"::timestamp) = CURRENT_DATE"
+      },
+      "finalizadas_mes_countfinishedthismonth": {
+        "definicao": "Pedidos finalizados desde o início do mês. Filtrar por Status FINISHED e Finished At maior ou igual ao dia 1 do mês atual. Finished At é TEXT, usar ::timestamp",
+        "exemplo_filtro": "WHERE \"Status\" = 'FINISHED' AND \"Finished At\"::timestamp >= date_trunc('month', CURRENT_TIMESTAMP)"
+      },
+      "quitacoes_mes_countearlypurchasethismonth": {
+        "definicao": "Quitações antecipadas realizadas no mês atual. Filtrar por Status EARLY PURCHASE e Early Purchase Date maior ou igual ao dia 1 do mês. Early Purchase Date é TEXT, usar ::timestamp",
+        "exemplo_filtro": "WHERE \"Status\" = 'EARLY PURCHASE' AND \"Early Purchase Date\"::timestamp >= date_trunc('month', CURRENT_TIMESTAMP)"
+      },
+      "quitacoes_hoje_countearlypurchasetoday": {
+        "definicao": "Quitações antecipadas realizadas hoje. Filtrar por Status EARLY PURCHASE e Early Purchase Date igual a hoje. Early Purchase Date é TEXT, usar ::timestamp",
+        "exemplo_filtro": "WHERE \"Status\" = 'EARLY PURCHASE' AND DATE(\"Early Purchase Date\"::timestamp) = CURRENT_DATE"
+      },
+      "canceladas_mes_countcancelthismonth": {
+        "definicao": "Pedidos cancelados no mês atual. Filtrar por Status CANCELED e data de cancelamento (Cancelled At) maior ou igual ao dia 1 do mês. Cancelled At é TEXT, usar ::timestamp",
+        "exemplo_filtro": "WHERE \"Status\" = 'CANCELED' AND \"Cancelled At\"::timestamp >= date_trunc('month', CURRENT_TIMESTAMP)"
+      },
+      "pagamentos_parciais_partial_payment": {
+        "definicao": "Pedidos com pagamento parcial onde cliente pagou apenas parte do valor. Status PARTIAL PAYMENT indica pagamento incompleto ou parcelamento em atraso",
+        "exemplo_filtro": "WHERE \"Status\" = 'PARTIAL PAYMENT'"
+      }
+    },
     "columns": {
       "Order Code": {
         "type": "bigint",

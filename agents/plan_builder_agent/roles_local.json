@@ -73,6 +73,25 @@
     "main_table": "order_report",
     "table_structure": "Tabela desnormalizada contendo todos os dados de pedidos e transações",
     "no_joins": "Todos os dados estão em uma única tabela - não usar JOINs",
+    "critical_type_casting": {
+      "directive": "🔴 CRÍTICO - Várias colunas estão como TEXT mas representam DATAS ou NÚMEROS. SEMPRE usar cast explícito",
+      "date_columns_as_text": [
+        "Date Order Created",
+        "Contract Start Date",
+        "Delivery Date",
+        "Early Purchase Date",
+        "Cancelled At",
+        "Finished At",
+        "PDD at"
+      ],
+      "cast_rule": "SEMPRE adicionar ::timestamp ao comparar essas colunas com datas",
+      "examples": [
+        "CORRETO: WHERE \"Contract Start Date\"::timestamp >= date_trunc('month', CURRENT_TIMESTAMP)",
+        "CORRETO: WHERE DATE(\"Early Purchase Date\"::timestamp) = CURRENT_DATE",
+        "ERRADO: WHERE \"Contract Start Date\" >= date_trunc('month', CURRENT_TIMESTAMP) -- CAUSA ERRO",
+        "CORRETO: WHERE \"Finished At\"::timestamp >= '2025-01-01'::timestamp"
+      ]
+    },
     "capabilities": [
       "Consultas SELECT",
       "Agregações (SUM, COUNT, AVG, etc.)",
@@ -82,7 +101,77 @@
       "Ordenação ORDER BY",
       "Subconsultas e CTEs (WITH)",
       "Filtros temporais (datas, períodos)"
-    ]
+    ],
+    "business_metrics": {
+      "vendas_ativas": {
+        "descricao": "Vendas ativas são pedidos que foram aprovados e estão em processo de entrega ou já entregues, mas ainda não finalizados. Inclui pedidos em trânsito, aguardando envio ou já entregues ao cliente",
+        "exemplo_sql": "COUNT(*) WHERE \"Status\" IN ('IN TRANSIT', 'WAITING SHIPMENT', 'DELIVERED')"
+      },
+      "vendas_geradas_mes": {
+        "descricao": "Total de pedidos que possuem data de início de contrato registrada, independente do status. Representa todas as vendas geradas no sistema que começaram o processo de contratação",
+        "exemplo_sql": "COUNT(*) WHERE \"Contract Start Date\" IS NOT NULL"
+      },
+      "quitacoes_antecipadas_total": {
+        "descricao": "Pedidos que tiveram o valor total quitado antecipadamente pelo cliente antes do prazo final. Status EARLY PURCHASE indica quitação antecipada completa",
+        "exemplo_sql": "COUNT(*) WHERE \"Status\" = 'EARLY PURCHASE'"
+      },
+      "vendas_finalizadas": {
+        "descricao": "Pedidos completamente finalizados onde todas as parcelas foram pagas e o processo foi concluído. Status FINISHED indica conclusão total do pedido",
+        "exemplo_sql": "COUNT(*) WHERE \"Status\" = 'FINISHED'"
+      },
+      "aguardando_assinatura": {
+        "descricao": "Pedidos aprovados que estão aguardando a assinatura do contrato pelo cliente. Status WAITING SIGN indica que o pedido está parado aguardando essa etapa",
+        "exemplo_sql": "COUNT(*) WHERE \"Status\" = 'WAITING SIGN'"
+      },
+      "vendas_hoje": {
+        "descricao": "Quantidade de pedidos cuja data de início de contrato (Contract Start Date) é igual à data de hoje. IMPORTANTE: Contract Start Date é TEXT, usar ::timestamp",
+        "exemplo_sql": "COUNT(*) WHERE DATE(\"Contract Start Date\"::timestamp) = CURRENT_DATE"
+      },
+      "vendas_esta_semana": {
+        "descricao": "Pedidos iniciados desde o início da semana atual (domingo) até hoje. Usar date_trunc('week') para obter o início da semana. IMPORTANTE: Contract Start Date é TEXT, usar ::timestamp",
+        "exemplo_sql": "COUNT(*) WHERE \"Contract Start Date\"::timestamp >= date_trunc('week', CURRENT_TIMESTAMP)"
+      },
+      "vendas_este_mes": {
+        "descricao": "Pedidos iniciados desde o dia 1 do mês atual até hoje, considerando apenas status de vendas válidas (excluindo cancelados, negados, etc). Usar date_trunc('month') para o início do mês. IMPORTANTE: Contract Start Date é TEXT, usar ::timestamp",
+        "exemplo_sql": "COUNT(*) WHERE \"Contract Start Date\"::timestamp >= date_trunc('month', CURRENT_TIMESTAMP) AND \"Status\" IN ('WAITING SHIPMENT', 'IN TRANSIT', 'FINISHED', 'DELIVERED', 'EARLY PURCHASE')"
+      },
+      "total_a_receber": {
+        "descricao": "Soma do valor restante a receber (Remaining Total) de pedidos ativos que ainda têm parcelas pendentes. Inclui apenas pedidos em trânsito, aguardando envio ou já entregues",
+        "exemplo_sql": "SUM(\"Remaining Total\") WHERE \"Status\" IN ('DELIVERED', 'IN TRANSIT', 'WAITING SHIPMENT')"
+      },
+      "total_vendido": {
+        "descricao": "Soma do valor total esperado de contrato (Contract Total Value Expected) de todos os pedidos válidos. Representa o valor bruto total vendido incluindo parcelas futuras",
+        "exemplo_sql": "SUM(\"Contract Total Value Expected\") WHERE \"Status\" IN ('DELIVERED', 'EARLY PURCHASE', 'FINISHED', 'IN TRANSIT', 'PDD', 'WAITING SHIPMENT')"
+      },
+      "total_recebido": {
+        "descricao": "Soma do valor total já pago pelos clientes (Order Total Paid) em todos os pedidos. Representa o dinheiro que efetivamente já entrou",
+        "exemplo_sql": "SUM(\"Order Total Paid\")"
+      },
+      "finalizadas_hoje": {
+        "descricao": "Quantidade de pedidos finalizados (status FINISHED) cuja data de finalização (Finished At) foi hoje. Usar campo Finished At para filtrar por data. IMPORTANTE: Finished At é TEXT, usar ::timestamp",
+        "exemplo_sql": "COUNT(*) WHERE \"Status\" = 'FINISHED' AND DATE(\"Finished At\"::timestamp) = CURRENT_DATE"
+      },
+      "finalizadas_este_mes": {
+        "descricao": "Pedidos finalizados desde o dia 1 do mês atual. Filtrar por data de finalização (Finished At) maior ou igual ao início do mês. IMPORTANTE: Finished At é TEXT, usar ::timestamp",
+        "exemplo_sql": "COUNT(*) WHERE \"Status\" = 'FINISHED' AND \"Finished At\"::timestamp >= date_trunc('month', CURRENT_TIMESTAMP)"
+      },
+      "quitacoes_este_mes": {
+        "descricao": "Quitações antecipadas realizadas desde o início do mês atual. Filtrar por data de quitação antecipada (Early Purchase Date) maior ou igual ao início do mês. IMPORTANTE: Early Purchase Date é TEXT, usar ::timestamp",
+        "exemplo_sql": "COUNT(*) WHERE \"Status\" = 'EARLY PURCHASE' AND \"Early Purchase Date\"::timestamp >= date_trunc('month', CURRENT_TIMESTAMP)"
+      },
+      "quitacoes_hoje": {
+        "descricao": "Quitações antecipadas realizadas hoje. Filtrar por data de quitação antecipada (Early Purchase Date) igual a hoje. IMPORTANTE: Early Purchase Date é TEXT, usar ::timestamp",
+        "exemplo_sql": "COUNT(*) WHERE \"Status\" = 'EARLY PURCHASE' AND DATE(\"Early Purchase Date\"::timestamp) = CURRENT_DATE"
+      },
+      "canceladas_este_mes": {
+        "descricao": "Pedidos cancelados desde o início do mês atual. Filtrar por data de cancelamento (Cancelled At) maior ou igual ao início do mês. IMPORTANTE: Cancelled At é TEXT, usar ::timestamp",
+        "exemplo_sql": "COUNT(*) WHERE \"Status\" = 'CANCELED' AND \"Cancelled At\"::timestamp >= date_trunc('month', CURRENT_TIMESTAMP)"
+      },
+      "pagamentos_parciais": {
+        "descricao": "Pedidos com status de pagamento parcial, onde o cliente pagou apenas parte do valor devido. Status PARTIAL PAYMENT indica pagamento incompleto",
+        "exemplo_sql": "COUNT(*) WHERE \"Status\" = 'PARTIAL PAYMENT'"
+      }
+    }
   },
   "semantic_rules": {
     "IMPORTANT_NOTE": "🔴 Ao descrever filtros no plano, SEMPRE mencione os valores REAIS do banco (em inglês maiúsculo)",
