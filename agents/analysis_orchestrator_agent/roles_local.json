@@ -163,7 +163,49 @@
       "pagamentos_parciais_partial_payment": {
         "definicao": "Pedidos com pagamento parcial onde cliente pagou apenas parte do valor. Status PARTIAL PAYMENT indica pagamento incompleto ou parcelamento em atraso",
         "exemplo_filtro": "WHERE \"Status\" = 'PARTIAL PAYMENT'"
+      },
+      "total_receita_fraude_pdd": {
+        "definicao": "Soma do valor já pago (Order Total Paid) de pedidos com status PDD ou FRAUD. Dinheiro recebido de vendas problemáticas (fraude + inadimplentes)",
+        "exemplo_calculo": "SUM(COALESCE(\"Order Total Paid\", 0)) WHERE \"Status\" IN ('PDD', 'FRAUD')"
+      },
+      "total_receita_fraude": {
+        "definicao": "Soma do valor já pago apenas de pedidos FRAUD. Valor recebido antes da fraude ser identificada",
+        "exemplo_calculo": "SUM(COALESCE(\"Order Total Paid\", 0)) WHERE \"Status\" = 'FRAUD'"
+      },
+      "total_receita_pdd": {
+        "definicao": "Soma do valor já pago apenas de pedidos PDD (inadimplentes). Valor recebido de clientes que entraram em inadimplência",
+        "exemplo_calculo": "SUM(COALESCE(\"Order Total Paid\", 0)) WHERE \"Status\" = 'PDD'"
+      },
+      "total_nao_recebido_pdd": {
+        "definicao": "Soma do saldo devedor (Remaining Total) de pedidos PDD. Valor pendente de inadimplentes que precisa ser recuperado",
+        "exemplo_calculo": "SUM(COALESCE(\"Remaining Total\", 0)) WHERE \"Status\" = 'PDD'"
+      },
+      "total_nao_recebido_fraude": {
+        "definicao": "Soma do saldo devedor de pedidos FRAUD. Valor perdido por fraude que não será recebido",
+        "exemplo_calculo": "SUM(COALESCE(\"Remaining Total\", 0)) WHERE \"Status\" = 'FRAUD'"
+      },
+      "total_nao_recebido_fraude_pdd": {
+        "definicao": "Soma do saldo devedor de pedidos FRAUD ou PDD. Total em risco por fraude e inadimplência combinados",
+        "exemplo_calculo": "SUM(COALESCE(\"Remaining Total\", 0)) WHERE \"Status\" IN ('FRAUD', 'PDD')"
+      },
+      "quantidade_fraudes": {
+        "definicao": "Número de pedidos únicos com status FRAUD. Usar DISTINCT Order Code para contar pedidos, não itens individuais",
+        "exemplo_calculo": "COUNT(DISTINCT \"Order Code\") WHERE \"Status\" = 'FRAUD'"
+      },
+      "quantidade_pdd": {
+        "definicao": "Número de pedidos únicos com status PDD. Usar DISTINCT Order Code para contar inadimplentes",
+        "exemplo_calculo": "COUNT(DISTINCT \"Order Code\") WHERE \"Status\" = 'PDD'"
       }
+    },
+    "unavailable_metrics_warning": {
+      "note": "⚠️ Métricas que NÃO existem no PostgreSQL local (dependem de outras tabelas do Athena)",
+      "missing_tables": [
+        "receivables_day_month (métricas de receita diária/mensal esperada)",
+        "debt_recovery_day_month (parcelas rejeitadas/recuperadas)",
+        "default_level (níveis de inadimplência N7)",
+        "default_level_fire_fraud (fraud fire N2)"
+      ],
+      "action": "Se usuário perguntar essas métricas, informar que não estão disponíveis no banco local"
     },
     "columns": {
       "Order Code": {

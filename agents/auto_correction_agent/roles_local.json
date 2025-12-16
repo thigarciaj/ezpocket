@@ -152,6 +152,18 @@
       "finalizadas": {
         "conceito": "Pedidos completamente concluídos com Status FINISHED. Para filtrar por período, usar coluna Finished At",
         "correcao_exemplo": "WHERE \"Status\" = 'FINISHED'"
+      },
+      "receita_fraude_pdd": {
+        "conceito": "Soma de Order Total Paid (valor recebido) de pedidos com Status PDD ou FRAUD. Usar COALESCE para tratar nulos",
+        "correcao_exemplo": "SUM(COALESCE(\"Order Total Paid\", 0)) WHERE \"Status\" IN ('PDD', 'FRAUD')"
+      },
+      "saldo_devedor_fraude_pdd": {
+        "conceito": "Soma de Remaining Total (saldo devedor) de pedidos FRAUD ou PDD. Valor em risco não recebido",
+        "correcao_exemplo": "SUM(COALESCE(\"Remaining Total\", 0)) WHERE \"Status\" IN ('FRAUD', 'PDD')"
+      },
+      "quantidade_fraudes_unicas": {
+        "conceito": "Contar pedidos únicos (DISTINCT Order Code) com Status FRAUD. Não contar itens, contar pedidos",
+        "correcao_exemplo": "COUNT(DISTINCT \"Order Code\") WHERE \"Status\" = 'FRAUD'"
       }
     },
     "forbidden_columns": [

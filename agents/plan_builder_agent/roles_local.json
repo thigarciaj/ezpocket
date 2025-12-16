@@ -170,7 +170,56 @@
       "pagamentos_parciais": {
         "descricao": "Pedidos com status de pagamento parcial, onde o cliente pagou apenas parte do valor devido. Status PARTIAL PAYMENT indica pagamento incompleto",
         "exemplo_sql": "COUNT(*) WHERE \"Status\" = 'PARTIAL PAYMENT'"
+      },
+      "total_receita_fraude_pdd": {
+        "descricao": "Soma do valor já recebido (Order Total Paid) de pedidos com status PDD (Pending Documents - inadimplente) ou FRAUD (fraude confirmada). Representa o dinheiro que já entrou mas de pedidos problemáticos",
+        "exemplo_sql": "SUM(COALESCE(\"Order Total Paid\", 0)) WHERE \"Status\" IN ('PDD', 'FRAUD')"
+      },
+      "total_receita_fraude": {
+        "descricao": "Soma do valor já recebido (Order Total Paid) apenas de pedidos com status FRAUD. Dinheiro recebido de vendas que foram identificadas como fraude",
+        "exemplo_sql": "SUM(COALESCE(\"Order Total Paid\", 0)) WHERE \"Status\" = 'FRAUD'"
+      },
+      "total_receita_pdd": {
+        "descricao": "Soma do valor já recebido (Order Total Paid) apenas de pedidos com status PDD. Dinheiro recebido de vendas inadimplentes",
+        "exemplo_sql": "SUM(COALESCE(\"Order Total Paid\", 0)) WHERE \"Status\" = 'PDD'"
+      },
+      "total_nao_recebido_pdd": {
+        "descricao": "Soma do saldo devedor (Remaining Total) de pedidos com status PDD. Valor que ainda precisa ser recebido de inadimplentes",
+        "exemplo_sql": "SUM(COALESCE(\"Remaining Total\", 0)) WHERE \"Status\" = 'PDD'"
+      },
+      "total_nao_recebido_fraude": {
+        "descricao": "Soma do saldo devedor (Remaining Total) de pedidos com status FRAUD. Valor que não será recebido devido a fraude",
+        "exemplo_sql": "SUM(COALESCE(\"Remaining Total\", 0)) WHERE \"Status\" = 'FRAUD'"
+      },
+      "total_nao_recebido_fraude_pdd": {
+        "descricao": "Soma do saldo devedor (Remaining Total) de pedidos com status FRAUD ou PDD. Total de valores em risco por fraude e inadimplência",
+        "exemplo_sql": "SUM(COALESCE(\"Remaining Total\", 0)) WHERE \"Status\" IN ('FRAUD', 'PDD')"
+      },
+      "quantidade_fraudes": {
+        "descricao": "Quantidade única de pedidos (Order Code) com status FRAUD. Usar DISTINCT para contar pedidos únicos, não itens",
+        "exemplo_sql": "COUNT(DISTINCT \"Order Code\") WHERE \"Status\" = 'FRAUD'"
+      },
+      "quantidade_pdd": {
+        "descricao": "Quantidade única de pedidos (Order Code) com status PDD. Usar DISTINCT para contar pedidos únicos inadimplentes",
+        "exemplo_sql": "COUNT(DISTINCT \"Order Code\") WHERE \"Status\" = 'PDD'"
       }
+    },
+    "metrics_not_available": {
+      "note": "⚠️ Métricas que NÃO podem ser calculadas com order_report (dependem de outras tabelas inexistentes no PostgreSQL local)",
+      "unavailable": [
+        "daily_total_revenue (precisa tabela receivables_day_month)",
+        "daily_received_installments (precisa tabela receivables_day_month)",
+        "daily_expected_installments (precisa tabela receivables_day_month)",
+        "monthly_expected_installments (precisa tabela receivables_day_month)",
+        "monthly_total_revenue (precisa tabela receivables_day_month)",
+        "rejected_installments_day (precisa tabela debt_recovery_day_month)",
+        "recovered_installments_day (precisa tabela debt_recovery_day_month)",
+        "rejected_installments_month (precisa tabela debt_recovery_day_month)",
+        "recovered_installments_month (precisa tabela debt_recovery_day_month)",
+        "new_n7_today (precisa tabela default_level)",
+        "total_n7 (precisa tabela default_level)",
+        "fraud_fire_n2 (precisa tabela default_level_fire_fraud)"
+      ]
     }
   },
   "semantic_rules": {
