@@ -389,6 +389,11 @@
             }
         }
 
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         .chat-input-wrapper.processing {
             opacity: 1;
             pointer-events: none;
@@ -1631,6 +1636,7 @@
                 <button class="action-button action-btn" data-permission="atalhos_dashboard_btn" onclick="showConsultasModal()">Consultas Rápidas</button>
                 <button class="action-button action-btn" data-permission="atalhos_limpar_chat_btn" onclick="showLimparChatModal()" style="margin-top: 8px;">Limpar Chat</button>
                 <button class="action-button action-btn" data-permission="atalhos_criar_projeto_btn" onclick="showCriarProjetoModal()" style="margin-top: 8px;">Criar Projeto</button>
+                <button class="action-button action-btn" data-permission="atalhos_criar_projeto_btn" onclick="showSchemaModal()" style="margin-top: 8px;">Info Catálogo</button>
             </div>
 
             <div id="atalhosLogicos" class="logic-section" data-permission="atalhos_logicos">
@@ -1745,6 +1751,27 @@
             <div class="modal-buttons">
                 <button class="modal-btn cancel" onclick="hideLimparChatModal()" data-permission="modal_limpar_cancel_button">Cancelar</button>
                 <button class="modal-btn confirm" onclick="confirmLimparChat()" data-permission="modal_limpar_confirm_button">Sim, Limpar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Schema do Banco de Dados -->
+    <div class="modal-overlay" id="schemaModal">
+        <div class="modal-content" style="max-width: 900px; max-height: 80vh; display: flex; flex-direction: column;">
+            <div class="modal-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 24px;">🗄️</div>
+            <div class="modal-title">Informações do Banco de Dados</div>
+            
+            <div id="schemaContent" style="flex: 1; overflow-y: auto; margin: 20px 0; text-align: left; min-height: 200px; max-height: calc(80vh - 250px);">
+                <div style="display: flex; justify-content: center; align-items: center; padding: 40px; color: #666;">
+                    <div style="text-align: center;">
+                        <div class="spinner" style="border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 15px;"></div>
+                        <p>Carregando Informações do Catálogo...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-buttons" style="flex-shrink: 0; margin-top: 0; padding-top: 10px;">
+                <button class="modal-btn cancel" onclick="hideSchemaModal()">Fechar</button>
             </div>
         </div>
     </div>
@@ -2483,6 +2510,143 @@
                 
                 // Envia automaticamente a pergunta
                 sendMessage();
+            }
+        }
+
+        // Funções do Modal de Schema
+        async function showSchemaModal() {
+            console.log('🔍 showSchemaModal chamado');
+            const modal = document.getElementById('schemaModal');
+            const schemaContent = document.getElementById('schemaContent');
+            
+            console.log('Modal element:', modal);
+            console.log('Schema content element:', schemaContent);
+            
+            if (!modal) {
+                console.error('❌ Modal schemaModal não encontrado!');
+                return;
+            }
+            
+            modal.classList.add('show');
+            console.log('✅ Modal exibido');
+            
+            // Mostra loading
+            schemaContent.innerHTML = `
+                <div style="display: flex; justify-content: center; align-items: center; padding: 40px; color: #666;">
+                    <div style="text-align: center;">
+                        <div class="spinner" style="border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 15px;"></div>
+                        <p>Carregando schema do banco de dados...</p>
+                    </div>
+                </div>
+            `;
+            
+            try {
+                const response = await fetch('/api/database/schema', {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    displaySchema(data.schema || data);
+                } else {
+                    schemaContent.innerHTML = `
+                        <div style="text-align: center; padding: 40px; color: #ff6b6b;">
+                            <p>❌ Erro ao carregar o schema do banco de dados.</p>
+                            <p style="font-size: 14px; color: #999; margin-top: 10px;">Status: ${response.status}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Erro ao buscar schema:', error);
+                schemaContent.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #ff6b6b;">
+                        <p>❌ Erro de conexão ao buscar o schema.</p>
+                        <p style="font-size: 14px; color: #999; margin-top: 10px;">${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function displaySchema(schema) {
+            const schemaContent = document.getElementById('schemaContent');
+            
+            if (!schema || (Array.isArray(schema) && schema.length === 0)) {
+                schemaContent.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #999;">
+                        <p>Nenhuma tabela encontrada no banco de dados.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '<div style="padding: 10px;">';
+            
+            // Se o schema é um objeto com tabelas
+            const tables = Array.isArray(schema) ? schema : (schema.tables || Object.values(schema));
+            
+            tables.forEach((table, index) => {
+                const tableName = table.table_name || table.name || `Tabela ${index + 1}`;
+                const columns = table.columns || [];
+                
+                html += `
+                    <div style="margin-bottom: 25px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; overflow: hidden;">
+                        <div style="background: rgba(0,0,0,0.2); padding: 15px;">
+                `;
+                
+                if (columns.length === 0) {
+                    html += '<p style="color: #999; font-style: italic;">Nenhuma coluna disponível</p>';
+                } else {
+                    html += '<table style="width: 100%; border-collapse: collapse;">';
+                    html += `
+                        <thead>
+                            <tr style="background: rgba(255,255,255,0.05);">
+                                <th style="padding: 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); color: #ccc; font-weight: 600; width: 30%;">Coluna</th>
+                                <th style="padding: 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); color: #ccc; font-weight: 600; width: 70%;">Descrição</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                    `;
+                    
+                    columns.forEach((col, colIndex) => {
+                        const columnName = col.column_name || col.name || '';
+                        const dataType = col.data_type || col.type || 'N/A';
+                        const description = col.description || col.comment || '-';
+                        const isSensitive = col.is_sensitive || col.sensitive || false;
+                        
+                        // Pula colunas marcadas como sensíveis
+                        if (isSensitive) return;
+                        
+                        const bgColor = colIndex % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent';
+                        
+                        html += `
+                            <tr style="background: ${bgColor};">
+                                <td style="padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); color: #fff; font-family: monospace;">${columnName}</td>
+                                <td style="padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); color: #ccc; font-size: 14px;">${description}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</tbody></table>';
+                }
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            schemaContent.innerHTML = html;
+        }
+
+        function hideSchemaModal() {
+            const modal = document.getElementById('schemaModal');
+            if (modal) {
+                modal.classList.remove('show');
             }
         }
 
@@ -4642,6 +4806,13 @@
         } else {
             console.log('PC detectado - Zoom e scroll normais');
         }
+
+        // Event listener para fechar modal ao clicar fora
+        document.getElementById('schemaModal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                hideSchemaModal();
+            }
+        });
 
 
     </script>

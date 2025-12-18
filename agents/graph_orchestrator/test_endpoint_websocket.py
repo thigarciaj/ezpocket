@@ -1013,6 +1013,119 @@ def get_database_info():
         }), 500
 
 
+@app.route('/api/database/schema', methods=['GET'])
+def get_database_schema():
+    """
+    Retorna o schema do banco de dados PostgreSQL
+    com informações de colunas e descrições (excluindo dados sensíveis)
+    """
+    try:
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+        
+        # Configurações do PostgreSQL
+        db_config = {
+            'host': os.getenv('POSTGRES_HOST', 'localhost'),
+            'port': int(os.getenv('POSTGRES_PORT', 5546)),
+            'database': os.getenv('POSTGRES_DB', 'ezpocket_logs'),
+            'user': os.getenv('POSTGRES_USER', 'ezpocket_user'),
+            'password': os.getenv('POSTGRES_PASSWORD', 'ezpocket_pass_2025')
+        }
+        
+        # Lista de colunas sensíveis que devem ser ocultadas
+        sensitive_columns = [
+            'customer email', 'shipping address', 'zip code',
+            'customer phone number', 'serial number', 'imei 1', 'imei 2',
+            'password', 'senha', 'cpf', 'rg', 'email', 
+            'telefone', 'phone', 'credit_card', 'cartao_credito',
+            'token', 'secret', 'api_key', 'private_key'
+        ]
+        
+        # Conecta ao PostgreSQL
+        conn = psycopg2.connect(**db_config)
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Query para obter informações das tabelas e colunas
+        query = """
+        SELECT 
+            t.table_schema,
+            t.table_name,
+            c.column_name,
+            c.data_type,
+            c.is_nullable,
+            pgd.description as column_description
+        FROM information_schema.tables t
+        LEFT JOIN information_schema.columns c 
+            ON t.table_name = c.table_name 
+            AND t.table_schema = c.table_schema
+        LEFT JOIN pg_catalog.pg_statio_all_tables st 
+            ON st.schemaname = t.table_schema 
+            AND st.relname = t.table_name
+        LEFT JOIN pg_catalog.pg_description pgd 
+            ON pgd.objoid = st.relid 
+            AND pgd.objsubid = c.ordinal_position
+        WHERE t.table_schema = 'public'
+            AND t.table_type = 'BASE TABLE'
+            AND t.table_name = 'order_report'
+        ORDER BY t.table_name, c.ordinal_position;
+        """
+        
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        
+        # Organiza os dados por tabela
+        tables_dict = {}
+        for row in rows:
+            table_name = row['table_name']
+            column_name = row['column_name']
+            
+            # Verifica se a coluna é sensível
+            is_sensitive = any(sens.lower() in column_name.lower() for sens in sensitive_columns)
+            
+            # Pula colunas sensíveis
+            if is_sensitive:
+                continue
+            
+            if table_name not in tables_dict:
+                tables_dict[table_name] = {
+                    'table_name': table_name,
+                    'columns': []
+                }
+            
+            # Adiciona informações da coluna
+            if column_name:  # Verifica se há coluna (evita linhas vazias)
+                tables_dict[table_name]['columns'].append({
+                    'column_name': column_name,
+                    'data_type': row['data_type'],
+                    'is_nullable': row['is_nullable'],
+                    'description': row['column_description'] or 'Sem descrição disponível',
+                    'is_sensitive': False
+                })
+        
+        cursor.close()
+        conn.close()
+        
+        # Converte dict para lista
+        tables_list = list(tables_dict.values())
+        
+        return jsonify({
+            "success": True,
+            "schema": tables_list,
+            "total_tables": len(tables_list),
+            "database": db_config['database']
+        })
+        
+    except Exception as e:
+        print(f"Erro ao buscar schema do banco: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": f"Erro ao carregar schema: {str(e)}",
+            "type": type(e).__name__
+        }), 500
+
+
 @app.route('/api/data-sync-completed', methods=['POST'])
 def data_sync_completed():
     """Notificação de que o data_sync terminou - emite evento WebSocket para todos"""
